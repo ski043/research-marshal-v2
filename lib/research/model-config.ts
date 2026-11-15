@@ -5,6 +5,16 @@ import type { Candidate, VerifiedClaim } from "./run-view";
 
 export type ClaimDraft = { statement: string; quote: string };
 
+// One answer that did not match its schema. Local to one page (extract) or one claim
+// (supports); every other model failure is a FatalRunError.
+export class MalformedAnswer extends Error {
+  readonly step: string;
+  constructor(step: string, message: string) {
+    super(message);
+    this.step = step;
+  }
+}
+
 // The model steps in domain types. pipeline.ts depends on this type; model.ts implements
 // it, and the tests script it.
 export type ModelSteps = {
@@ -37,6 +47,7 @@ export type ModelSteps = {
   checkGaps(input: {
     question: Question;
     subQuestions: readonly string[];
+    searched: readonly string[];
     claims: readonly VerifiedClaim[];
   }): Promise<{
     answered: boolean;
