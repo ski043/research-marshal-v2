@@ -1,0 +1,31 @@
+{
+  "results": [
+    {
+      "content": {
+        "links": [
+          {
+            "url": "https://nextjs.org/"
+          },
+          {
+            "url": "https://nextjs.org/docs"
+          },
+          {
+            "url": "https://nextjs.org/learn"
+          },
+          {
+            "url": "https://nextjs.org/showcase"
+          },
+          {
+            "url": "https://nextjs.org/blog"
+          }
+        ]
+      },
+      "status_code": 200,
+      "url": "https://nextjs.org",
+      "sitemap_status": "include",
+      "map_id": "e7881d8a-20ca-4c85-82eb-76d8c6acb219",
+      "created_at": "2026-11-15 21:05:53",
+      "updated_at": "2026-11-15 21:05:57"
+    }
+  ]
+}
