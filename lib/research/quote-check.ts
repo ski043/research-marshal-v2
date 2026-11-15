@@ -41,13 +41,31 @@ function replaceUntilStable(text: string, pattern: RegExp, by: string): string {
   return current;
 }
 
-const dropInvisible = (text: string) =>
-  text.normalize("NFKC").replace(/[\u00AD\u200B-\u200D\u2060\uFEFF]/g, "");
+const LIGATURES: Record<string, string> = {
+  "\uFB00": "ff",
+  "\uFB01": "fi",
+  "\uFB02": "fl",
+  "\uFB03": "ffi",
+  "\uFB04": "ffl",
+  "\uFB05": "st",
+  "\uFB06": "st",
+};
+
+// NFKC would also turn a superscript or subscript digit into a plain digit, and
+// "10\u00B2 mg" would then match the quote "102 mg".
+const foldLetterForms = (text: string) =>
+  text
+    .normalize("NFC")
+    .replace(/[\u00AD\u200B-\u200D\u2060\uFEFF]/g, "")
+    .replace(/[\uFB00-\uFB06]/g, (ligature) => LIGATURES[ligature] ?? ligature)
+    .replace(/[\uFF01-\uFF5E]/g, (wide) =>
+      String.fromCharCode(wide.charCodeAt(0) - 0xfee0),
+    );
 
 const htmlToText = (text: string) =>
   text
     .replace(/<(https?:\/\/[^<>\s]+)>/g, "$1")
-    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<br\s*\/?>|<\/?su[bp]\b[^<>]*>/gi, " ")
     .replace(/<\/?[a-zA-Z][^<>]*>/g, "")
     .replace(
       /&(?:nbsp|amp|lt|gt|quot|#39|apos);/g,
@@ -80,7 +98,7 @@ const unifyTypography = (text: string) =>
 const collapseSpaces = (text: string) => text.replace(/ {2,}/g, " ").trim();
 
 const CANONICAL_STEPS = [
-  dropInvisible,
+  foldLetterForms,
   htmlToText,
   linksToTheirText,
   unescapeMarkdown,

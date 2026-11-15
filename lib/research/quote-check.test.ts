@@ -187,6 +187,42 @@ const rows: Row[] = [
     FOUND,
   ],
   [
+    "a superscript digit is not a plain digit",
+    "The dose is 10\u00B2 mg.",
+    "The dose is 102 mg.",
+    NOT_ON_PAGE,
+  ],
+  [
+    "a superscript digit copied as it stands",
+    "The dose is 10\u00B2 mg.",
+    "The dose is 10\u00B2 mg.",
+    FOUND,
+  ],
+  [
+    "a subscript digit is not a plain digit",
+    "The sample held 1\u2080 parts.",
+    "The sample held 10 parts.",
+    NOT_ON_PAGE,
+  ],
+  [
+    "a superscript tag does not join two numbers",
+    "The dose is 10<sup>2</sup> mg.",
+    "The dose is 102 mg.",
+    NOT_ON_PAGE,
+  ],
+  [
+    "a ligature and a non-breaking space on the page",
+    "Its \uFB01nal height\u00A0is 330 m.",
+    "Its final height is 330 m.",
+    FOUND,
+  ],
+  [
+    "full-width digits on the page",
+    "The tower is \uFF13\uFF13\uFF10 m tall.",
+    "The tower is 330 m tall.",
+    FOUND,
+  ],
+  [
     "[sic] holds a word and stays",
     "The sign read: they was [sic] here.",
     "they was here.",
