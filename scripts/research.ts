@@ -1,0 +1,202 @@
+import { cancelRun, followRun, loadRun, startRun } from "@/lib/research";
+import { Question, type RunEvent } from "@/lib/research/events";
+import type { RunView } from "@/lib/research/run-view";
+
+const parsed = Question.safeParse(process.argv.slice(2).join(" "));
+if (!parsed.success) {
+  console.error('Usage: pnpm research "your research question"');
+  process.exit(2);
+}
+
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+const startedAt = performance.now();
+let reportOpen = false;
+
+function line(text: string): void {
+  if (reportOpen) {
+    process.stdout.write("\n");
+    reportOpen = false;
+  }
+  console.log(text);
+}
+
+function describeStep(event: RunEvent): string[] {
+  switch (event.type) {
+    case "run.started": {
+      const l = event.limits;
+      return [
+        `Run started. Budget: ${l.rounds} rounds, ${l.queriesPerRound} searches and ${l.readsPerRound} page reads per round, ${l.mapsPerRun} map per run.`,
+      ];
+    }
+    case "round.started":
+      return [
+        `\nRound ${event.round}: ${event.queries.length} searches`,
+        ...event.droppedQueries.map(
+          (q) => `  Dropped query over the budget: "${q.query}"`,
+        ),
+      ];
+    case "decodo.requested":
+      return [`  Decodo #${event.call} ${event.endpoint} ${event.input}`];
+    case "decodo.settled":
+    case "report.delta":
+      return [];
+    case "search.finished": {
+      const { outcome } = event;
+      const result =
+        outcome.status === "failed"
+          ? `failed (${outcome.failure.kind}: ${outcome.failure.detail})`
+          : outcome.results.length === 0
+            ? "no results"
+            : `${outcome.results.length} results`;
+      return [`  Search "${event.query.query}": ${result}`];
+    }
+    case "select.finished":
+      return [
+        `  Select chose ${event.picked.length} pages`,
+        ...(event.unknownNumbers.length > 0
+          ? [
+              `  Select named unknown numbers: ${event.unknownNumbers.join(", ")}`,
+            ]
+          : []),
+        ...(event.mapRequest
+          ? [
+              `  Select asked to map ${event.mapRequest.site}: ${event.mapRequest.need}`,
+            ]
+          : []),
+      ];
+    case "map.finished":
+      return [
+        event.outcome.status === "ok"
+          ? `  Map of ${event.site}: ${event.outcome.listed} URLs, picked ${event.outcome.picked.length}`
+          : `  Map of ${event.site} failed (${event.outcome.failure.kind}: ${event.outcome.failure.detail})`,
+      ];
+    case "reads.planned": {
+      const over = event.refused.filter((r) => r.reason === "over-budget");
+      return [
+        `  Reads: ${event.granted.length} granted, ${over.length} skipped over the budget, ${event.refused.length - over.length} already read`,
+      ];
+    }
+    case "page.read":
+      return [`  Read ${event.url} (${event.chars} chars) "${event.title}"`];
+    case "page.failed":
+      return [
+        `  Failed page ${event.url}: ${event.failure.kind}: ${event.failure.detail}`,
+      ];
+    case "page.extracted":
+      return [
+        `  Extracted ${event.drafts} claims from ${event.url} [${event.label}]`,
+      ];
+    case "page.extract-failed":
+      return [`  Extract failed for ${event.url}: ${event.message}`];
+    case "claim.verified":
+      return [`  Verified [^${event.number}] ${event.statement}`];
+    case "claim.dropped":
+      return [
+        `  Dropped (${event.failed}: ${event.reason}) ${event.statement}`,
+      ];
+    case "gap.checked":
+      return event.answered
+        ? ["  Gap check: the claims answer the question"]
+        : [
+            `  Gap check: open parts: ${event.missing.join("; ") || "none named"}`,
+            `  Next queries: ${event.nextQueries.length}`,
+          ];
+    case "run.error":
+      return [`\nRun error in step "${event.step}": ${event.message}`];
+    case "report.finished":
+      return [
+        `\nReport finished, written by ${event.writtenBy}. Cited claims: ${event.cited.length}. Removed citations: ${event.removedCitations.join(", ") || "none"}.`,
+      ];
+    case "run.finished":
+      return [`Run finished: ${event.end.status}`];
+  }
+}
+
+function printStep(event: RunEvent): void {
+  if (event.type === "report.delta") {
+    if (!reportOpen) {
+      line("\nWriting the report:");
+      reportOpen = true;
+    }
+    process.stdout.write(event.text);
+    return;
+  }
+  for (const text of describeStep(event)) line(text);
+}
+
+function printSummary(view: RunView): void {
+  console.log("\n===== REPORT =====");
+  console.log(
+    view.report?.kind === "final"
+      ? view.report.markdown.trimEnd()
+      : `(no report: the run is ${view.status})`,
+  );
+  console.log("===== END REPORT =====");
+
+  console.log("\nDecodo calls:");
+  console.table(
+    view.decodoCalls.map((c) => ({
+      call: c.call,
+      round: c.round,
+      endpoint: c.endpoint,
+      input: c.input,
+      outcome: c.outcome,
+      detail: c.detail,
+      duration: c.durationMs === null ? null : seconds(c.durationMs),
+    })),
+  );
+
+  console.log(`\nDropped claims: ${view.dropped.length}`);
+  for (const claim of view.dropped) {
+    console.log(`- [${claim.failed}] ${claim.statement}`);
+    console.log(`  Quote: "${claim.quote}"`);
+    console.log(`  Reason: ${claim.reason}`);
+    console.log(`  Page: ${claim.url}`);
+  }
+
+  const { budget } = view;
+  const reads = view.decodoCalls.filter(
+    (c) => c.endpoint === "universal",
+  ).length;
+  const searches = view.decodoCalls.filter(
+    (c) => c.endpoint === "google_search",
+  ).length;
+  console.log(
+    `\nBudget used: ${budget.rounds} of ${budget.limits?.rounds ?? "?"} rounds, ${searches} searches, ${reads} page reads, ${budget.maps} of ${budget.limits?.mapsPerRun ?? "?"} maps.`,
+  );
+  console.log(
+    `Verified claims: ${view.verified.length}. Dropped claims: ${view.dropped.length}.`,
+  );
+  if (view.error) {
+    console.log(
+      `Saved error: step "${view.error.step}": ${view.error.message}`,
+    );
+  }
+  const end = view.end;
+  console.log(
+    `Run status: ${view.status}${end?.status === "completed" ? ` (${end.stoppedBy})` : end?.status === "failed" ? ` (${end.message})` : ""}`,
+  );
+  console.log(`Wall time: ${seconds(performance.now() - startedAt)}`);
+}
+
+const run = await startRun(parsed.data);
+console.log(`Run ${run.runId}: ${parsed.data}`);
+
+let interrupts = 0;
+process.on("SIGINT", () => {
+  interrupts += 1;
+  if (interrupts > 1) process.exit(130);
+  line("\nCancelling the run. Press Ctrl-C again to quit at once.");
+  cancelRun(run.runId);
+});
+
+for await (const event of followRun(run.runId)) printStep(event);
+
+try {
+  await run.finished;
+} catch (error) {
+  console.error("The run could not be saved:", error);
+}
+const view = await loadRun(run.runId);
+if (view) printSummary(view);
+process.exit(view?.status === "completed" ? 0 : 1);
