@@ -74,6 +74,28 @@ describe("search", () => {
       failure: { kind: "bad-response", detail: "no readable links" },
     });
   });
+
+  it("drops Google's click id, so one page found twice is one result", async () => {
+    const organic = (srsltid: string) => ({
+      pos: 1,
+      title: "LiFePO4 cycle life",
+      url: `https://example.org/cycle-life?page=2&srsltid=${srsltid}`,
+      desc: "",
+    });
+    const web = webAnswering(async () => ({
+      results: [
+        {
+          content: {
+            results: { results: { organic: [organic("AAA"), organic("BBB")] } },
+          },
+        },
+      ],
+    }));
+    expect(await web.search("x")).toMatchObject({
+      status: "ok",
+      results: [{ position: 1, url: "https://example.org/cycle-life?page=2" }],
+    });
+  });
 });
 
 describe("read", () => {

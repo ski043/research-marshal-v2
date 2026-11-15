@@ -99,7 +99,12 @@ function readablePageUrl(raw: string): PageUrl | null {
   const isGoogleRedirect =
     /(^|\.)google\.[a-z.]+$/.test(url.hostname) &&
     (url.pathname === "/goto" || url.pathname === "/url");
-  return isGoogleRedirect ? null : parsed.data;
+  if (isGoogleRedirect) return null;
+  // Google appends its own click id to result links. With it, one page found by two
+  // searches would count as two pages and be read twice.
+  if (!url.searchParams.has("srsltid")) return parsed.data;
+  url.searchParams.delete("srsltid");
+  return PageUrl.parse(url.href);
 }
 
 // Search and read both resolve with this shape when Decodo could not scrape the target.
@@ -189,14 +194,7 @@ export function parseMap(wire: unknown): MapOutcome {
   return { status: "ok", urls: [...urls] };
 }
 
-// Every error the run survives becomes a WebFailure (F1, F2). A rejected key ends the run.
-export function failureOf(error: unknown): WebFailure {
-  if (error instanceof AuthenticationError) {
-    throw new FatalRunError(
-      "decodo",
-      `Decodo rejected the key: ${error.message}`,
-    );
-  }
+function failureOf(error: unknown): WebFailure {
   if (error instanceof TimeoutError) {
     return { kind: "timeout", detail: error.message };
   }
@@ -212,22 +210,26 @@ export function failureOf(error: unknown): WebFailure {
   };
 }
 
+function failedUnlessKeyRejected(error: unknown): {
+  status: "failed";
+  failure: WebFailure;
+} {
+  if (error instanceof AuthenticationError) {
+    throw new FatalRunError(
+      "decodo",
+      `Decodo rejected the key: ${error.message}`,
+    );
+  }
+  return { status: "failed", failure: failureOf(error) };
+}
+
 export function createDecodoWeb(port: DecodoPort): WebActions {
   return {
     search: (query) =>
-      port.googleSearch(query).then(parseSearch, (error: unknown) => ({
-        status: "failed",
-        failure: failureOf(error),
-      })),
+      port.googleSearch(query).then(parseSearch, failedUnlessKeyRejected),
     read: (url) =>
-      port.readMarkdown(url).then(parseRead, (error: unknown) => ({
-        status: "failed",
-        failure: failureOf(error),
-      })),
+      port.readMarkdown(url).then(parseRead, failedUnlessKeyRejected),
     map: (site, limit) =>
-      port.mapSite(site, limit).then(parseMap, (error: unknown) => ({
-        status: "failed",
-        failure: failureOf(error),
-      })),
+      port.mapSite(site, limit).then(parseMap, failedUnlessKeyRejected),
   };
 }
