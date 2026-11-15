@@ -1,15 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { FatalRunError, type ReadOutcome } from "./budget";
 import {
+  type BudgetEvent,
   PageUrl,
   type PlannedQuery,
-  Question,
   type RunEvent,
-  RunId,
 } from "./events";
 import { MalformedAnswer } from "./model-config";
 import { type PipelineLog, runPipeline } from "./pipeline";
-import { createRunLog } from "./run-log";
 import { expectBudgetHeld, PAGE_TEXT, slug, testRun } from "./testing";
 
 const many = (count: number, tag: string): PlannedQuery[] =>
@@ -331,10 +329,12 @@ describe("runPipeline", () => {
   it("fails the run without a report when the report step fails", async () => {
     const run = testRun({
       model: {
-        // biome-ignore lint/correctness/useYield: the stream fails before its first chunk
-        writeReport: async function* () {
-          throw new FatalRunError("writeReport", "overloaded");
-        },
+        writeReport: () => ({
+          [Symbol.asyncIterator]: () => ({
+            next: () =>
+              Promise.reject(new FatalRunError("writeReport", "overloaded")),
+          }),
+        }),
       },
     });
     const end = await runPipeline(run.deps);
@@ -385,21 +385,10 @@ describe("runPipeline", () => {
     expectBudgetHeld(run.events);
   });
 
-  it("gives the pipeline no handle to write a budget event", () => {
-    const log: PipelineLog = createRunLog({
-      runId: RunId.parse("r"),
-      question: Question.parse("Q?"),
-      persist: async () => {},
-      now: () => new Date(),
-    });
-    const forge = () =>
-      log.emit({
-        // @ts-expect-error only the meter writes round.started
-        type: "round.started",
-        round: 1,
-        queries: [],
-        droppedQueries: [],
-      });
-    expect(typeof forge).toBe("function");
+  it("gives the pipeline no handle to write a budget event or to end the run", () => {
+    type Emittable = Parameters<PipelineLog["emit"]>[0]["type"];
+    expectTypeOf<
+      Extract<Emittable, BudgetEvent["type"] | "run.finished">
+    >().toBeNever();
   });
 });

@@ -119,6 +119,8 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const MAX_OPEN_MODEL_CALLS = 6;
+
 function semaphore(limit: number) {
   let open = 0;
   const waiting: (() => void)[] = [];
@@ -151,14 +153,12 @@ function cleanQueries(
     .filter((q) => q.subQuestion !== "" && q.query !== "");
 }
 
-// Every call gets the run's signal and the effort level of its step. At most 6 calls are
-// open at once, because one round can ask for 8 extractions and 64 support checks.
 export function createModelSteps(deps: {
   apiKey: string;
   signal: AbortSignal;
 }): ModelSteps {
   const anthropic = createAnthropic({ apiKey: deps.apiKey });
-  const limit = semaphore(6);
+  const limit = semaphore(MAX_OPEN_MODEL_CALLS);
 
   async function structured<T>(
     step: keyof ModelSteps,

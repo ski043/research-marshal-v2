@@ -5,8 +5,6 @@ import type { Candidate, VerifiedClaim } from "./run-view";
 
 export type ClaimDraft = { statement: string; quote: string };
 
-// One answer that did not match its schema. Local to one page (extract) or one claim
-// (supports); every other model failure is a FatalRunError.
 export class MalformedAnswer extends Error {
   readonly step: string;
   constructor(step: string, message: string) {
@@ -15,8 +13,6 @@ export class MalformedAnswer extends Error {
   }
 }
 
-// The model steps in domain types. pipeline.ts depends on this type; model.ts implements
-// it, and the tests script it.
 export type ModelSteps = {
   plan(input: { question: Question }): Promise<readonly PlannedQuery[]>;
   select(input: {
@@ -39,7 +35,6 @@ export type ModelSteps = {
     title: string;
     markdown: string;
   }): Promise<{ label: SourceLabel; claims: readonly ClaimDraft[] }>;
-  // V2 gets the claim and the quote and nothing else that Extract wrote.
   supports(input: {
     statement: string;
     quote: string;
@@ -61,8 +56,6 @@ export type Effort = "low" | "medium" | "high";
 
 const SONNET = "claude-sonnet-5-5";
 
-// The only file that names a model. Keyed by step, so a new step without an entry fails
-// the type check.
 export const MODEL_CONFIG: Readonly<
   Record<keyof ModelSteps, { model: string; effort: Effort }>
 > = Object.freeze({

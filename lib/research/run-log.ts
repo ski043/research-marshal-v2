@@ -11,14 +11,10 @@ import { applyEvent, createView, type RunView } from "./run-view";
 export type RunLog = {
   readonly view: RunView;
   emit(body: EmittableEvent): void;
-  // The first seal wins. After it, emit and seal do nothing, so whatever still runs
-  // after a cancel writes into a sealed log (U5).
   seal(end: RunEnd): void;
   settled(): Promise<void>;
 };
 
-// The single writer of a run. emit is synchronous, so parallel page tasks never race
-// on seq or on the next claim number.
 export function createRunLog(deps: {
   runId: RunId;
   question: Question;

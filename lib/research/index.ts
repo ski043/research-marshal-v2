@@ -14,16 +14,10 @@ export type StartedRun = { runId: RunId; finished: Promise<RunEnd> };
 
 const POLL_MS = 200;
 
-const globalForRuns = globalThis as typeof globalThis & {
-  activeRuns?: Map<RunId, AbortController>;
-};
-// Dev hot reloads re-evaluate this module; the active runs must survive them.
-globalForRuns.activeRuns ??= new Map();
-const activeRuns = globalForRuns.activeRuns;
+const activeRuns = new Map<RunId, AbortController>();
 
 const store = openStore();
 
-// Resolves as soon as the Run row exists. The run goes on in this process.
 export async function startRun(question: Question): Promise<StartedRun> {
   const runId = await store.createRun(question);
   const controller = new AbortController();
@@ -52,7 +46,6 @@ export async function startRun(question: Question): Promise<StartedRun> {
   return { runId, finished };
 }
 
-// U5. False when the run is not active in this process.
 export function cancelRun(runId: RunId): boolean {
   const controller = activeRuns.get(runId);
   if (!controller) return false;
@@ -60,8 +53,6 @@ export function cancelRun(runId: RunId): boolean {
   return true;
 }
 
-// The stored events after `after`, then each new event as it is stored, until
-// run.finished. It polls SQLite, so a reader shares no memory with the pipeline.
 export async function* followRun(
   runId: RunId,
   options: { after?: number; signal?: AbortSignal } = {},

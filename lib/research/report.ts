@@ -1,8 +1,6 @@
 import type { ClaimNumber, Question, StoppedBy } from "./events";
 import type { RunView, VerifiedClaim } from "./run-view";
 
-// `[^N]` cites verified claim N. It cannot be confused with a Markdown link or with a
-// reference mark such as `[3]` inside a quote.
 const CITATION = /\[\^(\d+)\]/g;
 const CITATION_GROUP = /\[\^(\d+(?:\s*,\s*\^?\d+)+)\]/g;
 const SOURCE_HEADING =
@@ -34,7 +32,6 @@ function escapeLinkText(text: string): string {
   return text.replace(/[[\]\\]/g, "\\$&");
 }
 
-// Idempotent: finalizeReport of its own output returns the same Markdown.
 export function finalizeReport(
   draft: string,
   verified: readonly VerifiedClaim[],
@@ -103,7 +100,6 @@ function describeSearch(
   return n === 0 ? "no results" : `${n} ${n === 1 ? "result" : "results"}`;
 }
 
-// R6 without a model call.
 export function noClaimsReport(view: RunView): string {
   const lines = [
     "# No verified claims",

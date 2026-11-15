@@ -58,8 +58,6 @@ export const defaultModel: ModelSteps = {
 
 type CallName = keyof ModelSteps | keyof WebActions;
 
-// Wires a run as startRun does: the real meter around a fake web, the real log with an
-// array as the store, and a scripted model.
 export function testRun(script: {
   model?: Partial<ModelSteps>;
   web?: Partial<WebActions>;
@@ -138,7 +136,6 @@ export function testRun(script: {
   };
 }
 
-// Counts what really reached the web: the decodo.requested audit.
 export function expectBudgetHeld(events: readonly RunEvent[]): void {
   const rounds = events.filter((e) => e.type === "round.started");
   expect(rounds.length, "rounds").toBeLessThanOrEqual(BUDGET.rounds);

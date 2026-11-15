@@ -41,17 +41,11 @@ function replaceUntilStable(text: string, pattern: RegExp, by: string): string {
   return current;
 }
 
-// V1 canonical form, applied to page and quote alike:
-// N1 NFKC, invisible characters out. N2 HTML tags out, entities decoded. N3 images out.
-// N4 links to their text. N5 Markdown escapes resolved. N6 reference marks out
-// ([3], [^3], [a], [note 3], [citation needed], [edit]). N7 heading, quote, bullet, and
-// task marks out at line start; rule and table-separator lines out. N8 emphasis and code
-// marks out, `|` to space. N9 whitespace, quotes, dashes, and ellipses unified. N10 spaces
-// collapsed.
-export function canonical(text: string): string {
-  let out = text.normalize("NFKC").replace(/[­​-‍⁠﻿]/g, "");
+const dropInvisible = (text: string) =>
+  text.normalize("NFKC").replace(/[\u00AD\u200B-\u200D\u2060\uFEFF]/g, "");
 
-  out = out
+const htmlToText = (text: string) =>
+  text
     .replace(/<(https?:\/\/[^<>\s]+)>/g, "$1")
     .replace(/<br\s*\/?>/gi, " ")
     .replace(/<\/?[a-zA-Z][^<>]*>/g, "")
@@ -60,24 +54,45 @@ export function canonical(text: string): string {
       (entity) => ENTITIES[entity] ?? entity,
     );
 
-  out = out.replace(IMAGE, "");
-  out = replaceUntilStable(out, LINK, "$1");
-  out = out.replace(/\\([!-/:-@[-`{-~])/g, "$1");
-  out = out.replace(REFERENCE_MARK, "");
+const linksToTheirText = (text: string) =>
+  replaceUntilStable(text.replace(IMAGE, ""), LINK, "$1");
 
-  out = out
+const unescapeMarkdown = (text: string) =>
+  text.replace(/\\([!-/:-@[-`{-~])/g, "$1");
+
+const dropReferenceMarks = (text: string) => text.replace(REFERENCE_MARK, "");
+
+const dropLineMarks = (text: string) =>
+  text
     .split("\n")
     .map((line) => (RULE_LINE.test(line) ? "" : line.replace(LINE_PREFIX, "")))
     .join("\n");
 
-  out = out
+const dropEmphasisMarks = (text: string) =>
+  text
     .replace(/[*`]|~~/g, "")
     .replace(/(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/gu, "")
     .replace(/\|/g, " ");
 
-  for (const [pattern, by] of CHARACTER_MAP) out = out.replace(pattern, by);
+const unifyTypography = (text: string) =>
+  CHARACTER_MAP.reduce((out, [pattern, by]) => out.replace(pattern, by), text);
 
-  return out.replace(/ {2,}/g, " ").trim();
+const collapseSpaces = (text: string) => text.replace(/ {2,}/g, " ").trim();
+
+const CANONICAL_STEPS = [
+  dropInvisible,
+  htmlToText,
+  linksToTheirText,
+  unescapeMarkdown,
+  dropReferenceMarks,
+  dropLineMarks,
+  dropEmphasisMarks,
+  unifyTypography,
+  collapseSpaces,
+];
+
+export function canonical(text: string): string {
+  return CANONICAL_STEPS.reduce((out, step) => step(out), text);
 }
 
 function wordsOf(text: string): string[] {
@@ -141,7 +156,6 @@ function edgeMatches(
   return false;
 }
 
-// The canonical form of a long page is built once and serves every claim of the page.
 export class QuotablePage {
   readonly #words: readonly string[];
 

@@ -6,8 +6,6 @@ export type Question = z.infer<typeof Question>;
 export const RunId = z.string().min(1).brand<"RunId">();
 export type RunId = z.infer<typeof RunId>;
 
-// Only decodo.ts (from a Decodo response) and a stored event produce a PageUrl. No model
-// output schema has a field of this type, so a model cannot introduce a URL (W1).
 export const PageUrl = z
   .url({ protocol: /^https?$/ })
   .transform((value) => {
@@ -119,8 +117,6 @@ const MapEventOutcome = z.discriminatedUnion("status", [
   z.object({ status: z.literal("failed"), failure: WebFailure }),
 ]);
 
-// Events are immutable and never deleted (F4). A new field needs a default so that
-// stored runs still parse (U9).
 export const RunEventBody = z.discriminatedUnion("type", [
   z.object({ type: z.literal("run.started"), limits: BudgetLimits }),
   z.object({
@@ -236,8 +232,6 @@ const Envelope = z.object({ seq: z.int().positive(), at: z.iso.datetime() });
 export const RunEvent = RunEventBody.and(Envelope);
 export type RunEvent = z.infer<typeof RunEvent>;
 
-// One log, three typed handles: only the meter writes the budget record, only the seal
-// writes run.finished, and the pipeline writes the rest.
 export type BudgetEvent = Extract<
   RunEventBody,
   {

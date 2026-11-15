@@ -41,7 +41,7 @@ export type Round = {
   no: RoundNo;
   isLast: boolean;
   searches: readonly { query: PlannedQuery; outcome: Promise<SearchOutcome> }[];
-  read<T extends { url: PageUrl }>(wanted: readonly T[]): ReadPlan<T>;
+  read<T extends { url: PageUrl }>(inPriorityOrder: readonly T[]): ReadPlan<T>;
   map(site: SiteUrl, limit: number): Promise<MapOutcome> | null;
 };
 
@@ -100,8 +100,6 @@ function untilAbort(signal: AbortSignal): {
   };
 }
 
-// The pipeline holds only this handle, so the limits are not checks a caller could skip.
-// Counters move synchronously, before any await, so parallel callers cannot overdraw.
 export function meterWeb(deps: {
   web: WebActions;
   emit: (event: BudgetEvent) => void;
@@ -148,8 +146,7 @@ export function meterWeb(deps: {
         throw error;
       },
     );
-    // Decodo takes no signal. After an abort the race rejects at once, and the real call
-    // settles later into a sealed log.
+    // Decodo takes no signal.
     const abort = untilAbort(signal);
     return Promise.race([settled, abort.promise]).finally(abort.release);
   }
@@ -191,11 +188,13 @@ export function meterWeb(deps: {
             settledSearch,
           ),
         })),
-        read<T extends { url: PageUrl }>(wanted: readonly T[]): ReadPlan<T> {
+        read<T extends { url: PageUrl }>(
+          inPriorityOrder: readonly T[],
+        ): ReadPlan<T> {
           assertOpen();
           const chosen: T[] = [];
           const refused: { item: T; reason: ReadRefusal }[] = [];
-          for (const item of wanted) {
+          for (const item of inPriorityOrder) {
             if (requestedUrls.has(item.url)) {
               refused.push({ item, reason: "already-read" });
             } else if (state.readsLeft === 0) {

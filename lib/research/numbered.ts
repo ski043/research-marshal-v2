@@ -1,5 +1,3 @@
-// Select and Map answer with numbers, never with links. Code turns the numbers back
-// into items, so a model cannot introduce a URL (W1).
 export type Numbered<T> = { number: number; item: T };
 
 export function numberItems<T>(items: readonly T[]): readonly Numbered<T>[] {

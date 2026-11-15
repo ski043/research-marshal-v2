@@ -16,8 +16,6 @@ import {
   type WebFailure,
 } from "./events";
 
-// `found` and `queued` exist only while a run is active. run.finished turns both into
-// `skipped`, so a finished run has exactly read, failed, or skipped for every page (F1).
 export type PageState =
   | { kind: "found" }
   | { kind: "queued" }
@@ -188,8 +186,6 @@ function addFound(
   }
 }
 
-// Pure. The same function runs in the pipeline, in loadRun, and later in the browser.
-// It throws on an event that breaks an invariant of the log.
 export function applyEvent(view: RunView, event: RunEvent): RunView {
   if (event.seq !== view.lastSeq + 1) {
     throw new Error(`event seq ${event.seq} after ${view.lastSeq}`);

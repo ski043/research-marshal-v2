@@ -28,7 +28,6 @@ import {
   subQuestionsOf,
 } from "./run-view";
 
-// Engineering limits that the PRD does not set. V1 always checks the whole page.
 export const LIMITS = Object.freeze({
   extractChars: 80_000,
   claimsPerPage: 8,
@@ -37,7 +36,6 @@ export const LIMITS = Object.freeze({
   reportDeltaChars: 80,
 });
 
-// The pipeline's handle on the log cannot write a budget event or run.finished.
 export type PipelineLog = {
   readonly view: RunView;
   emit: (body: PipelineEvent) => void;
@@ -76,7 +74,6 @@ async function finish(log: PipelineLog): Promise<RunEnd> {
   return end;
 }
 
-// Every ending is a sealed log: completed, cancelled, or failed.
 export async function runPipeline(deps: PipelineDeps): Promise<RunEnd> {
   const { log, signal } = deps;
   const cancel = () => log.seal({ status: "cancelled" });
@@ -93,7 +90,6 @@ export async function runPipeline(deps: PipelineDeps): Promise<RunEnd> {
       stoppedBy = await research(deps);
     } catch (error) {
       if (signal.aborted) return await finish(log);
-      // A run that fails as a whole still reports the claims it verified (B5).
       log.emit({
         type: "run.error",
         step: stepOf(error),
@@ -167,8 +163,6 @@ async function research(
       const fromMap = mapRequest
         ? await mapStep(deps, round, mapRequest.site, mapRequest.need)
         : [];
-      // Map picks go first: the run spent its one map to find them. The meter cuts the
-      // list to the reads that are left in the round.
       const plan = round.read([
         ...fromMap.map((url) => ({ url })),
         ...picked.items,
