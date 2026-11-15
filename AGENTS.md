@@ -12,3 +12,12 @@ Research Marshal answers one research question with a cited Markdown report. Eve
 - The PRD lists open questions. Do not decide them yourself.
 - Use the terms from the Terms table of the PRD. Refer to requirements by their ID, for example V1 or B3.
 - Change the PRD only when the user asks you to.
+
+## Tech stack
+
+[TECH_STACK.md](TECH_STACK.md) defines the technologies that the project uses. Read it before you add a dependency or write code.
+
+- Use the technologies and the versions that the tech stack lists.
+- The tech stack has a table of technologies that the project does not use. Do not add one of them.
+- If you need a dependency that the tech stack does not list, ask the user. Do not add it yourself.
+- Change the tech stack only when the user asks you to.

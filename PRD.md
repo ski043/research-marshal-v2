@@ -1,8 +1,8 @@
 # Research Marshal PRD
 
-Status: draft 1, 2026-11-13.
+Status: draft 2, 2026-11-15.
 
-This document is the source of truth for what Research Marshal does. It does not cover the tech stack. A separate document covers that.
+This document is the source of truth for what Research Marshal does. It does not cover the tech stack. [TECH_STACK.md](TECH_STACK.md) covers that.
 
 ## Problem
 
@@ -114,7 +114,7 @@ The user flow has four steps: ask, watch, read, and come back.
 
 **Watch**
 
-- **U3.** The app shows each step when it happens: every search, every page with its state, and every claim that the app verifies or drops.
+- **U3.** The app shows each step when it happens: every search, every page with its state, and every claim that the app verifies or drops. The app shows the report while the app writes it.
 - **U4.** The app shows how much of the budget the run has used.
 - **U5.** The user can cancel a run. A cancelled run writes no report.
 
@@ -143,3 +143,5 @@ The user flow has four steps: ask, watch, read, and come back.
 1. What does the app do with a vague question? The options are to start the run immediately, to ask one clarifying question first, or to show the search plan and wait for approval.
 2. Is the list of source labels complete?
 3. Can the user copy or download the report as a Markdown file?
+4. What does the app do when a run fails as a whole? Examples are a rejected API key, a model call that the provider refuses, and a restart of the app during a run. The requirements cover a failed page (F1) and a search without results (F2). They do not cover a failed run.
+5. What does the user see when the finished report fails a check? The app shows the report while the app writes it (U3). The user can therefore read a sentence before the app confirms that the sentence cites only verified claims (V4, R3).

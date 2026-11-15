@@ -1,0 +1,166 @@
+# Research Marshal tech stack
+
+Status: draft 1, 2026-11-15.
+
+This document defines the technologies that Research Marshal uses. [PRD.md](PRD.md) defines what the product does. Requirement IDs such as W2 and V1 refer to the PRD.
+
+The versions in this document are the current releases on npm on 2026-11-15. Prisma is the exception. See [Database](#database).
+
+## What the PRD fixes
+
+Version 1 runs locally for one user. It has no accounts and no hosted service. Three choices follow from that.
+
+- The app is one Next.js process on Node.js.
+- The database is one SQLite file.
+- A run executes inside the Next.js process. The stack has no job queue, no worker process, and no workflow engine.
+
+## Stack
+
+| Area | Technology | Version | Purpose |
+| --- | --- | --- | --- |
+| Runtime | Node.js | 26 | Runs the app. |
+| Package manager | pnpm | 12 | Installs the dependencies and runs the scripts. |
+| Language | TypeScript, strict mode | 7.0 | All app code. |
+| Framework | Next.js with the App Router | 16.4 | Pages, Server Actions, and the route handler that streams a run. |
+| UI library | React | 19.3 | All components. |
+| Styling | Tailwind CSS | 4.3 | All styles. |
+| Components | shadcn/ui with the default `base-nova` style | CLI 4.23 | The prompt box (U1), the citation popover (U6), the source lists (S3), and the history (U8). |
+| Icons | lucide-react | 1.x | The default icon library of shadcn/ui. |
+| Report rendering | Streamdown | 2.7 | Renders the report (R1) and turns each citation into a popover with a link (U6, U7). |
+| Validation | Zod | 4.6 | Parses the question, the environment variables, and the model output. |
+| Web data | Decodo TypeScript SDK (`@decodo/sdk-ts`) | 3.0 | The three web actions (W2). |
+| Model calls | AI SDK (`ai`) with `@ai-sdk/anthropic` | 7.0 and 4.0 | Every call to a model. |
+| Model | Claude Sonnet 5.5 | `claude-sonnet-5-5` | Every model step. |
+| Database | SQLite | | Stores every run (U8, U9). |
+| ORM | Prisma ORM with `@prisma/adapter-better-sqlite3` | 7.10.1 | The schema, the migrations, and the queries. |
+| Tests | Vitest | 5.1 | Unit tests. |
+| Lint and format | Biome | 2.6 | One tool for both jobs. |
+
+## Next.js
+
+- Use the App Router. The `app` directory is at the repository root. The project has no `src` directory.
+- Use the import alias `@/*` for the repository root.
+- Set `cacheComponents: true` in `next.config.ts`.
+- Use the Node.js runtime for every route. Prisma and SQLite do not run on the Edge runtime.
+- Read data in Server Components. Change data in Server Actions.
+
+### Cache Components
+
+- Cache a finished run with `'use cache'`. A past run is read-only (U9), so the cached copy never goes out of date.
+- Do not cache a run that is in progress, and do not cache the history list. Read both from the database at request time inside `<Suspense>`.
+
+## Run execution
+
+- A Server Action starts a run. The run continues in the Next.js process after the action returns.
+- The app writes each step to SQLite when the step happens. The live view (U3) and the history (U9) read the same rows.
+- One route handler sends the steps of a run to the browser as Server-Sent Events. The browser reads them with `EventSource`.
+- Each run has one `AbortSignal`. A cancel (U5) aborts the signal. The run stops when the signal aborts.
+- The app passes the signal to every model call.
+- The Decodo SDK does not accept a signal. After a cancel, the app ignores the result of a Decodo request that is still open.
+- Code enforces the budget (B1 to B3). No prompt enforces a limit.
+
+## Web data
+
+The app calls Decodo through `client.webScrapingApi` of the Decodo TypeScript SDK.
+
+| Web action (W2) | SDK method |
+| --- | --- |
+| Search the web | `search({ query })` |
+| Read one page | `scrape({ target: Target.Universal, url, markdown: true })` |
+| Map one site | `map({ url, limit })` |
+
+- Create the client with `apiKey`. The `search` method and the `map` method reject a basic auth token.
+- Set `timeoutMs` on the client. The default is 180 seconds.
+- The SDK does not retry. It throws `AuthenticationError`, `RateLimitError`, `ValidationError`, `TimeoutError`, or `DecodoError`. The run records each error as a failed page or a failed search (F1, F2).
+- The SDK types every response, but most response fields are optional. Check each field that the app needs.
+- Never call a crawl method (W3).
+
+## Report rendering
+
+- Render the report with `<Streamdown>` in a Client Component.
+- Add the line `@source "../node_modules/streamdown/dist/*.js";` to `app/globals.css`. Tailwind needs the line to generate the styles of Streamdown.
+- Set `linkSafety={{ enabled: false }}`. By default, Streamdown shows a confirmation dialog before it opens a link, and the dialog breaks U7.
+- Render citations through the `components` prop.
+- Set `mode="static"` for a past run.
+- Do not add a Streamdown plugin package. The report has no code blocks, no math, and no diagrams.
+
+## Model calls
+
+- Call Anthropic directly through `@ai-sdk/anthropic` with `ANTHROPIC_API_KEY`.
+- Call the model one step at a time. Use `generateText` with `Output.object` and a Zod schema when a step returns data.
+- The step that writes the report uses `streamText`. Streamdown renders the report while the model writes it.
+- Do not use an agent loop. The budget fixes the number and the order of the web actions, so code decides the next action.
+- One module maps each model step to a model ID and an effort level. No other file names a model.
+- Every step uses `claude-sonnet-5-5`. Set the effort level for every step. Claude Sonnet 5.5 always thinks, and its default effort is `high`.
+- V1 is a string comparison in code. V1 is never a model call.
+- V2 is its own model call. The call receives the claim and the quote. The call does not receive the output of the step that wrote the claim.
+
+## Database
+
+- Pin `prisma`, `@prisma/client`, and `@prisma/adapter-better-sqlite3` to version 7.10.1.
+- Do not install `prisma@latest`. The `latest` tag on npm installs a release candidate of Prisma ORM 8. Install the CLI as `prisma@7.10.1`.
+- The adapter installs `better-sqlite3`. Do not add `better-sqlite3` as a separate dependency. Add `@types/better-sqlite3` as a development dependency, because the type check fails without it.
+- The Prisma configuration file is `prisma7.config.ts`. Load the environment variables in that file with `process.loadEnvFile()`. Do not add `dotenv`.
+- Allow the build scripts of `better-sqlite3`, `prisma`, and `@prisma/engines` under `allowBuilds` in `pnpm-workspace.yaml`. pnpm blocks them by default.
+- Git ignores the database file.
+
+## Forms
+
+The app has one form, the prompt box (U1). The form is a native `<form>` with a Server Action. Zod parses the question in the action.
+
+## Tests
+
+Write unit tests for logic that has no network access. The V1 comparison and the budget counters are the first two cases.
+
+## Environment variables
+
+| Variable | Holds |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | The Anthropic API key. |
+| `DECODO_AUTH_TOKEN` | The Decodo API key. |
+| `DATABASE_URL` | The path of the SQLite file, for example `file:./dev.db`. |
+
+One module parses the environment variables with Zod when the app starts.
+
+## Not in the stack
+
+Do not add a technology from this table.
+
+| Technology | Reason |
+| --- | --- |
+| React Hook Form | The app has one form with one field. |
+| Vercel AI Gateway | The app uses one provider and already has its key. |
+| `@ai-sdk/react` and `useChat` | A run is not a chat (U2). |
+| Agent loops such as `ToolLoopAgent` | Code decides the next web action. |
+| `@decodo/sdk` | This package is not the Decodo TypeScript SDK. The SDK is `@decodo/sdk-ts`. |
+| The Decodo crawl methods | W3 forbids a crawl of a whole site. |
+| react-markdown | Streamdown renders the report. |
+| Claude Opus 5.5 and Claude Haiku 5.5 | Every model step uses Claude Sonnet 5.5. |
+| `dotenv` | Next.js and `process.loadEnvFile()` load the environment variables. |
+| Prisma ORM 8 | Version 8 is a release candidate. |
+| Drizzle | The project uses Prisma. |
+| ESLint and Prettier | Biome does both jobs. The current typescript-eslint release does not accept TypeScript 7. |
+| A job queue or a workflow engine | A run executes inside the Next.js process. |
+| A client data library such as TanStack Query | Server Components read the data, and `EventSource` reads the live steps. |
+| An authentication library | Version 1 has no accounts. |
+| A hosting platform | Version 1 runs locally. |
+
+## Checks
+
+Two throwaway projects confirmed the following points on 2026-11-15, on Node.js 26.10 with pnpm 12.18. Neither project is part of this repository.
+
+| Point | Result |
+| --- | --- |
+| Prisma 7.10.1 with SQLite | A migration and a query ran. The schema had an enum and a `Json` column. |
+| Prisma 7.10.1 with TypeScript 7.0.2 | The generated client type-checks with `@types/better-sqlite3` installed. |
+| Next.js 16.4.6 with TypeScript 7.0.2 and Cache Components | `next build` passed. |
+| A run inside the Next.js process | A Server Action returned after 106 ms. The run then sent six steps over Server-Sent Events. |
+| Cancel | An aborted signal stopped a run after two of six steps. |
+| Streamdown 2.7.1 | The report page rendered a table and a citation link from the `components` prop. |
+| Biome 2.6.7 | `biome check` ran on the Next.js project. |
+
+The checks used `next start`. No check used `next dev`. No check sent a request to Decodo or to Anthropic.
+
+## Changes to the stack
+
+Ask the user before you add a dependency that this document does not list. Change this document only when the user asks you to.
