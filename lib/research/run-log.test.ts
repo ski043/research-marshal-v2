@@ -60,4 +60,18 @@ describe("createRunLog", () => {
     log.emit({ type: "report.delta", text: "c" });
     await expect(log.settled()).rejects.toThrow("disk full");
   });
+
+  it("stores no event after a failed write, so the stored log has no gap", async () => {
+    const stored: number[] = [];
+    const { log } = setup(async (event) => {
+      if (event.seq === 2) throw new Error("disk full");
+      stored.push(event.seq);
+    });
+    log.emit({ type: "report.delta", text: "a" });
+    log.emit({ type: "report.delta", text: "b" });
+    log.emit({ type: "report.delta", text: "c" });
+    log.seal({ status: "completed", stoppedBy: "budget" });
+    await expect(log.settled()).rejects.toThrow("disk full");
+    expect(stored).toEqual([1]);
+  });
 });

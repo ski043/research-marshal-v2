@@ -33,8 +33,10 @@ export function createRunLog(deps: {
       at: deps.now().toISOString(),
     };
     view = applyEvent(view, event);
+    // After one failed write nothing more is stored. A later event would leave a gap in
+    // seq, and replay rejects a log with a gap.
     queue = queue
-      .then(() => deps.persist(event))
+      .then(() => (failure ? undefined : deps.persist(event)))
       .catch((error: unknown) => {
         failure ??= { error };
       });

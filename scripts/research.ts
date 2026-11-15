@@ -190,7 +190,12 @@ process.on("SIGINT", () => {
   cancelRun(run.runId);
 });
 
-for await (const event of followRun(run.runId)) printStep(event);
+// When the run could not be saved, run.finished never reaches SQLite.
+const follower = new AbortController();
+run.finished.catch(() => follower.abort());
+for await (const event of followRun(run.runId, { signal: follower.signal })) {
+  printStep(event);
+}
 
 try {
   await run.finished;
