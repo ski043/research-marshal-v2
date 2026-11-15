@@ -30,6 +30,19 @@ it("RoundNo admits only rounds 1 to 3", () => {
   ]);
 });
 
+it("a stored selection keeps every number that the model made up", () => {
+  const event = {
+    type: "select.finished",
+    round: 1,
+    picked: ["https://example.org/a"],
+    unknownNumbers: [1.5, -2, 99],
+    mapRequest: null,
+    seq: 3,
+    at: "2026-11-15T21:00:00.000Z",
+  };
+  expect(RunEvent.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
+});
+
 it("a stored event parses back to the same event", () => {
   const event = {
     type: "page.failed",

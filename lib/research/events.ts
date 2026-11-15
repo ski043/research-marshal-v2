@@ -112,7 +112,7 @@ const MapEventOutcome = z.discriminatedUnion("status", [
     status: z.literal("ok"),
     listed: z.int().nonnegative(),
     picked: z.array(PageUrl),
-    unknownNumbers: z.array(z.int()),
+    unknownNumbers: z.array(z.number()),
   }),
   z.object({ status: z.literal("failed"), failure: WebFailure }),
 ]);
@@ -149,7 +149,7 @@ export const RunEventBody = z.discriminatedUnion("type", [
     type: z.literal("select.finished"),
     round: RoundNo,
     picked: z.array(PageUrl),
-    unknownNumbers: z.array(z.int()),
+    unknownNumbers: z.array(z.number()),
     mapRequest: z.object({ site: SiteUrl, need: z.string() }).nullable(),
   }),
   z.object({
