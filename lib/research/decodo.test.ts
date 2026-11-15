@@ -104,6 +104,19 @@ describe("read", () => {
     });
   });
 
+  it("fails a page that Decodo could not scrape, with Decodo's message", async () => {
+    const web = webAnswering(async () => fixture("read.failed.json"));
+    expect(await web.read(page)).toEqual({
+      status: "failed",
+      failure: {
+        kind: "rejected",
+        detail: expect.stringContaining(
+          "We were not able to scrape the target",
+        ),
+      },
+    });
+  });
+
   it("fails a response that does not match the wire schema", async () => {
     const web = webAnswering(async () => ({ results: [] }));
     expect(await web.read(page)).toMatchObject({

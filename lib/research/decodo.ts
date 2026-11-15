@@ -102,14 +102,17 @@ function readablePageUrl(raw: string): PageUrl | null {
   return isGoogleRedirect ? null : parsed.data;
 }
 
-export function parseSearch(wire: unknown): SearchOutcome {
+// Search and read both resolve with this shape when Decodo could not scrape the target.
+function scrapeFailure(wire: unknown): WebFailure | null {
   const failed = FailedWire.safeParse(wire);
-  if (failed.success) {
-    return {
-      status: "failed",
-      failure: { kind: "rejected", detail: failed.data.message },
-    };
-  }
+  return failed.success
+    ? { kind: "rejected", detail: failed.data.message }
+    : null;
+}
+
+export function parseSearch(wire: unknown): SearchOutcome {
+  const failure = scrapeFailure(wire);
+  if (failure) return { status: "failed", failure };
   const parsed = GoogleSearchWire.safeParse(wire);
   if (!parsed.success) {
     return { status: "failed", failure: badResponse(parsed.error) };
@@ -138,6 +141,8 @@ export function parseSearch(wire: unknown): SearchOutcome {
 }
 
 export function parseRead(wire: unknown): ReadOutcome {
+  const failure = scrapeFailure(wire);
+  if (failure) return { status: "failed", failure };
   const parsed = ReadWire.safeParse(wire);
   if (!parsed.success) {
     return { status: "failed", failure: badResponse(parsed.error) };
