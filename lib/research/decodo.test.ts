@@ -75,6 +75,37 @@ describe("search", () => {
     });
   });
 
+  it("keeps the readable results when another result is incomplete", async () => {
+    const web = webAnswering(async () => ({
+      results: [
+        {
+          content: {
+            results: {
+              results: {
+                organic: [
+                  { title: "No link" },
+                  { url: "https://example.org/official", desc: "The page." },
+                  { pos: 3, title: 7, url: "https://example.org/odd" },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    }));
+    expect(await web.search("x")).toEqual({
+      status: "ok",
+      results: [
+        {
+          position: 1,
+          title: "",
+          url: "https://example.org/official",
+          snippet: "The page.",
+        },
+      ],
+    });
+  });
+
   it("drops Google's click id, so one page found twice is one result", async () => {
     const organic = (srsltid: string) => ({
       pos: 1,

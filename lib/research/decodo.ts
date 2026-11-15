@@ -49,22 +49,19 @@ const GoogleSearchWire = z.object({
         content: z.object({
           results: z.object({
             results: z.object({
-              organic: z
-                .array(
-                  z.object({
-                    pos: z.number(),
-                    title: z.string(),
-                    url: z.string(),
-                    desc: z.string().default(""),
-                  }),
-                )
-                .default([]),
+              organic: z.array(z.unknown()).default([]),
             }),
           }),
         }),
       }),
     )
     .min(1),
+});
+
+const OrganicWire = z.object({
+  url: z.string(),
+  title: z.string().default(""),
+  desc: z.string().default(""),
 });
 
 const FailedWire = z.object({
@@ -125,15 +122,17 @@ export function parseSearch(wire: unknown): SearchOutcome {
   const organic = parsed.data.results[0]?.content.results.results.organic ?? [];
   const seen = new Set<string>();
   const results: SearchResult[] = [];
-  for (const entry of organic) {
-    const url = readablePageUrl(entry.url);
+  for (const raw of organic) {
+    const entry = OrganicWire.safeParse(raw);
+    if (!entry.success) continue;
+    const url = readablePageUrl(entry.data.url);
     if (url === null || seen.has(url)) continue;
     seen.add(url);
     results.push({
       position: results.length + 1,
-      title: entry.title,
+      title: entry.data.title,
       url,
-      snippet: entry.desc,
+      snippet: entry.data.desc,
     });
   }
   if (organic.length > 0 && results.length === 0) {
