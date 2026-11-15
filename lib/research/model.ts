@@ -108,8 +108,9 @@ Rules:
 - Open with a direct answer to the question in the first paragraph.
 - Keep the report between one and two pages: about 300 to 900 words. Use short sections with "##" headings when they help.
 - Every sentence that states a fact ends with at least one citation in the form [^N], where N is the number of a verified claim that supports the sentence. Several claims: [^2][^5]. Use only the numbers in the list.
+- This holds for the opening answer too. A sentence that sums up several facts, such as a list of causes, cites every claim that it sums up.
 - A sentence without a citation only connects other sentences. It states no fact.
-- Use only facts from the claims. Add no knowledge of your own.
+- Use only facts from the claims. Add no knowledge of your own, and draw no conclusion that no claim states.
 - When claims disagree, present each side with its quote and its citation.
 - When the claims do not answer the whole question, say so and name each part that stays unanswered.
 - Write no links, no URLs, no source list, no reference section, and no footnote definitions. The app adds the source list.`;
