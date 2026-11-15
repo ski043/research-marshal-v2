@@ -9,7 +9,8 @@ import { generateText, Output, streamText } from "ai";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-process.loadEnvFile();
+const envFile = [".env.local", ".env"].find((file) => existsSync(file));
+if (envFile) process.loadEnvFile(envFile);
 const { env } = await import("@/lib/env");
 
 const MODEL_ID = "claude-sonnet-5-5";

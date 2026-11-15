@@ -6,3 +6,51 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+// A run is its event log. There are no Round, Page, or Claim tables on purpose:
+// lib/research/run-view.ts derives them from the events with one pure reducer.
+
+// RUNNING is the state of a run without a run.finished event.
+enum RunStatus {
+  RUNNING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+model Run {
+  id         String    @id @default(cuid())
+  question   String
+  // A projection of the run.finished event, so that the history list is one query.
+  status     RunStatus @default(RUNNING)
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  events RunEvent[]
+  pages  PageText[]
+
+  @@index([createdAt])
+}
+
+// Append-only. Rows are inserted and never updated or deleted (F4).
+model RunEvent {
+  runId String
+  seq   Int
+  at    DateTime
+  data  Json
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@id([runId, seq])
+}
+
+model PageText {
+  runId    String
+  url      String
+  markdown String
+  readAt   DateTime @default(now())
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@id([runId, url])
+}

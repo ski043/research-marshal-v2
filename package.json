@@ -14,7 +14,9 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "verify:stack": "vitest run --config verify/vitest.config.mts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate deploy --config prisma7.config.ts",
+    "research": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/research.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.105",

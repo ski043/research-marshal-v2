@@ -14,7 +14,8 @@
       "!dist",
       "!build",
       "!**/*.svg",
-      "!**/*.md"
+      "!**/*.md",
+      "!lib/research/fixtures"
     ]
   },
   "formatter": {
