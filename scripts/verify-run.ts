@@ -30,12 +30,16 @@ Options:
                 verify/perf-thresholds.json (free; misses are warnings).
   --live        Also re-fetch every cited page through the Decodo CLI and check its
                 quotes on the fresh text (paid: one request per cited page).
+  --fakes       The run came from pnpm research:offline. Skip the check that judges
+                the model's writing (report.length), because the fake model writes
+                a few words.
   --json        Print the result as JSON.
   --db <path>   Read this SQLite file instead of DATABASE_URL.`;
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
+    fakes: { type: "boolean", default: false },
     json: { type: "boolean", default: false },
     live: { type: "boolean", default: false },
     "self-test": { type: "boolean", default: false },
@@ -62,7 +66,16 @@ const say = (text: string) => {
   if (!values.json) console.log(text);
 };
 
-const checks: Check[] = runChecks(stored);
+const FAKE_MODEL_CHECKS = new Set(["report.length"]);
+const checks: Check[] = runChecks(stored).map((check) =>
+  values.fakes && FAKE_MODEL_CHECKS.has(check.id)
+    ? {
+        ...check,
+        status: "skip",
+        evidence: ["--fakes: the fake model writes a few words"],
+      }
+    : check,
+);
 const ctx = contextOf(stored);
 const extra: Record<string, unknown> = {};
 
