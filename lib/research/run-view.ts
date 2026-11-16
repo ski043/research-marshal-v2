@@ -89,6 +89,7 @@ export type DecodoCall = {
   round: RoundNo;
   endpoint: DecodoEndpoint;
   input: string;
+  rendered: boolean;
   outcome: "ok" | "failed" | "open" | "abandoned";
   detail: string | null;
   durationMs: number | null;
@@ -281,6 +282,7 @@ function reduce(view: RunView, event: RunEvent): RunView {
             round: event.round,
             endpoint: event.endpoint,
             input: event.input,
+            rendered: event.rendered === true,
             outcome: "open",
             detail: null,
             durationMs: null,

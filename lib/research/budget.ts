@@ -136,11 +136,19 @@ export function meterWeb(deps: {
     input: string,
     run: () => Promise<T>,
     describe: (outcome: T) => Settled,
+    rendered = false,
   ): Promise<T> {
     if (signal.aborted) return Promise.reject(new RunCancelled());
     const call = ++callNo;
     const startedAt = now();
-    emit({ type: "decodo.requested", call, round, endpoint, input });
+    emit({
+      type: "decodo.requested",
+      call,
+      round,
+      endpoint,
+      input,
+      ...(rendered ? { rendered: true } : {}),
+    });
     const durationMs = () => Math.max(0, Math.round(now() - startedAt));
     const settled = run().then(
       (outcome) => {
@@ -183,15 +191,38 @@ export function meterWeb(deps: {
       state.reads + state.readsOpen < BUDGET.readsPerRound &&
       state.attempts < BUDGET.readAttemptsPerRound;
 
-    const attempt = (url: PageUrl): Promise<ReadOutcome> => {
+    const attempt = (url: PageUrl, mode: ReadMode): Promise<ReadOutcome> => {
       state.attempts += 1;
       return call(
         round,
         "universal",
         url,
-        () => web.read(url, "plain"),
+        () => web.read(url, mode),
         settledRead,
+        mode === "rendered",
       );
+    };
+
+    // A page that needs JavaScript comes back almost empty without rendering.
+    const readPage = async (url: PageUrl): Promise<ReadOutcome> => {
+      const plain = await attempt(url, "plain");
+      if (
+        plain.status === "ok" ||
+        plain.failure.kind !== "empty" ||
+        state.attempts >= BUDGET.readAttemptsPerRound
+      ) {
+        return plain;
+      }
+      const rendered = await attempt(url, "rendered");
+      return rendered.status === "ok"
+        ? rendered
+        : {
+            status: "failed",
+            failure: {
+              ...rendered.failure,
+              detail: `rendered: ${rendered.failure.detail}`,
+            },
+          };
     };
 
     const readOne = async (item: T): Promise<void> => {
@@ -199,7 +230,7 @@ export function meterWeb(deps: {
       state.readsOpen += 1;
       let outcome: ReadOutcome;
       try {
-        outcome = await attempt(item.url);
+        outcome = await readPage(item.url);
       } catch (error) {
         state.readsOpen -= 1;
         stopped = true;

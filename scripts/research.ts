@@ -1,9 +1,5 @@
 import { cancelRun, followRun, loadRun, startRun } from "@/lib/research";
-import {
-  Question,
-  type ReadSkip,
-  type RunEvent,
-} from "@/lib/research/events";
+import { Question, type ReadSkip, type RunEvent } from "@/lib/research/events";
 import type { RunView, SkipReason } from "@/lib/research/run-view";
 
 const parsed = Question.safeParse(process.argv.slice(2).join(" "));
@@ -58,7 +54,9 @@ function describeStep(event: RunEvent): string[] {
         ),
       ];
     case "decodo.requested":
-      return [`  Decodo #${event.call} ${event.endpoint} ${event.input}`];
+      return [
+        `  Decodo #${event.call} ${event.endpoint}${event.rendered ? " (rendered)" : ""} ${event.input}`,
+      ];
     case "decodo.settled":
     case "report.delta":
       return [];
@@ -168,7 +166,7 @@ function printSummary(view: RunView): void {
     view.decodoCalls.map((c) => ({
       call: c.call,
       round: c.round,
-      endpoint: c.endpoint,
+      endpoint: c.rendered ? `${c.endpoint} (rendered)` : c.endpoint,
       input: c.input,
       outcome: c.outcome,
       detail: c.detail,

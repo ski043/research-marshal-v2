@@ -319,6 +319,7 @@ describe("meterWeb read attempts (B2, B7)", () => {
     expect(
       events
         .filter((e) => e.type === "decodo.requested")
+        .filter((e) => e.endpoint === "universal")
         .map((e) => e.rendered),
     ).toEqual([undefined, true]);
   });
