@@ -69,7 +69,7 @@ Use these directly when a recipe needs one step.
 
 ## Evidence
 
-Evidence goes to `.verify/<slug>-<UTC time>/`. Git ignores the folder.
+Evidence goes to `.verify/<slug>-<UTC time>-<random>/`. Git ignores the folder.
 
 | File | Holds |
 | --- | --- |
@@ -91,7 +91,7 @@ Name the feature ID from the map and the evidence folder in your report.
 
 ## Cleanup
 
-The helpers delete their scratch database when they exit. They start no process that outlives them. `cancel-run.sh` signals only the `node` process of the run that it started.
+The helpers delete their scratch database when they exit. They start no process that outlives them. `cancel-run.sh` signals only the `node` process of the run that it started. A helper that receives SIGINT or SIGTERM interrupts its own run first, and `prove.sh` still exports the stopped run.
 
 - Never stop a process by name. Stop only a PID that you started.
 - Never delete `.verify/`. It holds the evidence of every proof.

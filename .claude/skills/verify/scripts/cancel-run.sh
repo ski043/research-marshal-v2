@@ -11,7 +11,7 @@ Usage:
 
 It waits <seconds> (default 3 offline, 15 live), sends SIGINT, and expects
 exit code 3, the stored status cancelled, and no report.
-Evidence goes to .verify/<slug>-<UTC time>/.
+Evidence goes to .verify/<slug>-<UTC time>-<random>/.
 USAGE
   exit 2
 }
@@ -34,10 +34,13 @@ esac
 
 root=$(git rev-parse --show-toplevel) || exit 1
 cd "$root" || exit 1
-evidence="$root/.verify/$slug-$(date -u +%Y%m%dT%H%M%SZ)"
-mkdir -p "$evidence"
+# shellcheck source=lib.sh
+. "$root/.claude/skills/verify/scripts/lib.sh"
+evidence=$(new_evidence_dir "$root" "$slug") || exit 1
 db="$evidence/run.db"
 trap 'rm -f "$db" "$db-journal" "$db-wal" "$db-shm"' EXIT
+# A signal to this helper does not reach the run. Stop the run, then leave.
+trap 'interrupt_runs; wait; exit 130' INT TERM
 
 export DATABASE_URL="file:$db"
 pnpm -s db:migrate >"$evidence/migrate.log" 2>&1 || {
@@ -45,23 +48,13 @@ pnpm -s db:migrate >"$evidence/migrate.log" 2>&1 || {
   exit 1
 }
 
-descendants() {
-  local child
-  for child in $(pgrep -P "$1"); do
-    echo "$child"
-    descendants "$child"
-  done
-}
-
 "${drive[@]}" >"$evidence/terminal.log" 2>&1 &
 top=$!
-sleep "$wait_s"
+# A plain sleep would hold a signal back until it ends.
+sleep "$wait_s" &
+wait $!
 
-# pnpm and a shell sit above the run. Only the node process handles SIGINT.
-leaf=""
-for pid in $(descendants "$top"); do
-  [ "$(basename "$(ps -o comm= -p "$pid" 2>/dev/null)")" = node ] && leaf=$pid
-done
+leaf=$(nodes_below "$top" | tail -1)
 if [ -z "$leaf" ]; then
   wait "$top"
   echo "NOT PROVEN: the run ended before the interrupt (exit code $?). Use fewer seconds. Evidence: $evidence" >&2

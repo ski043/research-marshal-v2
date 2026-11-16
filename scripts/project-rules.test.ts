@@ -300,6 +300,17 @@ describe("paid commands stay out of the free paths", () => {
     /pnpm research(?!:offline)|verify:stack|--live|scripts\/research\.ts/;
   const settings = JSON.parse(read(".claude/settings.json"));
 
+  test("the paid checks run only through pnpm verify:stack", () => {
+    // A flag form such as `pnpm test --config=verify/...` passes an allow
+    // rule, so the config itself refuses to load without the flag.
+    expect(read("verify/vitest.config.mts")).toContain(
+      'process.env.RESEARCH_MARSHAL_PAID !== "1"',
+    );
+    expect(packageJson.scripts["verify:stack"]).toMatch(
+      /^RESEARCH_MARSHAL_PAID=1 /,
+    );
+  });
+
   test("pnpm check runs no paid command", () => {
     expect(packageJson.scripts.check).not.toMatch(PAID);
   });
