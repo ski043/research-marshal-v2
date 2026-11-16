@@ -1,0 +1,72 @@
+{
+  "results": [
+    {
+      "content": {
+        "results": {
+          "last_visible_page": 10,
+          "page": 1,
+          "parse_status_code": 12000,
+          "results": {
+            "organic": [
+              {
+                "desc": "Intense aurora displays are generated following massive explosions on the Sun known as 'coronal mass ejections'. These explosions release clouds of hot plasma ...Read more",
+                "favicon_text": "Royal Museums Greenwich",
+                "pos": 1,
+                "pos_overall": 2,
+                "title": "What causes the Northern Lights? Aurora borealis explained",
+                "url": "https://www.rmg.co.uk/stories/space-astronomy/what-causes-northern-lights-aurora-borealis-explained",
+                "url_shown": "https://www.rmg.co.uk› stories › space-astronomy › w..."
+              },
+              {
+                "desc": "Auroras are the result of disturbances in the Earth's magnetosphere caused by enhanced speeds of solar wind from coronal holes and coronal mass ejections.",
+                "favicon_text": "Wikipedia",
+                "pos": 2,
+                "pos_overall": 4,
+                "title": "Aurora",
+                "url": "https://en.wikipedia.org/wiki/Aurora",
+                "url_shown": "https://en.wikipedia.org› wiki › Aurora"
+              },
+              {
+                "desc": "Feb 4, 2025 — When energetic particles from space collide with atoms and molecules in the atmosphere, they can cause the colorful glow that we call auroras.Read more",
+                "favicon_text": "NASA Science (.gov)",
+                "pos": 3,
+                "pos_overall": 5,
+                "title": "Auroras",
+                "url": "https://science.nasa.gov/sun/auroras/",
+                "url_shown": "https://science.nasa.gov› sun › auroras"
+              },
+              {
+                "desc": "The light show we see from the ground is caused by electrically charged particles from space entering the Earth's upper atmosphere at a very high speed.",
+                "favicon_text": "HX Expeditions",
+                "pos": 4,
+                "pos_overall": 6,
+                "title": "What causes the northern lights",
+                "url": "https://www.travelhx.com/en-us/stories/what-causes-the-northern-lights/",
+                "url_shown": "https://www.travelhx.com› en-us › stories › what-cause..."
+              }
+            ],
+            "search_information": {
+              "no_results_for_original_query_found": false,
+              "query": "what causes aurora borealis",
+              "showing_results_for": "what causes aurora borealis",
+              "time_taken_displayed": null,
+              "total_results_count": 115
+            },
+            "total_results_count": 115
+          },
+          "url": "https://www.google.com/search?q=what+causes+aurora+borealis&hl=en&gl=us&oq=what+causes+aurora+borealis&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIICAEQABgWGB4yCAgCEAAYFhgeMggIAxAAGBYYHjIICAQQABgWGB4yCAgFEAAYFhgeMggIBhAAGBYYHjIICAcQABgWGB4yCAgIEAAYFhgeMggICRAAGBYYHtIBCDUyMDRqMGo5qAIAsAIB&sourceid=chrome&ie=UTF-8"
+        },
+        "errors": [],
+        "status_code": 12000,
+        "task_id": "7527839315091524609"
+      },
+      "type": "parsed",
+      "status_code": 200,
+      "url": "https://www.google.com/search?q=what+causes+aurora+borealis&hl=en&gl=us&oq=what+causes+aurora+borealis&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIICAEQABgWGB4yCAgCEAAYFhgeMggIAxAAGBYYHjIICAQQABgWGB4yCAgFEAAYFhgeMggIBhAAGBYYHjIICAcQABgWGB4yCAgIEAAYFhgeMggICRAAGBYYHtIBCDUyMDRqMGo5qAIAsAIB&sourceid=chrome&ie=UTF-8",
+      "query": "what causes aurora borealis",
+      "task_id": "7527839315091524609",
+      "created_at": "2026-11-15 21:05:53",
+      "updated_at": "2026-11-15 21:05:55"
+    }
+  ]
+}

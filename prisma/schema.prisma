@@ -6,3 +6,45 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+enum RunStatus {
+  RUNNING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+model Run {
+  id         String    @id @default(cuid())
+  question   String
+  status     RunStatus @default(RUNNING)
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  events RunEvent[]
+  pages  PageText[]
+
+  @@index([createdAt])
+}
+
+model RunEvent {
+  runId String
+  seq   Int
+  at    DateTime
+  data  Json
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@id([runId, seq])
+}
+
+model PageText {
+  runId    String
+  url      String
+  markdown String
+  readAt   DateTime @default(now())
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@id([runId, url])
+}

@@ -1,0 +1,13 @@
+{
+  "results": [
+    {
+      "content": "This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes.",
+      "type": "markdown",
+      "status_code": 200,
+      "url": "https://example.com/",
+      "task_id": "7527839315087363073",
+      "created_at": "2026-11-15 21:05:53",
+      "updated_at": "2026-11-15 21:05:54"
+    }
+  ]
+}

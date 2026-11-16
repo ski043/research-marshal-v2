@@ -4,17 +4,23 @@ import {
   type AnthropicLanguageModelOptions,
   createAnthropic,
 } from "@ai-sdk/anthropic";
-import { AuthenticationError, DecodoClient, Target } from "@decodo/sdk-ts";
 import { generateText, Output, streamText } from "ai";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-process.loadEnvFile();
+const envFile = [".env.local", ".env"].find((file) => existsSync(file));
+if (envFile) process.loadEnvFile(envFile);
 const { env } = await import("@/lib/env");
+const { MODEL_CONFIG } = await import("@/lib/research/model-config");
+const { createDecodoWeb, sdkPort } = await import("@/lib/research/decodo");
+const { FatalRunError } = await import("@/lib/research/budget");
+const { PageUrl, SiteUrl } = await import("@/lib/research/events");
 
-const MODEL_ID = "claude-sonnet-5-5";
+const MODEL_ID = MODEL_CONFIG.select.model;
 const providerOptions = {
-  anthropic: { effort: "low" } satisfies AnthropicLanguageModelOptions,
+  anthropic: {
+    effort: MODEL_CONFIG.select.effort,
+  } satisfies AnthropicLanguageModelOptions,
 };
 
 const requests: { url: string; signalAborted: boolean }[] = [];
@@ -31,10 +37,7 @@ const anthropic = createAnthropic({
 });
 const model = anthropic(MODEL_ID);
 
-const decodo = new DecodoClient({
-  webScrapingApi: { apiKey: env.DECODO_AUTH_TOKEN },
-  timeoutMs: 120_000,
-});
+const web = createDecodoWeb(sdkPort(env.DECODO_AUTH_TOKEN));
 
 describe("Anthropic through the AI SDK", () => {
   it("generateText reaches api.anthropic.com and returns text", async () => {
@@ -122,53 +125,51 @@ describe("Anthropic through the AI SDK", () => {
   });
 });
 
-describe("Decodo through the TypeScript SDK", () => {
-  it("search returns organic results with a link", async () => {
-    const serp = await decodo.webScrapingApi.search({
-      query: "Prisma ORM SQLite",
-    });
-    if (serp.status === "failed") {
-      throw new Error(`search failed: ${serp.message}`);
+describe("Decodo through the research adapter", () => {
+  it("a Google search returns organic results with page links", async () => {
+    const outcome = await web.search("Prisma ORM SQLite");
+    if (outcome.status === "failed") {
+      throw new Error(`search failed: ${outcome.failure.detail}`);
     }
-    const links = (serp.organic ?? []).filter((entry) => entry.link);
-    expect(
-      links.length,
-      "at least one organic result has a link",
-    ).toBeGreaterThan(0);
-  });
-
-  it("scrape reads example.com as Markdown", async () => {
-    const response = await decodo.webScrapingApi.scrape({
-      target: Target.Universal,
-      url: "https://example.com",
-      markdown: true,
-    });
-    const content = response.results[0]?.content;
-    expect(typeof content, "the page content is a string").toBe("string");
-    // The Markdown output drops the page's "Example Domain" heading, so match the body sentence.
-    expect(content, "the page content is the Example Domain page").toContain(
-      "This domain is for use in documentation examples",
+    expect(outcome.results.length, "the search found results").toBeGreaterThan(
+      0,
     );
+    for (const result of outcome.results) {
+      expect(
+        new URL(result.url).hostname,
+        "no Google redirect link",
+      ).not.toMatch(/(^|\.)google\./);
+    }
   });
 
-  it("map returns at least one link", async () => {
-    const map = await decodo.webScrapingApi.map({
-      url: "https://nextjs.org",
-      limit: 5,
+  it("a read of example.com returns its Markdown", async () => {
+    const outcome = await web.read(PageUrl.parse("https://example.com"));
+    expect(outcome, "the page is the Example Domain page").toEqual({
+      status: "ok",
+      markdown: expect.stringContaining(
+        "This domain is for use in documentation examples",
+      ),
     });
-    const links = map.results[0]?.content.links ?? [];
-    expect(links.length, "the map found at least one link").toBeGreaterThan(0);
   });
 
-  it("an invalid API key rejects with AuthenticationError", async () => {
-    const invalid = new DecodoClient({
-      webScrapingApi: { apiKey: "invalid-api-key" },
-      timeoutMs: 60_000,
-    });
+  it("a map of nextjs.org lists pages of the site", async () => {
+    const outcome = await web.map(SiteUrl.parse("https://nextjs.org"), 5);
+    if (outcome.status === "failed") {
+      throw new Error(`map failed: ${outcome.failure.detail}`);
+    }
+    expect(outcome.urls.length, "the map listed pages").toBeGreaterThan(0);
+    expect(
+      outcome.urls.length,
+      "the map honored the limit",
+    ).toBeLessThanOrEqual(5);
+  });
+
+  it("a rejected key is a fatal run error", async () => {
+    const rejected = createDecodoWeb(sdkPort("invalid-api-key"));
     await expect(
-      invalid.webScrapingApi.search({ query: "test" }),
-      "the SDK maps a bad key to AuthenticationError",
-    ).rejects.toBeInstanceOf(AuthenticationError);
+      rejected.search("test"),
+      "the adapter ends the run on a rejected key",
+    ).rejects.toBeInstanceOf(FatalRunError);
   });
 });
 

@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { defineConfig } from "prisma/config";
 
-// `prisma generate` runs on postinstall, before a fresh clone has a `.env`.
-if (existsSync(".env")) {
-  process.loadEnvFile();
+const envFile = [".env.local", ".env"].find((file) => existsSync(file));
+if (envFile) {
+  process.loadEnvFile(envFile);
 }
 
 export default defineConfig({
