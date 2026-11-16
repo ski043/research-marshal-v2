@@ -418,8 +418,12 @@ try {
   exitCode = 1;
 } finally {
   socket?.close();
-  browser.kill();
-  await new Promise((done) => browser.once("exit", done));
+  // A Chrome that has already left sends no second exit event to wait for.
+  if (browser.exitCode === null && browser.signalCode === null) {
+    const gone = new Promise((done) => browser.once("exit", done));
+    browser.kill();
+    await gone;
+  }
   if (!profileArg) rmSync(profile, { recursive: true, force: true });
 }
 process.exit(exitCode);
