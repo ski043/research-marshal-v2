@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import type { Question, RunEvent, RunId } from "@/lib/research/events";
 import { addEvents, type LiveRun, startLiveRun } from "./live-run";
+
+const RETRY_MS = 2_000;
 
 /**
  * The run as the server rendered it, kept up to date over Server-Sent Events while it
@@ -13,7 +15,7 @@ export function useLiveRun(initial: {
   runId: RunId;
   question: Question;
   events: readonly RunEvent[];
-}): LiveRun {
+}): LiveRun & { connectionLost: boolean } {
   const router = useRouter();
   const [run, add] = useReducer(addEvents, initial, (start) =>
     startLiveRun(start.runId, start.question, start.events),
@@ -23,7 +25,10 @@ export function useLiveRun(initial: {
   const lastSeq = useRef(run.view.lastSeq);
   lastSeq.current = run.view.lastSeq;
   const wasRunning = useRef(running);
+  const [attempt, setAttempt] = useState(0);
+  const [connectionLost, setConnectionLost] = useState(false);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` opens the stream again after it closed for good
   useEffect(() => {
     if (!running) return;
     const source = new EventSource(
@@ -41,6 +46,15 @@ export function useLiveRun(initial: {
       buffer = [];
       if (batch.length > 0) add(batch);
     };
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    source.onopen = () => setConnectionLost(false);
+    source.onerror = () => {
+      // The browser retries a dropped stream by itself. It gives up for good on an
+      // answer that is not a stream, for example a 500, and only then is it closed.
+      if (source.readyState !== EventSource.CLOSED) return;
+      setConnectionLost(true);
+      retry = setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
+    };
     source.onmessage = (message) => {
       // The route sends events that the store parsed, so they are trusted as they are.
       buffer.push(JSON.parse(message.data) as RunEvent);
@@ -50,9 +64,10 @@ export function useLiveRun(initial: {
     };
     return () => {
       source.close();
+      if (retry !== null) clearTimeout(retry);
       flush();
     };
-  }, [running, runId]);
+  }, [running, runId, attempt]);
 
   // The history in the sidebar is rendered by the server, so it learns of the end here.
   useEffect(() => {
@@ -60,5 +75,5 @@ export function useLiveRun(initial: {
     wasRunning.current = running;
   }, [running, router]);
 
-  return run;
+  return { ...run, connectionLost: running && connectionLost };
 }

@@ -11,11 +11,12 @@ import type {
   SourceLabel,
   WebFailure,
 } from "@/lib/research/events";
-import type {
-  DroppedClaim,
-  RunView,
-  SkipReason,
-  VerifiedClaim,
+import {
+  candidatesOf,
+  type DroppedClaim,
+  type RunView,
+  type SkipReason,
+  type VerifiedClaim,
 } from "@/lib/research/run-view";
 
 /**
@@ -715,13 +716,10 @@ function nextStep(
     return answered || nextQueries.length === 0 ? writing : null;
   }
 
-  const found = round.searches.some(
-    (search) =>
-      search.outcome?.status === "ok" && search.outcome.results.length > 0,
-  );
   const readsOpen = round.select !== null && round.readsFinishedAt === null;
   if (readsOpen) return null;
-  if (round.select === null && found) {
+  // The pipeline selects only among pages that no earlier round read.
+  if (round.select === null && candidatesOf(view).length > 0) {
     return {
       ...running,
       id: `r${round.no}-select`,

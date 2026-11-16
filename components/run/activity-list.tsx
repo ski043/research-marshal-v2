@@ -93,6 +93,8 @@ function Facts({ children }: { children: ReactNode }) {
 }
 
 function readStatus(row: ReadRow): RowParts["status"] {
+  // The row itself says "stopped"; an open phase next to that would contradict it.
+  if (row.state === "stopped") return null;
   switch (row.phase) {
     case "reading":
       return {
@@ -606,7 +608,7 @@ function Row({
         <button
           type="button"
           aria-expanded={open}
-          aria-controls={bodyId}
+          aria-controls={open ? bodyId : undefined}
           onClick={onToggle}
           className="flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors duration-150 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
         >

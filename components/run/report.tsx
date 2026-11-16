@@ -41,6 +41,9 @@ const TYPOGRAPHY = {
   strong: ({ node: _node, ...props }) => (
     <strong {...props} className="font-semibold" />
   ),
+  // A report holds no image: the run already reduces one to its alt text. This keeps a
+  // browser from ever loading a remote image that web text talked the model into.
+  img: ({ alt }) => <>{alt}</>,
 } satisfies Components;
 
 /**

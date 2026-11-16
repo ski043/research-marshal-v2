@@ -79,7 +79,13 @@ export function ProgressPanel({
             Claims <Count>{view.verified.length + view.dropped.length}</Count>
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="activity" ref={activity} className={PANE}>
+        {/* Stays mounted, so the list keeps its scroll position and its scroll listener across tabs. */}
+        <TabsContent
+          value="activity"
+          ref={activity}
+          keepMounted
+          className={PANE}
+        >
           <ActivityList groups={groups} running={running} />
         </TabsContent>
         <TabsContent value="sources" className={PANE}>

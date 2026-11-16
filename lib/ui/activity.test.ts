@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BUDGET } from "@/lib/research/budget";
 import {
+  PageUrl,
   Question,
   type RunEvent,
   type RunEventBody,
@@ -288,6 +289,43 @@ describe("activityOf while the run is running", () => {
     expect(currentAction(afterFirstClaim)).toBe(
       "Checking the claims of 1 page",
     );
+  });
+
+  it("skips the page selection in a round that found only pages already read", async () => {
+    const page = PageUrl.parse("https://example.org/only-page");
+    const run = testRun({
+      web: {
+        search: async () => ({
+          status: "ok",
+          results: [
+            { position: 1, title: "Only page", url: page, snippet: "" },
+          ],
+        }),
+      },
+      model: {
+        plan: async () => [{ subQuestion: "First?", query: "first" }],
+        select: async ({ candidates }) => ({
+          picks: candidates.map((c) => c.number),
+          map: null,
+        }),
+        checkGaps: async () => ({
+          answered: false,
+          missing: ["Second?"],
+          queries: [{ subQuestion: "Second?", query: "second" }],
+        }),
+      },
+    });
+    await runPipeline(run.deps);
+    const searched = upTo(
+      run.events,
+      (event) => event.type === "search.finished" && event.round === 2,
+    );
+
+    const open = rowsOf(activity(searched)).filter(
+      (row) => row.state === "running",
+    );
+
+    expect(open.map((row) => row.kind)).toEqual(["gap"]);
   });
 
   it("goes straight to the report after the last round, with no gap check", async () => {

@@ -158,13 +158,18 @@ export function RunScreen({
   const totalMs =
     startedAt && endedAt ? Date.parse(endedAt) - Date.parse(startedAt) : null;
 
-  const [notice, setNotice] = useState<string | null>(null);
+  const [actionNotice, setNotice] = useState<string | null>(null);
   const [cancelling, startCancel] = useTransition();
   const cancel = () =>
     startCancel(async () => {
       const result = await cancelRunAction(runId);
       setNotice(result.message);
     });
+  const notice =
+    actionNotice ??
+    (run.connectionLost
+      ? "The live connection to this run was lost. The app keeps trying to reconnect; the run itself goes on."
+      : null);
 
   const [stored, store] = useStored(PANEL_KEY);
   const panel = readPanel(stored);
