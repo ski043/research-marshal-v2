@@ -119,7 +119,7 @@ export function ClaimsList({
                     href={claim.source.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="min-w-0 truncate rounded-sm font-mono text-xs text-muted-foreground underline-offset-3 outline-none hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    className="min-w-0 truncate rounded-sm font-mono text-xs text-muted-foreground underline-offset-3 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   >
                     {claim.source.domain}
                     <span className="sr-only">

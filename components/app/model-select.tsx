@@ -33,7 +33,7 @@ export function ModelSelect({
         <DropdownMenuTrigger
           disabled={disabled}
           aria-label={`Model: ${current?.name ?? value}`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground outline-none transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 aria-expanded:bg-accent aria-expanded:text-foreground"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 aria-expanded:bg-accent aria-expanded:text-foreground"
         >
           {current?.name ?? value}
           <ChevronDownIcon aria-hidden className="size-3.5" />
@@ -44,6 +44,7 @@ export function ModelSelect({
               <DropdownMenuRadioItem
                 key={option.key}
                 value={option.key}
+                closeOnClick
                 className="items-start py-1.5"
               >
                 <span className="flex flex-col">

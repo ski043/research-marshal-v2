@@ -22,23 +22,17 @@ export function SourcesList({
   }
   return (
     <ul className="flex flex-col gap-1">
-      {sources.map(({ source, claims }, i) => (
+      {sources.map(({ source, claims }) => (
         <li
           key={source.url}
           className="flex animate-in items-start gap-3 rounded-lg px-2 py-2 duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
         >
-          <span
-            aria-hidden
-            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-xs tabular-nums text-muted-foreground"
-          >
-            {i + 1}
-          </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <a
               href={source.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-start gap-1 rounded-sm text-sm font-medium outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="group flex items-start gap-1 rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="line-clamp-2 min-w-0 underline-offset-3 group-hover:underline">
                 {source.title}

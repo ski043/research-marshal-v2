@@ -71,7 +71,7 @@ function PageLink({ url, children }: { url: string; children: ReactNode }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="rounded-sm underline-offset-3 outline-none hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="rounded-sm underline-offset-3 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       {children}
       <span className="sr-only"> (opens in a new tab)</span>
@@ -607,7 +607,7 @@ function Row({
           aria-expanded={open}
           aria-controls={bodyId}
           onClick={onToggle}
-          className="flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left outline-none transition-colors duration-150 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+          className="flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors duration-150 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
         >
           {content}
         </button>

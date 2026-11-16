@@ -77,7 +77,7 @@ export function Report({
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-sm font-medium text-primary-ink underline decoration-primary-ink/40 underline-offset-3 outline-none transition-colors duration-150 hover:decoration-primary-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="rounded-sm font-medium text-primary-ink underline decoration-primary-ink/40 underline-offset-3 transition-colors duration-150 hover:decoration-primary-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {children}
           </a>

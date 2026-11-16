@@ -109,7 +109,7 @@ export function StartScreen({
                 <button
                   type="button"
                   onClick={() => fill(example)}
-                  className="inline-flex min-h-8 items-center rounded-full border bg-background px-3 py-1 text-left text-xs text-muted-foreground outline-none transition-[background-color,border-color,color,scale] duration-150 hover:border-input hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.98] sm:text-sm"
+                  className="inline-flex min-h-8 items-center rounded-full border bg-background px-3 py-1 text-left text-xs text-muted-foreground transition-[background-color,border-color,color,scale] duration-150 hover:border-input hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.98] sm:text-sm"
                 >
                   {example}
                 </button>

@@ -39,7 +39,7 @@ export function AppShell({
         <SheetContent
           side="left"
           showCloseButton={false}
-          className="w-[280px] max-w-[85%] gap-0 bg-sidebar p-0 lg:hidden"
+          className="gap-0 bg-sidebar p-0 data-[side=left]:w-[min(300px,calc(100%-2.5rem))] lg:hidden"
           // A click on a run or on "New question" navigates, so the slide-over is done.
           onClick={(event) => {
             if ((event.target as Element).closest("a")) setOpen(false);

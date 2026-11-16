@@ -31,11 +31,6 @@ import {
   SheetDescription,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { Question, RunEvent, RunId } from "@/lib/research/events";
 import { type RunView, sourcesOf } from "@/lib/research/run-view";
 import { activityOf, currentAction } from "@/lib/ui/activity";
@@ -287,26 +282,18 @@ export function RunScreen({
           ) : (
             <RerunButton runId={runId} onError={setNotice} />
           )}
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={
-                    panel.open
-                      ? "Hide the progress panel"
-                      : "Show the progress panel"
-                  }
-                  aria-expanded={panel.open}
-                  onClick={togglePanel}
-                />
-              }
-            >
-              <PanelRightIcon />
-            </TooltipTrigger>
-            <TooltipContent>Progress panel</TooltipContent>
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Progress panel"
+            aria-label={
+              panel.open ? "Hide the progress panel" : "Show the progress panel"
+            }
+            aria-expanded={panel.open}
+            onClick={togglePanel}
+          >
+            <PanelRightIcon />
+          </Button>
         </header>
 
         <div
@@ -495,7 +482,7 @@ export function RunScreen({
         <SheetContent
           side="right"
           showCloseButton={false}
-          className="w-[min(400px,calc(100%-1rem))] gap-0 bg-background p-0 lg:hidden"
+          className="gap-0 bg-background p-0 data-[side=right]:w-[min(400px,calc(100%-2.5rem))] data-[side=right]:sm:max-w-none lg:hidden"
         >
           <SheetTitle className="sr-only">Progress</SheetTitle>
           <SheetDescription className="sr-only">

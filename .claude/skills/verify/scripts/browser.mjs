@@ -19,7 +19,8 @@
 //   {"type": "text"}                      into the focused element
 //   {"press": "Enter"}                    add "shift": true; Tab, Escape, Space, arrows
 //   {"eval": "document.title"}            prints the value as JSON
-//   {"shot": "path.png"}                  add "selector" to clip to one element
+//   {"shot": "path.png"}                  add "selector" to clip to one element, or
+//                                         "clip": [x, y, width, height]
 //   {"console": true}                     prints the errors and warnings so far
 // The process exits 1 when a step fails or when the page logged an error, unless the
 // last step is {"console": "allow"}.
@@ -308,9 +309,12 @@ async function run(step) {
   } else if (step.eval) {
     console.log(JSON.stringify(await evaluate(step.eval)));
   } else if (step.shot) {
-    const clip = step.selector
-      ? { ...(await boxOf(step.selector)), scale: 1 }
-      : undefined;
+    let clip;
+    if (step.selector) clip = { ...(await boxOf(step.selector)), scale: 1 };
+    if (step.clip) {
+      const [x, y, width, height] = step.clip;
+      clip = { x, y, width, height, scale: 1 };
+    }
     const { data } = await send("Page.captureScreenshot", {
       format: "png",
       clip,

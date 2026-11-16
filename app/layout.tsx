@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/app/app-shell";
 import { Sidebar } from "@/components/app/sidebar";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { BEFORE_PAINT } from "@/lib/ui/theme";
 import "./globals.css";
 
@@ -42,9 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to the content
         </a>
-        <TooltipProvider delay={300}>
-          <AppShell sidebar={<Sidebar />}>{children}</AppShell>
-        </TooltipProvider>
+        <AppShell sidebar={<Sidebar />}>{children}</AppShell>
       </body>
     </html>
   );

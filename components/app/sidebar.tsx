@@ -63,7 +63,7 @@ export function Sidebar() {
       <div className="flex h-13 shrink-0 items-center px-3">
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-lg outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring"
+          className="flex items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring"
         >
           <BrandMark />
           <span className="font-semibold tracking-tight">Research Marshal</span>
