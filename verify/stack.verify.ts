@@ -13,7 +13,8 @@ import { z } from "zod";
 for (const file of [".env.local", ".env"]) {
   if (existsSync(file)) process.loadEnvFile(file);
 }
-const { env } = await import("@/lib/env");
+const { ENV_NAMES, readEnv } = await import("@/lib/env");
+const env = readEnv(ENV_NAMES);
 const { MODEL_CONFIG } = await import("@/lib/research/model-config");
 const { createDecodoWeb, sdkPort } = await import("@/lib/research/decodo");
 const { FatalRunError } = await import("@/lib/research/budget");

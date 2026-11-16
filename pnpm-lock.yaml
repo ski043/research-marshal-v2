@@ -193,6 +193,18 @@ importers:
       lucide-react:
         specifier: ^1.73.0
         version: 1.73.0(@types/react@19.3.0)(react@19.3.0)
+      mdast-util-from-markdown:
+        specifier: 2.1.0
+        version: 2.1.0
+      mdast-util-gfm:
+        specifier: 3.1.0
+        version: 3.1.0
+      mdast-util-to-markdown:
+        specifier: 2.2.3
+        version: 2.2.3
+      micromark-extension-gfm:
+        specifier: 3.0.0
+        version: 3.0.0
       next:
         specifier: 16.4.6
         version: 16.4.6(@babel/core@7.29.13)(@types/node@26.6.6)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -221,6 +233,9 @@ importers:
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0
+      '@types/mdast':
+        specifier: 4.0.4
+        version: 4.0.4
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6

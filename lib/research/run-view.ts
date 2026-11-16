@@ -6,6 +6,7 @@ import {
   type PageUrl,
   type PlannedQuery,
   type Question,
+  type ReadSkip,
   type RoundNo,
   type RunEnd,
   type RunEvent,
@@ -16,10 +17,16 @@ import {
   type WebFailure,
 } from "./events";
 
+// A page that a round skips as already read keeps the state of that earlier read.
+export type SkipReason =
+  | Exclude<ReadSkip, "already-read">
+  | "not-chosen"
+  | "run-ended";
+
 export type PageState =
   | { kind: "found" }
   | { kind: "queued" }
-  | { kind: "skipped"; reason: "not-chosen" | "over-budget" | "run-ended" }
+  | { kind: "skipped"; reason: SkipReason }
   | {
       kind: "read";
       chars: number;
@@ -82,6 +89,7 @@ export type DecodoCall = {
   round: RoundNo;
   endpoint: DecodoEndpoint;
   input: string;
+  rendered: boolean;
   outcome: "ok" | "failed" | "open" | "abandoned";
   detail: string | null;
   durationMs: number | null;
@@ -92,6 +100,7 @@ export type BudgetUsage = {
   rounds: number;
   queriesThisRound: number;
   readsThisRound: number;
+  readAttemptsThisRound: number;
   maps: number;
 };
 
@@ -139,6 +148,7 @@ export function createView(runId: RunId, question: Question): RunView {
       rounds: 0,
       queriesThisRound: 0,
       readsThisRound: 0,
+      readAttemptsThisRound: 0,
       maps: 0,
     },
     decodoCalls: [],
@@ -186,6 +196,38 @@ function addFound(
   }
 }
 
+function skipReads(
+  view: RunView,
+  skipped: readonly { url: PageUrl; reason: ReadSkip }[],
+): Record<string, PageView> {
+  const pages = { ...view.pages };
+  for (const { url, reason } of skipped) {
+    if (reason === "already-read") continue;
+    pages[url] = { ...pageOf(view, url), state: { kind: "skipped", reason } };
+  }
+  return pages;
+}
+
+function queueReads(
+  view: RunView,
+  queue: readonly PageUrl[],
+  skipped: readonly { url: PageUrl; reason: ReadSkip }[],
+): Record<string, PageView> {
+  const pages = skipReads(view, skipped);
+  for (const url of queue) {
+    pages[url] = { ...pageOf(view, url), state: { kind: "queued" } };
+  }
+  for (const [url, page] of Object.entries(pages)) {
+    if (page.state.kind === "found") {
+      pages[url] = {
+        ...page,
+        state: { kind: "skipped", reason: "not-chosen" },
+      };
+    }
+  }
+  return pages;
+}
+
 export function applyEvent(view: RunView, event: RunEvent): RunView {
   if (event.seq !== view.lastSeq + 1) {
     throw new Error(`event seq ${event.seq} after ${view.lastSeq}`);
@@ -221,13 +263,14 @@ function reduce(view: RunView, event: RunEvent): RunView {
           rounds: view.budget.rounds + 1,
           queriesThisRound: 0,
           readsThisRound: 0,
+          readAttemptsThisRound: 0,
         },
       };
 
     case "decodo.requested": {
       const budget = { ...view.budget };
       if (event.endpoint === "google_search") budget.queriesThisRound += 1;
-      if (event.endpoint === "universal") budget.readsThisRound += 1;
+      if (event.endpoint === "universal") budget.readAttemptsThisRound += 1;
       if (event.endpoint === "map") budget.maps += 1;
       return {
         ...view,
@@ -239,6 +282,7 @@ function reduce(view: RunView, event: RunEvent): RunView {
             round: event.round,
             endpoint: event.endpoint,
             input: event.input,
+            rendered: event.rendered === true,
             outcome: "open",
             detail: null,
             durationMs: null,
@@ -342,33 +386,22 @@ function reduce(view: RunView, event: RunEvent): RunView {
       };
     }
 
-    case "reads.planned": {
-      const pages = { ...view.pages };
-      for (const url of event.granted) {
-        pages[url] = { ...pageOf(view, url), state: { kind: "queued" } };
-      }
-      for (const { url, reason } of event.refused) {
-        if (reason === "over-budget") {
-          pages[url] = {
-            ...pageOf(view, url),
-            state: { kind: "skipped", reason: "over-budget" },
-          };
-        }
-      }
-      for (const [url, page] of Object.entries(pages)) {
-        if (page.state.kind === "found") {
-          pages[url] = {
-            ...page,
-            state: { kind: "skipped", reason: "not-chosen" },
-          };
-        }
-      }
-      return { ...view, pages };
-    }
+    case "reads.planned":
+      return { ...view, pages: queueReads(view, event.granted, event.refused) };
+
+    case "reads.queued":
+      return { ...view, pages: queueReads(view, event.queue, event.skipped) };
+
+    case "reads.finished":
+      return { ...view, pages: skipReads(view, event.skipped) };
 
     case "page.read":
       return {
         ...view,
+        budget: {
+          ...view.budget,
+          readsThisRound: view.budget.readsThisRound + 1,
+        },
         pages: withPage(view, event.url, (page) => ({
           ...page,
           title: event.title,

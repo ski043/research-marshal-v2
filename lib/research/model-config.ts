@@ -5,6 +5,10 @@ import type { Candidate, VerifiedClaim } from "./run-view";
 
 export type ClaimDraft = { statement: string; quote: string };
 
+// Longer than every real quote of the stored runs once link targets are left
+// out. A quote over the cap is dropped as a V1 failure.
+export const QUOTE_MAX_CHARS = 1_000;
+
 export class MalformedAnswer extends Error {
   readonly step: string;
   constructor(step: string, message: string) {
@@ -56,14 +60,21 @@ export type Effort = "low" | "medium" | "high";
 
 const SONNET = "claude-sonnet-5-5";
 
-export const MODEL_CONFIG: Readonly<
-  Record<keyof ModelSteps, { model: string; effort: Effort }>
-> = Object.freeze({
-  plan: { model: SONNET, effort: "medium" },
-  select: { model: SONNET, effort: "low" },
-  pickFromMap: { model: SONNET, effort: "low" },
-  extract: { model: SONNET, effort: "medium" },
-  supports: { model: SONNET, effort: "low" },
-  checkGaps: { model: SONNET, effort: "medium" },
-  writeReport: { model: SONNET, effort: "medium" },
-});
+export type StepConfig = {
+  model: string;
+  effort: Effort;
+  maxOutputTokens: number;
+};
+
+// Thinking counts toward maxOutputTokens. Each limit leaves several times the
+// largest output seen in real runs (thinking and answer together).
+export const MODEL_CONFIG: Readonly<Record<keyof ModelSteps, StepConfig>> =
+  Object.freeze({
+    plan: { model: SONNET, effort: "medium", maxOutputTokens: 4_000 },
+    select: { model: SONNET, effort: "low", maxOutputTokens: 2_000 },
+    pickFromMap: { model: SONNET, effort: "low", maxOutputTokens: 2_000 },
+    extract: { model: SONNET, effort: "medium", maxOutputTokens: 8_000 },
+    supports: { model: SONNET, effort: "low", maxOutputTokens: 2_000 },
+    checkGaps: { model: SONNET, effort: "medium", maxOutputTokens: 4_000 },
+    writeReport: { model: SONNET, effort: "medium", maxOutputTokens: 12_000 },
+  });
