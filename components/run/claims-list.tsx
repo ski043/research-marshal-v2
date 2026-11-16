@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { SourceLabelBadge } from "@/components/run/source-label";
-import { domainOf } from "@/lib/research/events";
+import { domainOf } from "@/lib/research/domain";
 import type { DroppedClaim, VerifiedClaim } from "@/lib/research/run-view";
 import { cn } from "@/lib/utils";
 

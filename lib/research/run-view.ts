@@ -1,25 +1,25 @@
-import {
-  type BudgetLimits,
-  type CitationCheck,
+import { domainOf } from "./domain";
+import type {
+  BudgetLimits,
+  CitationCheck,
   ClaimNumber,
-  type DecodoEndpoint,
-  domainOf,
-  type ModelCall,
-  type ModelCallOutcome,
-  type ModelStep,
-  type ModelTokens,
-  type PageUrl,
-  type PlannedQuery,
-  type Question,
-  type ReadSkip,
-  type RoundNo,
-  type RunEnd,
-  type RunEvent,
-  type RunId,
-  type SearchOutcome,
-  type SiteUrl,
-  type SourceLabel,
-  type WebFailure,
+  DecodoEndpoint,
+  ModelCall,
+  ModelCallOutcome,
+  ModelStep,
+  ModelTokens,
+  PageUrl,
+  PlannedQuery,
+  Question,
+  ReadSkip,
+  RoundNo,
+  RunEnd,
+  RunEvent,
+  RunId,
+  SearchOutcome,
+  SiteUrl,
+  SourceLabel,
+  WebFailure,
 } from "./events";
 
 // A page that a round skips as already read keeps the state of that earlier read.
@@ -653,10 +653,6 @@ export function candidatesOf(view: RunView): readonly Candidate[] {
   return Object.values(view.pages)
     .filter((page) => page.state.kind === "found")
     .map(({ url, title, snippet }) => ({ url, title, snippet }));
-}
-
-export function nextClaimNumber(view: RunView): ClaimNumber {
-  return ClaimNumber.parse(view.verified.length + 1);
 }
 
 export function sourcesOf(

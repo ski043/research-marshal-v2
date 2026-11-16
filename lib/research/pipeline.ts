@@ -7,6 +7,7 @@ import {
   RunCancelled,
 } from "./budget";
 import {
+  ClaimNumber,
   type PageUrl,
   type PipelineEvent,
   type RoundNo,
@@ -31,11 +32,14 @@ import {
 import {
   candidatesOf,
   lastGap,
-  nextClaimNumber,
   type PageView,
   type RunView,
   subQuestionsOf,
 } from "./run-view";
+
+function nextClaimNumber(view: RunView): ClaimNumber {
+  return ClaimNumber.parse(view.verified.length + 1);
+}
 
 export const LIMITS = Object.freeze({
   extractChars: 80_000,

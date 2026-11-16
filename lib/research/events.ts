@@ -31,9 +31,7 @@ export function siteOf(url: PageUrl): SiteUrl {
   return SiteUrl.parse(url);
 }
 
-export function domainOf(url: PageUrl): string {
-  return new URL(url).hostname.replace(/^www\./, "");
-}
+export { domainOf } from "./domain";
 
 export const RoundNo = z.union([z.literal(1), z.literal(2), z.literal(3)]);
 export type RoundNo = z.infer<typeof RoundNo>;

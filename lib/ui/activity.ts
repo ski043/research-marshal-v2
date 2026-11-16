@@ -1,15 +1,15 @@
-import {
-  domainOf,
-  type ModelStep,
-  type PageUrl,
-  type PlannedQuery,
-  type ReadSkip,
-  type RoundNo,
-  type RunEnd,
-  type RunEvent,
-  type SearchOutcome,
-  type SourceLabel,
-  type WebFailure,
+import { domainOf } from "@/lib/research/domain";
+import type {
+  ModelStep,
+  PageUrl,
+  PlannedQuery,
+  ReadSkip,
+  RoundNo,
+  RunEnd,
+  RunEvent,
+  SearchOutcome,
+  SourceLabel,
+  WebFailure,
 } from "@/lib/research/events";
 import type {
   DroppedClaim,

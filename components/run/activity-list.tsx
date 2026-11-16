@@ -20,7 +20,8 @@ import { GlyphSpinner } from "@/components/asciicn/glyph-spinner";
 import { DroppedItem, VerifiedItem } from "@/components/run/claims-list";
 import { Elapsed } from "@/components/run/elapsed";
 import { SourceLabelBadge } from "@/components/run/source-label";
-import { domainOf, type WebFailure } from "@/lib/research/events";
+import { domainOf } from "@/lib/research/domain";
+import type { WebFailure } from "@/lib/research/events";
 import type {
   ActivityGroup,
   ActivityRow,

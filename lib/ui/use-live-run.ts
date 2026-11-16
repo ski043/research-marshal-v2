@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef } from "react";
-import { type Question, RunEvent, type RunId } from "@/lib/research/events";
+import type { Question, RunEvent, RunId } from "@/lib/research/events";
 import { addEvents, type LiveRun, startLiveRun } from "./live-run";
 
 /**
@@ -42,9 +42,8 @@ export function useLiveRun(initial: {
       if (batch.length > 0) add(batch);
     };
     source.onmessage = (message) => {
-      const event = RunEvent.safeParse(JSON.parse(message.data));
-      if (!event.success) return;
-      buffer.push(event.data);
+      // The route sends events that the store parsed, so they are trusted as they are.
+      buffer.push(JSON.parse(message.data) as RunEvent);
       frame ??= requestAnimationFrame(flush);
       // A hidden tab gets no animation frame, and the run must still reach its end there.
       timer ??= setTimeout(flush, 250);
