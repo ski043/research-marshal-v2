@@ -9,6 +9,7 @@ import {
 } from "./events";
 import { MalformedAnswer } from "./model-config";
 import { type PipelineLog, runPipeline } from "./pipeline";
+import { createView, replay } from "./run-view";
 import { expectBudgetHeld, PAGE_TEXT, slug, testRun } from "./testing";
 
 const many = (count: number, tag: string): PlannedQuery[] =>
@@ -406,6 +407,17 @@ describe("report deltas (U3, #6)", () => {
     writeReport: async function* () {
       yield* chunks;
     },
+    classifySentences: async ({
+      sentences,
+    }: {
+      sentences: readonly string[];
+    }) => ({
+      verdicts: sentences.map((_, i) => ({
+        sentence: i + 1,
+        verdict: "connective" as const,
+        reason: "It connects.",
+      })),
+    }),
   });
   const inPieces = (text: string, size: number) =>
     Array.from({ length: Math.ceil(text.length / size) }, (_, i) =>
@@ -485,5 +497,252 @@ describe("report deltas (U3, #6)", () => {
     expect(live).not.toContain("Sources");
     expect(live).not.toContain("fake.example");
     expect(live.trimEnd()).toBe(bodyOf(run.events));
+  });
+});
+
+describe("citation check (R3, R4, #7)", () => {
+  type Steps = Parameters<typeof testRun>[0]["model"];
+  const writing = (draft: string) => ({
+    writeReport: async function* () {
+      yield draft;
+    },
+  });
+  const verdicts =
+    (...kinds: ("fact" | "connective" | "scope")[]) =>
+    async ({ sentences }: { sentences: readonly string[] }) => ({
+      verdicts: sentences.map((_, i) => ({
+        sentence: i + 1,
+        verdict: kinds[i] ?? kinds.at(-1) ?? "fact",
+        reason: `Reason ${i + 1}.`,
+      })),
+    });
+  const runWith = async (model: Steps) => {
+    const run = testRun({ model });
+    const end = await runPipeline(run.deps);
+    expect(end.status).toBe("completed");
+    const checked = run.events.find((e) => e.type === "report.checked");
+    if (checked?.type !== "report.checked") throw new Error("no check event");
+    const report = run.view().report;
+    const body = report?.markdown.split("\n\n## Sources")[0] ?? "";
+    return { run, checked, body };
+  };
+
+  it("makes no extra model call for a report whose every sentence cites a claim", async () => {
+    const { run, checked } = await runWith(
+      writing("# Answer\n\nLFP lasts long [^1]. Heat hurts. [^2]"),
+    );
+    expect(run.calls.classifySentences).toBe(0);
+    expect(run.calls.repairSentences).toBe(0);
+    expect(checked).toMatchObject({
+      uncited: [],
+      repairs: [],
+      rewritten: [],
+      removed: [],
+      modelCalls: 0,
+    });
+  });
+
+  it("cites a claim that supports an uncited factual sentence", async () => {
+    const seen: unknown[] = [];
+    const { run, checked, body } = await runWith({
+      ...writing("LFP lasts long [^1]. LFP cells last about 3,000 cycles."),
+      repairSentences: async (input) => {
+        seen.push(input);
+        return {
+          repairs: [{ sentence: 1, action: "cite", claims: [2], text: "" }],
+        };
+      },
+    });
+    expect(body).toBe(
+      "LFP lasts long [^1]. LFP cells last about 3,000 cycles [^2].",
+    );
+    expect(run.calls.classifySentences).toBe(1);
+    expect(run.calls.repairSentences).toBe(1);
+    expect(seen).toMatchObject([
+      {
+        sentences: [
+          { text: "LFP cells last about 3,000 cycles.", opening: true },
+        ],
+        claims: [{ number: 1 }, { number: 2 }],
+      },
+    ]);
+    expect(checked).toMatchObject({
+      uncited: [
+        {
+          text: "LFP cells last about 3,000 cycles.",
+          opening: true,
+          verdict: "fact",
+        },
+      ],
+      repairs: [
+        { sentence: 0, action: "cite", claims: [2], unknownClaims: [] },
+      ],
+      removed: [],
+      modelCalls: 2,
+    });
+  });
+
+  it.each([
+    [
+      "deletes it",
+      { sentence: 1, action: "delete" as const, claims: [], text: "" },
+      "repair",
+    ],
+    [
+      "cites a claim that does not exist",
+      { sentence: 1, action: "cite" as const, claims: [7], text: "" },
+      "check",
+    ],
+    [
+      "does not answer for it",
+      { sentence: 9, action: "cite" as const, claims: [1], text: "" },
+      "check",
+    ],
+  ])(
+    "removes and records an uncited factual sentence when the repair %s",
+    async (_, answer, by) => {
+      const { run, checked, body } = await runWith({
+        ...writing(
+          "LFP lasts long [^1].\n\nSodium cells are cheaper. Heat hurts [^2].",
+        ),
+        repairSentences: async () => ({ repairs: [answer] }),
+      });
+      expect(body).toBe("LFP lasts long [^1].\n\nHeat hurts [^2].");
+      expect(checked.removed).toEqual([
+        { text: "Sodium cells are cheaper.", opening: false, by },
+      ]);
+      expect(run.view().citationCheck?.removed).toEqual(checked.removed);
+    },
+  );
+
+  it("keeps a connective sentence and a sentence about the scope of the claims", async () => {
+    const draft =
+      "LFP lasts long [^1].\n\nGuidance varies:\n\n- One [^1]\n- Two [^2]\n\nThe claims give no figures for cold climates.";
+    const { run, checked, body } = await runWith({
+      ...writing(draft),
+      classifySentences: verdicts("connective", "scope"),
+    });
+    expect(body).toBe(draft);
+    expect(run.calls.repairSentences).toBe(0);
+    expect(checked.uncited.map((s) => [s.text, s.verdict])).toEqual([
+      ["Guidance varies:", "connective"],
+      ["The claims give no figures for cold climates.", "scope"],
+    ]);
+    expect(checked.modelCalls).toBe(1);
+  });
+
+  it("gives an uncited opening answer its citations", async () => {
+    const { checked, body } = await runWith({
+      ...writing(
+        "## Answer\n\nLFP batteries last a long time. They reach 3,000 cycles [^1].\n\n## Detail\n\nHeat hurts [^2].",
+      ),
+      repairSentences: async ({ sentences }) => {
+        expect(sentences).toEqual([
+          { text: "LFP batteries last a long time.", opening: true },
+        ]);
+        return {
+          repairs: [{ sentence: 1, action: "cite", claims: [1, 2], text: "" }],
+        };
+      },
+    });
+    expect(body.split("\n\n")[1]).toBe(
+      "LFP batteries last a long time [^1][^2]. They reach 3,000 cycles [^1].",
+    );
+    expect(checked.removed).toEqual([]);
+  });
+
+  it("records the removal of an opening answer that the repair could not cite", async () => {
+    const { checked, body } = await runWith({
+      ...writing("LFP batteries last forever.\n\nHeat hurts [^2]."),
+      repairSentences: async () => ({ repairs: [] }),
+    });
+    expect(body).toBe("Heat hurts [^2].");
+    expect(checked.repairs).toEqual([
+      {
+        sentence: 0,
+        action: "none",
+        claims: [],
+        unknownClaims: [],
+        text: null,
+      },
+    ]);
+    expect(checked.removed).toEqual([
+      { text: "LFP batteries last forever.", opening: true, by: "check" },
+    ]);
+  });
+
+  it("keeps a cited rewrite and judges an uncited sentence of a rewrite again", async () => {
+    const judged: string[][] = [];
+    const { run, checked, body } = await runWith({
+      ...writing(
+        "LFP lasts long [^1]. LFP cells last 9,000 cycles and never fail.",
+      ),
+      classifySentences: async ({ sentences }) => {
+        judged.push([...sentences]);
+        return verdicts("fact")({ sentences });
+      },
+      repairSentences: async () => ({
+        repairs: [
+          {
+            sentence: 1,
+            action: "rewrite",
+            claims: [],
+            text: "LFP cells last about 3,000 cycles [^2][^8]. They never fail",
+          },
+        ],
+      }),
+    });
+    expect(body).toBe(
+      "LFP lasts long [^1]. LFP cells last about 3,000 cycles [^2].",
+    );
+    expect(judged).toEqual([
+      ["LFP cells last 9,000 cycles and never fail."],
+      ["They never fail."],
+    ]);
+    expect(run.calls.classifySentences).toBe(2);
+    expect(checked).toMatchObject({
+      repairs: [{ action: "rewrite", claims: [2], unknownClaims: [8] }],
+      rewritten: [{ text: "They never fail.", verdict: "fact" }],
+      removed: [{ text: "They never fail.", by: "check" }],
+      modelCalls: 3,
+    });
+  });
+
+  it("treats every sentence as a fact when the classify answer is malformed", async () => {
+    const { checked, body } = await runWith({
+      ...writing("LFP lasts long [^1]. Guidance varies."),
+      classifySentences: async () => {
+        throw new MalformedAnswer("classifySentences", "no object");
+      },
+    });
+    expect(checked.uncited).toMatchObject([{ verdict: "fact" }]);
+    expect(body).toBe("LFP lasts long [^1].");
+  });
+
+  it("puts every citation after the last word and before the closing period", async () => {
+    const { body } = await runWith(
+      writing(
+        'A fact. [^1] Two facts.[^1] [^2] A quote "ends here." [^2]\n\n- An item [^1]\n- Mid [^1] and end. [^2]',
+      ),
+    );
+    expect(body).toBe(
+      'A fact [^1]. Two facts [^1][^2]. A quote "ends here." [^2]\n\n- An item [^1]\n- Mid [^1] and end [^2].',
+    );
+  });
+
+  it("stores the check so that a replay shows it", async () => {
+    const { run } = await runWith({
+      ...writing("LFP lasts long [^1]. Sodium cells are cheaper."),
+    });
+    const replayed = replay(
+      createView(run.view().runId, run.view().question),
+      run.events,
+    );
+    expect(replayed.citationCheck).toEqual(run.view().citationCheck);
+    expect(replayed.citationCheck?.removed).toHaveLength(1);
+    const types = typesOf(run.events);
+    expect(types.indexOf("report.checked")).toBe(
+      types.indexOf("report.finished") - 1,
+    );
   });
 });

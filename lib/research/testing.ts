@@ -54,6 +54,21 @@ export const defaultModel: ModelSteps = {
     yield "LFP cells last long";
     yield ` [^${claims[0]?.number ?? 1}].`;
   },
+  classifySentences: async ({ sentences }) => ({
+    verdicts: sentences.map((_, i) => ({
+      sentence: i + 1,
+      verdict: "fact",
+      reason: "It states a fact.",
+    })),
+  }),
+  repairSentences: async ({ sentences }) => ({
+    repairs: sentences.map((_, i) => ({
+      sentence: i + 1,
+      action: "delete",
+      claims: [],
+      text: "",
+    })),
+  }),
 };
 
 type CallName = keyof ModelSteps | keyof WebActions;
@@ -71,6 +86,8 @@ export function testRun(script: {
     supports: 0,
     checkGaps: 0,
     writeReport: 0,
+    classifySentences: 0,
+    repairSentences: 0,
     search: 0,
     read: 0,
     map: 0,
@@ -91,6 +108,8 @@ export function testRun(script: {
     supports: counted("supports", m.supports),
     checkGaps: counted("checkGaps", m.checkGaps),
     writeReport: counted("writeReport", m.writeReport),
+    classifySentences: counted("classifySentences", m.classifySentences),
+    repairSentences: counted("repairSentences", m.repairSentences),
   };
   const web: WebActions = {
     search: counted("search", w.search),

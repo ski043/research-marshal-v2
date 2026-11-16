@@ -8,11 +8,18 @@ it("runs every model step on Claude Sonnet 5.5 with an explicit effort", () => {
   }
   expect(Object.keys(MODEL_CONFIG).sort()).toEqual([
     "checkGaps",
+    "classifySentences",
     "extract",
     "pickFromMap",
     "plan",
+    "repairSentences",
     "select",
     "supports",
     "writeReport",
   ]);
+});
+
+it("gives the citation check steps their own output limit", () => {
+  expect(MODEL_CONFIG.classifySentences.maxOutputTokens).toBeGreaterThan(0);
+  expect(MODEL_CONFIG.repairSentences.maxOutputTokens).toBeGreaterThan(0);
 });
