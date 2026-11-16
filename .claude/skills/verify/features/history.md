@@ -26,6 +26,7 @@ Preconditions:
 - **Stored and read back.** Run `.claude/skills/verify/scripts/prove.sh history offline completed`. The helper reads the run back from the database after the drive. `run.json` has the keys `summary`, `view`, and `events`. `report.md` equals the `markdown` field of the last `report.finished` event in `run.json`.
 - **Same run in the list.** Before the helper exits, the scratch database is gone. To see the list, create your own database: run `export DATABASE_URL=file:$PWD/.verify/history-list.db`, then `pnpm db:migrate`, then `pnpm research:offline completed` and `pnpm research:offline failures`, then `pnpm runs list`. The list has two rows with the status `completed`. Remove the file and run `unset DATABASE_URL` afterwards.
 - **Cancelled run kept.** Run `.claude/skills/verify/scripts/cancel-run.sh history-cancelled offline`. `run.txt` reads `Status    cancelled`, so the run was stored and can be opened.
+- **Model calls and tokens.** In the `run.txt` of a live proof, the `Model calls:` line gives the calls, the summed time, the queue wait, and the tokens, with one row per step below it, and the timeline marks model time as `measured`. An offline proof prints `Model calls: none recorded.`, because the fake model makes no call.
 - **Real history, read only.** Run `pnpm runs list` and `pnpm runs show latest` without `DATABASE_URL` in the shell. They read `dev.db` and change nothing.
 
 ## Gotchas
