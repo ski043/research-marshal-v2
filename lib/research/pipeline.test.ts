@@ -815,6 +815,53 @@ describe("citation check (R3, R4, #7)", () => {
     });
   });
 
+  it.each([
+    [
+      "a one-word answer",
+      "Is it safe [^1]? No. LFP cells are safe [^2].",
+      "No.",
+    ],
+    [
+      "a sentence that ends on a single capital",
+      "People often lack vitamin D. Supplements help [^1].",
+      "People often lack vitamin D.",
+    ],
+  ])("judges %s as its own sentence", async (_, draft, sentence) => {
+    const judged: string[][] = [];
+    await runWith({
+      ...writing(draft),
+      classifySentences: async ({ sentences }) => {
+        judged.push([...sentences]);
+        return verdicts("connective")({ sentences });
+      },
+    });
+    expect(judged).toEqual([[sentence]]);
+  });
+
+  it.each([
+    [
+      "initials in a name",
+      "A study by John F. Kennedy School found gains [^1].",
+    ],
+    ["a number abbreviation", "Model No. 5 lasts long [^1]."],
+  ])("keeps %s inside one sentence", async (_, draft) => {
+    const { run } = await runWith(writing(draft));
+    expect(run.calls.classifySentences).toBe(0);
+  });
+
+  it("marks the first item of an opening list as the opening answer", async () => {
+    const opening: boolean[][] = [];
+    await runWith({
+      ...writing("- LFP cells last very long.\n- They are safe [^1]."),
+      classifySentences: verdicts("fact"),
+      repairSentences: async ({ sentences }) => {
+        opening.push(sentences.map((s) => s.opening));
+        return { repairs: [] };
+      },
+    });
+    expect(opening).toEqual([[true]]);
+  });
+
   it("ends a rewrite that closes on a bracket, so it does not run into the next sentence", async () => {
     const judged: string[][] = [];
     const { body } = await runWith({
