@@ -165,6 +165,29 @@ describe("the check table", () => {
     );
   });
 
+  it("allows one rendered retry of an empty page (B7)", () => {
+    const retried = syntheticRun({
+      edit: insertBefore("reads.planned", [
+        {
+          type: "decodo.requested",
+          call: 90,
+          round: 1,
+          endpoint: "universal",
+          input: URL_A,
+          rendered: true,
+        },
+        {
+          type: "decodo.settled",
+          call: 90,
+          outcome: "ok",
+          detail: null,
+          durationMs: 1,
+        },
+      ]),
+    });
+    expect(byId(runChecks(retried), "budget.no-reread").status).toBe("pass");
+  });
+
   it("fails a web action that is not search, read or map (W2, W3)", () => {
     const crawl = syntheticRun({
       edit: insertBefore("reads.planned", [

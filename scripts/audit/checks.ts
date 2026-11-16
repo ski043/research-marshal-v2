@@ -260,15 +260,28 @@ const CHECKS: CheckSpec[] = [
   {
     id: "budget.no-reread",
     requirement: "B2",
-    measures: "No page is read twice in a run.",
+    measures:
+      "No page is read twice in a run. One rendered retry of an empty page is the same read (B7).",
     run(ctx) {
-      const urls = eventsOf(ctx.stored, "decodo.requested")
-        .filter((r) => r.endpoint === "universal")
-        .map((r) => r.input);
-      const twice = [...countBy(urls, (u) => u)].filter(([, n]) => n > 1);
+      const reads = eventsOf(ctx.stored, "decodo.requested").filter(
+        (r) => r.endpoint === "universal",
+      );
+      const urls = reads.map((r) => r.input);
+      const twice = [
+        ...countBy(
+          reads,
+          (r) => `${r.rendered ? "rendered" : "plain"} ${r.input}`,
+        ),
+      ].filter(([, n]) => n > 1);
+      const rendered = reads.filter((r) => r.rendered).length;
       return judge(
-        twice.map(([url, n]) => `read ${n} times: ${url}`),
-        `${urls.length} read attempts, ${new Set(urls).size} distinct pages`,
+        twice.map(([key, n]) => {
+          const [mode, url] = key.split(" ");
+          return mode === "plain"
+            ? `read ${n} times: ${url}`
+            : `rendered ${n} times: ${url}`;
+        }),
+        `${urls.length} read attempts, ${new Set(urls).size} distinct pages${rendered > 0 ? `, ${rendered} rendered retries` : ""}`,
       );
     },
   },
@@ -587,7 +600,9 @@ const CHECKS: CheckSpec[] = [
         problems,
         `read ${read.length}, failed ${failed.length}${kinds ? ` (${kinds})` : ""}, skipped ${notChosen.length} found but not chosen${reasons ? ` and ${reasons}` : ""}`,
         ...(unfinished.length > 0
-          ? [`${plural(unfinished.length, "read")} still open at the cancel`]
+          ? [
+              `${plural(unfinished.length, "read")} still open ${ctx.status === "CANCELLED" ? "at the cancel" : "when the run ended"}`,
+            ]
           : []),
       );
     },
