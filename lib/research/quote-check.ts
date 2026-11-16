@@ -16,16 +16,23 @@ const LINK_TEXT = String.raw`(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*`;
 const LINK_TARGET = String.raw`(?:[^()\s]|\([^()\s]*\))*(?:\s+(?:"[^"]*"|'[^']*'))?`;
 const IMAGE = new RegExp(String.raw`!\[${LINK_TEXT}\]\(${LINK_TARGET}\)`, "g");
 const LINK = new RegExp(String.raw`\[(${LINK_TEXT})\]\(${LINK_TARGET}\)`, "g");
-const REFERENCE_MARK =
-  /\s*\[[*_]*(?:\^?\d{1,3}(?:[,\u2013-]\d{1,3})*|[a-z]|note \d{1,3}|citation needed|edit)[*_]*\]/g;
+// Notes in a row share one mark: `[1], [2]` or `[12](#a),[13](#b)`. The comma
+// or dash between them goes with them.
+const BETWEEN_NOTES = String.raw`\s*[,\u2013-]\s*`;
+const ONE_MARK = String.raw`\[[*_]*(?:\^?\d{1,3}(?:[,\u2013-]\d{1,3})*|[a-z]|note \d{1,3}|citation needed|edit)[*_]*\]`;
+const REFERENCE_MARK = new RegExp(
+  String.raw`\s*${ONE_MARK}(?:${BETWEEN_NOTES}${ONE_MARK})*`,
+  "g",
+);
 const NOTE = String.raw`[*_]*(?:\^?\d{1,3}(?:[,\u2013-]\d{1,3})*|[a-z]|note \d{1,3})[*_]*`;
 const NOTE_TEXT = String.raw`\[(?:${NOTE}|\\\[${NOTE}\\\])\]`;
 const LINK_TITLE = String.raw`(?:\s+(?:"[^"]*"|'[^']*'))?`;
 // A note link touches the word before it, as in `fell.[43](#R43)` or
 // `effects[14](/articles/x#ref-CR14)`. After a space the linked text is part
 // of the sentence, as in `Fig. [4](#Fig4)`.
+const ONE_NOTE_LINK = String.raw`${NOTE_TEXT}\([^()\s#]*#[^()\s]*${LINK_TITLE}\)`;
 const NOTE_LINK = new RegExp(
-  String.raw`(?<=\S)${NOTE_TEXT}\([^()\s#]*#[^()\s]*${LINK_TITLE}\)`,
+  String.raw`(?<=\S)${ONE_NOTE_LINK}(?:${BETWEEN_NOTES}${ONE_NOTE_LINK})*`,
   "g",
 );
 // Comment syntax inside a code block or a code span is page text.
@@ -215,6 +222,11 @@ const CLOSING = /^["')\].,;:!?]*$/;
 // `antiquity.1`. Only a quote that ends on a word may leave them out.
 const NOTE_DIGITS = /^[.,;:!?]["')\]]*\d{1,3}$/;
 const ENDS_ON_WORD = /\p{L}{2}$/u;
+// A page can leave out the space between two sentences, as in
+// `haemorrhages.These`. The quote may end or start at that sentence break.
+const NEXT_SENTENCE = /^[.!?]["'”’)\]]*\p{Lu}/u;
+const SENTENCE_BEFORE = /[.!?]["'”’)\]]*$/;
+const STARTS_SENTENCE = /^\p{Lu}/u;
 
 function trimStart(word: string): string {
   let out = word;
@@ -262,12 +274,17 @@ function edgeMatches(
   ) {
     const before = pageWord.slice(0, from);
     const after = pageWord.slice(from + word.length);
-    const beforeOk = at === "end" ? before === "" : OPENING.test(before);
+    const beforeOk =
+      at === "end"
+        ? before === ""
+        : OPENING.test(before) ||
+          (STARTS_SENTENCE.test(word) && SENTENCE_BEFORE.test(before));
     const afterOk =
       at === "start"
         ? after === ""
         : CLOSING.test(after) ||
-          (ENDS_ON_WORD.test(word) && NOTE_DIGITS.test(after));
+          (ENDS_ON_WORD.test(word) &&
+            (NOTE_DIGITS.test(after) || NEXT_SENTENCE.test(after)));
     if (beforeOk && afterOk) return true;
   }
   return false;
