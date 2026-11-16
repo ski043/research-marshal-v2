@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -48,3 +49,11 @@ next-env.d.ts
 *.db-journal
 *.db-wal
 *.db-shm
+*.sqlite*
+
+# verification evidence
+/.verify/
+*.har
+
+# claude code
+.claude/settings.local.json

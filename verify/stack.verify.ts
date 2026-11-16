@@ -8,8 +8,11 @@ import { generateText, Output, streamText } from "ai";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-const envFile = [".env.local", ".env"].find((file) => existsSync(file));
-if (envFile) process.loadEnvFile(envFile);
+// loadEnvFile never overrides a set variable, so .env.local wins over .env and
+// the shell wins over both, the same rule as `pnpm research` and Next.js.
+for (const file of [".env.local", ".env"]) {
+  if (existsSync(file)) process.loadEnvFile(file);
+}
 const { env } = await import("@/lib/env");
 const { MODEL_CONFIG } = await import("@/lib/research/model-config");
 const { createDecodoWeb, sdkPort } = await import("@/lib/research/decodo");
