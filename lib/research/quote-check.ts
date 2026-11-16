@@ -19,8 +19,13 @@ const LINK = new RegExp(String.raw`\[(${LINK_TEXT})\]\(${LINK_TARGET}\)`, "g");
 const REFERENCE_MARK =
   /\s*\[[*_]*(?:\^?\d{1,3}|[a-z]|note \d{1,3}|citation needed|edit)[*_]*\]/g;
 const NOTE = String.raw`[*_]*(?:\^?\d{1,3}(?:[,\u2013-]\d{1,3})*|[a-z]|note \d{1,3})[*_]*`;
+const NOTE_TEXT = String.raw`\[(?:${NOTE}|\\\[${NOTE}\\\])\]`;
+const LINK_TITLE = String.raw`(?:\s+(?:"[^"]*"|'[^']*'))?`;
+// A link to another address with a fragment is a note only when it is glued to
+// the word before it, as in `effects[14](/articles/x#ref-CR14)`. After a space
+// it is part of the sentence, as in `Fig. [4](/articles/x#Fig4)`.
 const NOTE_LINK = new RegExp(
-  String.raw`\s*\[(?:${NOTE}|\\\[${NOTE}\\\])\]\(#[^()\s]*(?:\s+(?:"[^"]*"|'[^']*'))?\)`,
+  String.raw`\s*${NOTE_TEXT}\(#[^()\s]*${LINK_TITLE}\)|(?<=\S)${NOTE_TEXT}\([^()\s#]+#[^()\s]*${LINK_TITLE}\)`,
   "g",
 );
 const COMMENT = /<!--[\s\S]*?(?:-->|$)/g;

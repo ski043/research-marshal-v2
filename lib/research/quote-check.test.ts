@@ -229,6 +229,24 @@ const rows: Row[] = [
     FOUND,
   ],
   [
+    "a note link to the same article by its path",
+    'The effect is small[14](/articles/x#ref-CR14 "Davis, C. (2010).") (systematic error).',
+    "The effect is small (systematic error).",
+    FOUND,
+  ],
+  [
+    "a figure number that links to the figure",
+    "No association was found (Fig.\u00a0[4](/articles/x#Fig4)).",
+    "No association was found (Fig. 4).",
+    FOUND,
+  ],
+  [
+    "a figure number that links to the figure, left out",
+    "No association was found (Fig. [4](/articles/x#Fig4)) in adults.",
+    "No association was found (Fig. ) in adults.",
+    NOT_ON_PAGE,
+  ],
+  [
     "a footnote link of two notes glued to the next sentence",
     "Risk rose with heavy drinking.[5,10](#bib5)No study showed a benefit.",
     "No study showed a benefit.",
