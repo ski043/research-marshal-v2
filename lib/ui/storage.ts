@@ -3,7 +3,8 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 const listeners = new Map<string, Set<() => void>>();
-// Holds a value for this page when localStorage refuses it, as in a private window.
+// Holds a value for this page while localStorage refuses to save it: a private window,
+// or a full quota. It wins over the older value that storage still returns.
 const memory = new Map<string, string>();
 
 function notify(key: string): void {
@@ -24,12 +25,24 @@ function subscribe(key: string, listener: () => void): () => void {
   };
 }
 
-function read(key: string): string | null {
+export function readStored(key: string): string | null {
+  const unsaved = memory.get(key);
+  if (unsaved !== undefined) return unsaved;
   try {
-    return localStorage.getItem(key) ?? memory.get(key) ?? null;
+    return localStorage.getItem(key);
   } catch {
-    return memory.get(key) ?? null;
+    return null;
   }
+}
+
+export function writeStored(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+    memory.delete(key);
+  } catch {
+    memory.set(key, value);
+  }
+  notify(key);
 }
 
 /**
@@ -41,19 +54,9 @@ export function useStored(
 ): readonly [string | null, (value: string) => void] {
   const value = useSyncExternalStore(
     useCallback((listener) => subscribe(key, listener), [key]),
-    () => read(key),
+    () => readStored(key),
     () => null,
   );
-  const write = useCallback(
-    (next: string) => {
-      try {
-        localStorage.setItem(key, next);
-      } catch {
-        memory.set(key, next);
-      }
-      notify(key);
-    },
-    [key],
-  );
+  const write = useCallback((next: string) => writeStored(key, next), [key]);
   return [value, write];
 }
