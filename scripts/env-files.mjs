@@ -48,14 +48,16 @@ function formatValue(value) {
 
 /**
  * Adds to `.env.local` only the names it lacks. A name that is already in the
- * file keeps its value, even an empty one.
+ * file keeps its value, even an empty one. A name that `.env` provides is left
+ * to `.env`, because a line in `.env.local` would override it.
  *
  * @param {string | null} existingText the current `.env.local`, or null when it does not exist
  * @param {Record<string, string | undefined> | null} durable the durable file, or null when it does not exist
+ * @param {Record<string, string | undefined> | null} [dotEnv] the `.env` file, or null when it does not exist
  * @returns {{ text: string, added: string[], missing: string[], empty: string[] }}
  *   `missing`: names neither file provides. `empty`: names `.env.local` holds with an empty value.
  */
-export function mergeEnvLocal(existingText, durable) {
+export function mergeEnvLocal(existingText, durable, dotEnv = null) {
   const existing = parseEnv(existingText ?? "");
   /** @type {string[]} */
   const lines = [];
@@ -75,6 +77,7 @@ export function mergeEnvLocal(existingText, durable) {
       if (existing[name] === "") empty.push(name);
       continue;
     }
+    if (dotEnv?.[name]) continue;
     if (name === "DATABASE_URL") add(name, DEFAULT_DATABASE_URL);
     else if (durable?.[name]) add(name, durable[name]);
     else missing.push(name);

@@ -118,6 +118,12 @@ async function migrationState(root, dbFile) {
  * @param {string} name
  */
 function envFix(ctx, name) {
+  const held = resolveAppEnv(ctx.root, ctx.shellEnv)[name];
+  if (held?.value === "") {
+    return held.source === "the shell"
+      ? `Unset ${name} in the shell, or give it a value there`
+      : `Delete the empty ${name} line in ${held.source}, then run \`${BOOTSTRAP}\``;
+  }
   if (!DURABLE_ENV_NAMES.includes(name)) return BOOTSTRAP;
   const durable = durableEnvPath(ctx.shellEnv);
   if (readEnvFile(durable)?.[name]) return BOOTSTRAP;

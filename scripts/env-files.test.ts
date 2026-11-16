@@ -76,6 +76,16 @@ describe("mergeEnvLocal", () => {
     expect(result.empty).toEqual(["ANTHROPIC_API_KEY"]);
   });
 
+  it("leaves a name to .env when .env provides it", () => {
+    const result = mergeEnvLocal(null, durable, {
+      DATABASE_URL: "file:./history.db",
+    });
+
+    expect(result.added).toEqual(["ANTHROPIC_API_KEY", "DECODO_AUTH_TOKEN"]);
+    expect(parseEnv(result.text).DATABASE_URL).toBeUndefined();
+    expect(result.missing).toEqual([]);
+  });
+
   it("quotes a value that a bare line would change", () => {
     const result = mergeEnvLocal(null, {
       ANTHROPIC_API_KEY: "a b#c",

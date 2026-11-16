@@ -70,19 +70,25 @@ const durablePath = durableEnvPath();
 const durable = readEnvFile(durablePath);
 const envLocal = path.join(root, ".env.local");
 const before = existsSync(envLocal) ? readFileSync(envLocal, "utf8") : null;
-const merge = mergeEnvLocal(before, durable);
-if (merge.text !== before) {
+const merge = mergeEnvLocal(
+  before,
+  durable,
+  readEnvFile(path.join(root, ".env")),
+);
+// The mode option applies only to a new file, so an existing file is locked
+// down before a key is written to it.
+if (before !== null) chmodSync(envLocal, 0o600);
+if (merge.added.length > 0) {
   writeFileSync(envLocal, merge.text, { mode: 0o600 });
 }
-chmodSync(envLocal, 0o600);
-if (before === null) {
+if (merge.added.length === 0) {
+  console.log("Every variable already has a line. Changed nothing.");
+} else if (before === null) {
   console.log(`Created .env.local (mode 600) with ${merge.added.join(", ")}.`);
-} else if (merge.added.length > 0) {
+} else {
   console.log(
     `Added to .env.local: ${merge.added.join(", ")}. Kept every existing value.`,
   );
-} else {
-  console.log(".env.local already has every variable. Changed nothing.");
 }
 if (durable !== null && (statSync(durablePath).mode & 0o077) !== 0) {
   console.log(
