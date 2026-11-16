@@ -159,6 +159,11 @@ export async function loadRunRecord(runId: RunId): Promise<RunRecord | null> {
   return { summary, view, events };
 }
 
+/** The row of a run without its events: enough to tell whether the run has ended. */
+export async function loadRunSummary(runId: RunId): Promise<RunSummary | null> {
+  return store.readRun(runId);
+}
+
 export async function listRuns(): Promise<readonly RunSummary[]> {
   return store.listRuns();
 }
