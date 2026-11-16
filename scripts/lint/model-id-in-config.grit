@@ -1,0 +1,21 @@
+// TECH_STACK.md: one module maps each model step to a model ID, and no other
+// file names a model.
+language js
+
+or {
+  JsStringLiteralExpression(),
+  JsTemplateExpression(),
+  JsRegexLiteralExpression()
+} as $text where {
+  $text <: r"(?s).*claude-(?:opus|sonnet|haiku|fable|instant|[0-9]).*",
+  not $filename <: or {
+    r".*/lib/research/model-config\.ts",
+    // The test of model-config.ts asserts the ID that the module returns.
+    r".*/lib/research/model-config\.test\.ts",
+    // The stack check asserts the ID that Anthropic reports back.
+    r".*/verify/[^/]+",
+    // The rules test writes violations on purpose to prove this rule fires.
+    r".*/scripts/project-rules\.test\.ts"
+  },
+  register_diagnostic(span=$text, message="Name a model only in lib/research/model-config.ts.", severity="error")
+}
