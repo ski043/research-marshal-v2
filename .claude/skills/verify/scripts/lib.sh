@@ -27,10 +27,20 @@ new_evidence_dir() {
   mktemp -d "$root/.verify/$slug-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX"
 }
 
-# Interrupts the runs that this helper started, the way Ctrl-C does.
+# Prints the node processes below $1 that have no node process below them.
+# pnpm is a node process too. The run is the innermost one.
+leaf_nodes_below() {
+  local pid
+  for pid in $(nodes_below "$1"); do
+    [ -z "$(nodes_below "$pid")" ] && echo "$pid"
+  done
+}
+
+# Interrupts the runs that this helper started, the way Ctrl-C does. Each run
+# gets one signal. A second one would make it quit before it stores its cancel.
 interrupt_runs() {
   local pid
-  for pid in $(nodes_below $$); do
+  for pid in $(leaf_nodes_below $$); do
     kill -INT "$pid" 2>/dev/null
   done
 }
