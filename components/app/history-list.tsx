@@ -105,27 +105,31 @@ export function HistoryList({
                         aria-current={on ? "page" : undefined}
                         title={`${run.question}\n${STATUS_LABEL[run.status]} · ${run.model} · ${formatDateTime(created)}`}
                         className={cn(
-                          "flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-ring",
+                          "flex items-start gap-2.5 rounded-lg px-3 py-1.5 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-ring",
                           on
                             ? "bg-background text-foreground shadow-xs ring-1 ring-border"
                             : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                         )}
                       >
-                        <span className="flex size-4 shrink-0 items-center justify-center">
+                        <span className="flex h-5 w-4 shrink-0 items-center justify-center">
                           <StatusIcon status={run.status} />
                         </span>
                         <span className="sr-only">
                           {STATUS_LABEL[run.status]}:
                         </span>
-                        <span className="min-w-0 flex-1 truncate">
-                          {run.question}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{run.question}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {run.model}
+                            {" · "}
+                            <time
+                              dateTime={run.createdAt}
+                              className="tabular-nums"
+                            >
+                              {relativeTime(created, clock)}
+                            </time>
+                          </span>
                         </span>
-                        <time
-                          dateTime={run.createdAt}
-                          className="shrink-0 text-xs tabular-nums text-muted-foreground"
-                        >
-                          {relativeTime(created, clock)}
-                        </time>
                       </Link>
                     </li>
                   );
