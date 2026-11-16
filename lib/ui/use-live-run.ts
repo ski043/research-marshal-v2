@@ -31,22 +31,27 @@ export function useLiveRun(initial: {
     );
     let buffer: RunEvent[] = [];
     let frame: number | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      if (timer !== null) clearTimeout(timer);
       frame = null;
+      timer = null;
       const batch = buffer;
       buffer = [];
-      add(batch);
+      if (batch.length > 0) add(batch);
     };
     source.onmessage = (message) => {
       const event = RunEvent.safeParse(JSON.parse(message.data));
       if (!event.success) return;
       buffer.push(event.data);
       frame ??= requestAnimationFrame(flush);
+      // A hidden tab gets no animation frame, and the run must still reach its end there.
+      timer ??= setTimeout(flush, 250);
     };
     return () => {
       source.close();
-      if (frame !== null) cancelAnimationFrame(frame);
-      if (buffer.length > 0) add(buffer);
+      flush();
     };
   }, [running, runId]);
 

@@ -74,7 +74,7 @@ export function Sidebar() {
           href="/"
           className={cn(
             buttonVariants({ variant: "outline" }),
-            "w-full justify-start bg-background",
+            "w-full justify-start bg-background dark:border-border dark:bg-background dark:hover:bg-sidebar-accent",
           )}
         >
           <SquarePenIcon aria-hidden />

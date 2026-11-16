@@ -14,6 +14,8 @@
 //   {"waitText": "Finished"}              until the page text contains it
 //   {"waitGone": "css selector"}
 //   {"click": "css selector"}  {"hover": "css selector"}  {"focus": "css selector"}
+//                                         click and hover take "text": the first match
+//                                         that contains it
 //   {"type": "text"}                      into the focused element
 //   {"press": "Enter"}                    add "shift": true; Tab, Escape, Space, arrows
 //   {"eval": "document.title"}            prints the value as JSON
@@ -194,20 +196,28 @@ async function until(expression, timeout, what) {
   throw new Error(`timed out after ${timeout} ms waiting for ${what}`);
 }
 
-async function boxOf(selector) {
+// The first element that matches `selector` and, when `text` is given, contains it.
+async function boxOf(selector, text) {
   const box = await evaluate(`(() => {
-    const el = document.querySelector(${JSON.stringify(selector)});
+    const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find(
+      (each) => ${JSON.stringify(text ?? null)} === null ||
+        each.textContent.includes(${JSON.stringify(text ?? "")}),
+    );
     if (!el) return null;
     el.scrollIntoView({ block: "center", inline: "center" });
     const r = el.getBoundingClientRect();
     return { x: r.x, y: r.y, width: r.width, height: r.height };
   })()`);
-  if (!box) throw new Error(`no element matches ${selector}`);
+  if (!box) {
+    throw new Error(
+      `no element matches ${selector}${text ? ` with the text ${text}` : ""}`,
+    );
+  }
   return box;
 }
 
-async function pointAt(selector) {
-  const box = await boxOf(selector);
+async function pointAt(selector, text) {
+  const box = await boxOf(selector, text);
   const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   await send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point });
   return point;
@@ -264,7 +274,7 @@ async function run(step) {
       `the text ${step.waitText}`,
     );
   } else if (step.click) {
-    const point = await pointAt(step.click);
+    const point = await pointAt(step.click, step.text);
     const button = { button: "left", clickCount: 1, ...point };
     await send("Input.dispatchMouseEvent", { type: "mousePressed", ...button });
     await send("Input.dispatchMouseEvent", {
@@ -272,7 +282,7 @@ async function run(step) {
       ...button,
     });
   } else if (step.hover) {
-    await pointAt(step.hover);
+    await pointAt(step.hover, step.text);
   } else if (step.focus) {
     await boxOf(step.focus);
     await evaluate(
