@@ -5,6 +5,10 @@ import type { Candidate, VerifiedClaim } from "./run-view";
 
 export type ClaimDraft = { statement: string; quote: string };
 
+// Longer than every real quote of the stored runs once link targets are left
+// out. A quote over the cap is dropped as a V1 failure.
+export const QUOTE_MAX_CHARS = 1_000;
+
 export class MalformedAnswer extends Error {
   readonly step: string;
   constructor(step: string, message: string) {

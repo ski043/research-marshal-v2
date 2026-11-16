@@ -3,7 +3,12 @@ import { generateText, NoObjectGeneratedError, Output, streamText } from "ai";
 import { z } from "zod";
 import { FatalRunError, RunCancelled } from "./budget";
 import { type PlannedQuery, SourceLabel } from "./events";
-import { MalformedAnswer, MODEL_CONFIG, type ModelSteps } from "./model-config";
+import {
+  MalformedAnswer,
+  MODEL_CONFIG,
+  type ModelSteps,
+  QUOTE_MAX_CHARS,
+} from "./model-config";
 
 const QuerySchema = z.object({
   subQuestion: z.string().describe("One part of the question."),
@@ -28,14 +33,12 @@ const SelectSchema = z.object({
 
 const PicksSchema = z.object({ picks: z.array(z.number()) });
 
-export const QUOTE_MAX_CHARS = 1_000;
-
 export const ExtractSchema = z.object({
   label: SourceLabel,
   claims: z.array(
     z.object({
       statement: z.string(),
-      quote: z.string().max(QUOTE_MAX_CHARS),
+      quote: z.string(),
     }),
   ),
 });

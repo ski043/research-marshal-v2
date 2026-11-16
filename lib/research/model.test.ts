@@ -5,11 +5,15 @@ import {
   createModelSteps,
   ExtractSchema,
   PROMPTS,
-  QUOTE_MAX_CHARS,
   WEB_DATA_CLAUSE,
   webData,
 } from "./model";
-import { MalformedAnswer, MODEL_CONFIG, type ModelSteps } from "./model-config";
+import {
+  MalformedAnswer,
+  MODEL_CONFIG,
+  type ModelSteps,
+  QUOTE_MAX_CHARS,
+} from "./model-config";
 import { runPipeline } from "./pipeline";
 import {
   type AnthropicRequest,
@@ -157,13 +161,10 @@ describe("caps", () => {
     claims: [{ statement: "LFP cells last long.", quote }],
   });
 
-  it("caps the quote in the extract schema", () => {
-    expect(
-      ExtractSchema.safeParse(draft("x".repeat(QUOTE_MAX_CHARS))).success,
-    ).toBe(true);
+  it("lets the extract schema take a quote over the cap, so the pipeline can drop that one claim", () => {
     expect(
       ExtractSchema.safeParse(draft("x".repeat(QUOTE_MAX_CHARS + 1))).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("caps the quote above the longest real quotes but far below a page", () => {
@@ -221,23 +222,6 @@ describe("model requests", () => {
     const { instructions, prompt } = promptOf(step);
     expect(request?.system).toContain(instructions);
     expect(request?.prompt).toContain(prompt);
-  });
-
-  it("drops an extract answer whose quote is over the cap", async () => {
-    fakeAnthropic(() => ({
-      text: JSON.stringify({
-        label: "Blog",
-        claims: [
-          {
-            statement: "LFP cells last long.",
-            quote: "x".repeat(QUOTE_MAX_CHARS + 1),
-          },
-        ],
-      }),
-    }));
-    await expect(callStep(realSteps(), "extract")).rejects.toBeInstanceOf(
-      MalformedAnswer,
-    );
   });
 
   it("names the output limit when a structured answer is cut off", async () => {
@@ -399,7 +383,7 @@ describe("hostile pages", () => {
     }
   });
 
-  it("drops a page whose giant quote breaks the cap before V2 sees it", async () => {
+  it("drops only the claim whose giant quote breaks the cap, before V2 sees it", async () => {
     const markdown = hostilePage("quote-giant");
     const giant = /^LFP cells last about 3,000 cycles in.*$/m.exec(
       markdown,
@@ -409,6 +393,10 @@ describe("hostile pages", () => {
         label: "Blog",
         claims: [
           { statement: "LFP cells last about 3,000 cycles.", quote: giant },
+          {
+            statement: "Heat shortens the life of LFP cells.",
+            quote: "Heat shortens the life of LFP cells.",
+          },
         ],
       }),
     }));
@@ -419,11 +407,18 @@ describe("hostile pages", () => {
     });
     await runPipeline(run.deps);
 
-    expect(run.calls.supports).toBe(0);
-    expect(run.view().verified).toEqual([]);
+    const dropped = run.events.filter((e) => e.type === "claim.dropped");
+    expect(dropped.length).toBeGreaterThan(0);
+    for (const drop of dropped) {
+      expect(drop).toMatchObject({ failed: "V1", quote: giant });
+      expect(drop.reason).toBe(`too-long: over ${QUOTE_MAX_CHARS} characters`);
+    }
     expect(
       run.events.filter((e) => e.type === "page.extract-failed"),
-    ).toHaveLength(2);
+    ).toHaveLength(0);
+    expect(run.view().verified.map((claim) => claim.quote)).toContain(
+      "Heat shortens the life of LFP cells.",
+    );
     expect(
       api.requests.every(
         (r) => r.max_tokens === MODEL_CONFIG.extract.maxOutputTokens,
