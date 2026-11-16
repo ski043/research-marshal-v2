@@ -1,4 +1,9 @@
-import { type DecodoEndpoint, domainOf, type RunEvent } from "./events";
+import {
+  type DecodoEndpoint,
+  domainOf,
+  type ModelStep,
+  type RunEvent,
+} from "./events";
 import type { RunRecord } from "./index";
 import type { PageView, RunView } from "./run-view";
 
@@ -322,6 +327,19 @@ export type Phase = {
   decodo: { calls: number; longestMs: number; sumMs: number } | null;
 };
 
+// A model call is stored when it ends, next to the events of the phase that made it.
+const MODEL_PHASE: Readonly<Record<ModelStep, (r: string) => string>> = {
+  plan: () => "plan (model)",
+  select: (r) => `${r}select (model)`,
+  pickFromMap: (r) => `${r}map`,
+  extract: (r) => `${r}reads, extract, V2`,
+  supports: (r) => `${r}reads, extract, V2`,
+  checkGaps: (r) => `${r}gap check (model)`,
+  writeReport: () => "report: streaming",
+  classifySentences: () => "report: citation check",
+  repairSentences: () => "report: citation check",
+};
+
 export function timelineOf(events: readonly RunEvent[]): Phase[] {
   const first = events[0];
   if (!first) return [];
@@ -350,6 +368,8 @@ export function timelineOf(events: readonly RunEvent[]): Phase[] {
         if (call?.endpoint === "map") return `${r}map`;
         return `${r}reads, extract, V2`;
       }
+      case "model.called":
+        return MODEL_PHASE[event.step](r);
       case "search.finished":
         return `${r}searches`;
       case "select.finished":

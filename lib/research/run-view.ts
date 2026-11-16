@@ -4,6 +4,10 @@ import {
   ClaimNumber,
   type DecodoEndpoint,
   domainOf,
+  type ModelCall,
+  type ModelCallOutcome,
+  type ModelStep,
+  type ModelTokens,
   type PageUrl,
   type PlannedQuery,
   type Question,
@@ -105,6 +109,23 @@ export type BudgetUsage = {
   maps: number;
 };
 
+export type ModelStepUsage = {
+  calls: number;
+  outcomes: Readonly<Record<ModelCallOutcome, number>>;
+  durationMs: number;
+  longestMs: number;
+  queuedMs: number;
+  longestQueueMs: number;
+  // A total stays null while no call reported that count.
+  tokens: ModelTokens;
+  withoutTokens: number;
+};
+
+export type ModelUsage = {
+  byStep: Readonly<Partial<Record<ModelStep, ModelStepUsage>>>;
+  total: ModelStepUsage;
+};
+
 export type ReportView =
   | { kind: "draft"; markdown: string }
   | {
@@ -130,7 +151,55 @@ export type RunView = {
   citationCheck: CitationCheck | null;
   budget: BudgetUsage;
   decodoCalls: readonly DecodoCall[];
+  model: ModelUsage;
 };
+
+const NO_TOKENS: ModelTokens = {
+  input: null,
+  output: null,
+  reasoning: null,
+  cacheRead: null,
+  cacheWrite: null,
+};
+
+const NO_MODEL_CALLS: ModelStepUsage = {
+  calls: 0,
+  outcomes: { ok: 0, truncated: 0, failed: 0, cancelled: 0 },
+  durationMs: 0,
+  longestMs: 0,
+  queuedMs: 0,
+  longestQueueMs: 0,
+  tokens: NO_TOKENS,
+  withoutTokens: 0,
+};
+
+const addCount = (sum: number | null, n: number | null) =>
+  n === null ? sum : (sum ?? 0) + n;
+
+function addCall(usage: ModelStepUsage, call: ModelCall): ModelStepUsage {
+  const { tokens } = usage;
+  return {
+    calls: usage.calls + 1,
+    outcomes: {
+      ...usage.outcomes,
+      [call.outcome]: usage.outcomes[call.outcome] + 1,
+    },
+    durationMs: usage.durationMs + call.durationMs,
+    longestMs: Math.max(usage.longestMs, call.durationMs),
+    queuedMs: usage.queuedMs + call.queuedMs,
+    longestQueueMs: Math.max(usage.longestQueueMs, call.queuedMs),
+    tokens: {
+      input: addCount(tokens.input, call.tokens.input),
+      output: addCount(tokens.output, call.tokens.output),
+      reasoning: addCount(tokens.reasoning, call.tokens.reasoning),
+      cacheRead: addCount(tokens.cacheRead, call.tokens.cacheRead),
+      cacheWrite: addCount(tokens.cacheWrite, call.tokens.cacheWrite),
+    },
+    withoutTokens:
+      usage.withoutTokens +
+      (call.tokens.input === null && call.tokens.output === null ? 1 : 0),
+  };
+}
 
 export function createView(runId: RunId, question: Question): RunView {
   return {
@@ -155,6 +224,7 @@ export function createView(runId: RunId, question: Question): RunView {
       maps: 0,
     },
     decodoCalls: [],
+    model: { byStep: {}, total: NO_MODEL_CALLS },
   };
 }
 
@@ -307,6 +377,21 @@ function reduce(view: RunView, event: RunEvent): RunView {
               }
             : call,
         ),
+      };
+
+    case "model.called":
+      return {
+        ...view,
+        model: {
+          byStep: {
+            ...view.model.byStep,
+            [event.step]: addCall(
+              view.model.byStep[event.step] ?? NO_MODEL_CALLS,
+              event,
+            ),
+          },
+          total: addCall(view.model.total, event),
+        },
       };
 
     case "search.finished": {

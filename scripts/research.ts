@@ -94,6 +94,7 @@ function describeStep(event: RunEvent): string[] {
         `  Decodo #${event.call} ${event.endpoint}${event.rendered ? " (rendered)" : ""} ${event.input}`,
       ];
     case "decodo.settled":
+    case "model.called":
     case "report.delta":
       return [];
     case "search.finished": {
