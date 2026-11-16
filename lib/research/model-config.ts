@@ -1,9 +1,22 @@
-import type { PageUrl, PlannedQuery, Question, SourceLabel } from "./events";
+import type {
+  PageUrl,
+  PlannedQuery,
+  Question,
+  SentenceVerdict,
+  SourceLabel,
+} from "./events";
 import type { Numbered } from "./numbered";
 import type { ReportBrief } from "./report";
 import type { Candidate, VerifiedClaim } from "./run-view";
 
 export type ClaimDraft = { statement: string; quote: string };
+
+export type SentenceRepair = {
+  sentence: number;
+  action: "cite" | "rewrite" | "delete";
+  claims: readonly number[];
+  text: string;
+};
 
 export class MalformedAnswer extends Error {
   readonly step: string;
@@ -50,6 +63,23 @@ export type ModelSteps = {
     queries: readonly PlannedQuery[];
   }>;
   writeReport(input: ReportBrief): AsyncIterable<string>;
+  classifySentences(input: {
+    question: Question;
+    report: string;
+    sentences: readonly string[];
+  }): Promise<{
+    verdicts: readonly {
+      sentence: number;
+      verdict: SentenceVerdict;
+      reason: string;
+    }[];
+  }>;
+  repairSentences(input: {
+    question: Question;
+    report: string;
+    sentences: readonly { text: string; opening: boolean }[];
+    claims: readonly VerifiedClaim[];
+  }): Promise<{ repairs: readonly SentenceRepair[] }>;
 };
 
 export type Effort = "low" | "medium" | "high";
@@ -57,7 +87,10 @@ export type Effort = "low" | "medium" | "high";
 const SONNET = "claude-sonnet-5-5";
 
 export const MODEL_CONFIG: Readonly<
-  Record<keyof ModelSteps, { model: string; effort: Effort }>
+  Record<
+    keyof ModelSteps,
+    { model: string; effort: Effort; maxOutputTokens?: number }
+  >
 > = Object.freeze({
   plan: { model: SONNET, effort: "medium" },
   select: { model: SONNET, effort: "low" },
@@ -66,4 +99,8 @@ export const MODEL_CONFIG: Readonly<
   supports: { model: SONNET, effort: "low" },
   checkGaps: { model: SONNET, effort: "medium" },
   writeReport: { model: SONNET, effort: "medium" },
+  // Several times the largest answer of the three stored reports, thinking
+  // included: 575 tokens to classify, 275 to repair.
+  classifySentences: { model: SONNET, effort: "low", maxOutputTokens: 4_000 },
+  repairSentences: { model: SONNET, effort: "medium", maxOutputTokens: 4_000 },
 });
