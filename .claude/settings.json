@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(pnpm check)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm test)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm bootstrap)",
+      "Bash(pnpm doctor:worktree)",
+      "Bash(pnpm doctor:worktree --json)",
+      "Bash(node scripts/doctor.mjs)",
+      "Bash(node scripts/doctor.mjs --json)",
+      "Bash(pnpm runs *)",
+      "Bash(pnpm research:offline *)",
+      "Bash(pnpm db:migrate)",
+      "Bash(pnpm db:generate)",
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git diff)",
+      "Bash(git diff *)",
+      "Bash(git log)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git blame *)",
+      "Bash(git ls-files)",
+      "Bash(git ls-files *)",
+      "Bash(git rev-parse *)",
+      "Bash(git branch --show-current)",
+      "Bash(sqlite3 -readonly -safe *)"
+    ],
+    "deny": [
+      "Read(/.env)",
+      "Read(/.env.local)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(~/.config/research-marshal/env)",
+      "Bash(pnpm test --config *)",
+      "Bash(pnpm test * --config *)",
+      "Bash(git diff --no-index *)",
+      "Bash(git diff * --no-index *)",
+      "Bash(env)",
+      "Bash(printenv)",
+      "Bash(printenv *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/scripts/session-start.mjs"],
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}

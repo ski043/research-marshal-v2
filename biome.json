@@ -18,6 +18,12 @@
       "!lib/research/fixtures"
     ]
   },
+  "plugins": [
+    "./scripts/lint/no-decodo-crawl.grit",
+    "./scripts/lint/model-id-in-config.grit",
+    "./scripts/lint/env-in-env-module.grit",
+    "./scripts/lint/node-runtime.grit"
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -31,13 +37,96 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "preset": "recommended"
+      "preset": "recommended",
+      "style": {
+        "noProcessEnv": "error",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "react-hook-form": "Not in the stack (TECH_STACK.md): the app has one form with one field.",
+              "@ai-sdk/gateway": "Not in the stack (TECH_STACK.md): call Anthropic directly through @ai-sdk/anthropic.",
+              "@ai-sdk/react": "Not in the stack (TECH_STACK.md): a run is not a chat (U2).",
+              "ai": {
+                "importNames": [
+                  "ToolLoopAgent",
+                  "Experimental_Agent",
+                  "gateway",
+                  "createGateway"
+                ],
+                "message": "Not in the stack (TECH_STACK.md): no agent loop and no Vercel AI Gateway. Code decides the next web action."
+              },
+              "@decodo/sdk": "Not in the stack (TECH_STACK.md): the Decodo TypeScript SDK is @decodo/sdk-ts.",
+              "react-markdown": "Not in the stack (TECH_STACK.md): Streamdown renders the report.",
+              "dotenv": "Not in the stack (TECH_STACK.md): Next.js and process.loadEnvFile() load the environment variables.",
+              "@dotenvx/dotenvx": "Not in the stack (TECH_STACK.md): Next.js and process.loadEnvFile() load the environment variables.",
+              "drizzle-orm": "Not in the stack (TECH_STACK.md): the project uses Prisma.",
+              "drizzle-kit": "Not in the stack (TECH_STACK.md): the project uses Prisma.",
+              "eslint": "Not in the stack (TECH_STACK.md): Biome lints and formats.",
+              "prettier": "Not in the stack (TECH_STACK.md): Biome lints and formats.",
+              "typescript-eslint": "Not in the stack (TECH_STACK.md): Biome lints and formats.",
+              "bullmq": "Not in the stack (TECH_STACK.md): a run executes inside the Next.js process.",
+              "inngest": "Not in the stack (TECH_STACK.md): a run executes inside the Next.js process.",
+              "workflow": "Not in the stack (TECH_STACK.md): a run executes inside the Next.js process.",
+              "@vercel/queue": "Not in the stack (TECH_STACK.md): a run executes inside the Next.js process.",
+              "@trigger.dev/sdk": "Not in the stack (TECH_STACK.md): a run executes inside the Next.js process.",
+              "@tanstack/react-query": "Not in the stack (TECH_STACK.md): Server Components read the data, and EventSource reads the live steps.",
+              "swr": "Not in the stack (TECH_STACK.md): Server Components read the data, and EventSource reads the live steps.",
+              "next-auth": "Not in the stack (TECH_STACK.md): version 1 has no accounts.",
+              "better-auth": "Not in the stack (TECH_STACK.md): version 1 has no accounts.",
+              "node:process": {
+                "importNames": ["env", "default"],
+                "message": "Read environment variables only in lib/env.ts."
+              },
+              "process": {
+                "importNames": ["env", "default"],
+                "message": "Read environment variables only in lib/env.ts."
+              }
+            },
+            "patterns": [
+              {
+                "group": ["dotenv/*", "drizzle-orm/*", "@tanstack/*"],
+                "message": "Not in the stack (TECH_STACK.md)."
+              },
+              {
+                "group": ["@streamdown/*"],
+                "message": "TECH_STACK.md: do not add a Streamdown plugin package."
+              },
+              {
+                "group": ["@auth/*", "@clerk/*"],
+                "message": "Not in the stack (TECH_STACK.md): version 1 has no accounts."
+              },
+              {
+                "group": ["@vercel/*", "@netlify/*", "@opennextjs/*"],
+                "message": "Not in the stack (TECH_STACK.md): version 1 runs locally on no hosting platform."
+              }
+            ]
+          }
+        }
+      }
     },
     "domains": {
       "next": "recommended",
       "react": "recommended"
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "lib/env.ts",
+        "**/*.config.ts",
+        "**/*.config.mts",
+        "scripts/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
+    }
+  ],
   "assist": {
     "actions": {
       "source": {

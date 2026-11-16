@@ -87,7 +87,8 @@ The command exits with one of these codes:
 | `pnpm dev` | Starts the development server on `127.0.0.1`. |
 | `pnpm build` | Builds the app for production. |
 | `pnpm start` | Starts the production server on `127.0.0.1`. |
+| `pnpm check` | Runs lint, the type check, and the unit tests. Run it before each commit. CI runs it on every pull request. It makes no paid request. |
 | `pnpm test` | Runs the unit tests. The tests make no network requests. |
-| `pnpm lint` | Checks lint and formatting with Biome. |
+| `pnpm lint` | Checks lint and formatting with Biome. A warning fails the check. |
 | `pnpm typecheck` | Checks the types with TypeScript. |
 | `pnpm verify:stack` | Checks that the app reaches Anthropic, Decodo, and SQLite. The check makes real paid requests. |

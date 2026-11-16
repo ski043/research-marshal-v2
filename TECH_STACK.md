@@ -131,6 +131,28 @@ Write unit tests for logic that has no network access. The V1 comparison and the
 
 One module parses the environment variables with Zod when the app starts.
 
+The two API keys live in one durable file outside the repository, `~/.config/research-marshal/env`. `RESEARCH_MARSHAL_ENV` can name a different file. `pnpm bootstrap` copies the keys into `.env.local` (mode 600), adds `DATABASE_URL`, installs the dependencies, and migrates the database.
+
+## Checks and CI
+
+`pnpm check` is the one free quality gate. It runs Biome with `--error-on-warnings`, the type check (`scripts/tsconfig.json` adds `scripts/*.mjs`), and the unit tests. It never sends a paid request.
+
+Code enforces the rules of this document:
+
+- Biome `noRestrictedImports` forbids each package of the "Not in the stack" table.
+- Biome `noProcessEnv` and a GritQL plugin keep `process.env` in `lib/env.ts`, the config files, and `scripts/`.
+- GritQL plugins in `scripts/lint/` forbid the Decodo crawl methods, a model ID outside `lib/research/model-config.ts`, and the Edge runtime.
+- `scripts/project-rules.test.ts` proves that each rule fires. It also fails when `package.json` has a package that this document does not name.
+
+The workflow `.github/workflows/check.yml` runs on each pull request and on each push to `main`. It needs no secret. It scans the git history for secrets, installs with a frozen lockfile, and runs `pnpm check`, `pnpm build`, and `pnpm audit --prod --audit-level=high`.
+
+| Tool | Version | Purpose |
+| --- | --- | --- |
+| gitleaks | 8.30.1 | The secret scan in CI. CI downloads the release binary and checks its SHA-256. It is not an npm dependency. |
+| `actions/checkout`, `actions/setup-node`, `pnpm/action-setup` | 7.0.1, 7.1.0, 6.1.1 | Set up the CI job. The workflow pins each action to a commit SHA. |
+
+`.claude/settings.json` holds the project settings for Claude Code. It allows the free routine commands, denies reads of the env files, and runs `scripts/session-start.mjs` at the start of each session. The script runs the bootstrap when the worktree is not ready.
+
 ## Not in the stack
 
 Do not add a technology from this table.
