@@ -283,6 +283,24 @@ const rows: Row[] = [
     FOUND,
   ],
   [
+    "a quote that ends inside a dotted name in capitals",
+    "The framework is ASP.NET Core.",
+    "The framework is ASP.",
+    NOT_ON_PAGE,
+  ],
+  [
+    "a quote that starts inside a dotted name in capitals",
+    "The framework is ASP.NET Core.",
+    "NET Core.",
+    NOT_ON_PAGE,
+  ],
+  [
+    "a linked figure number after a comma and a space",
+    "See Figs.[1](#Fig1), [2](#Fig2) and the table.",
+    "See Figs., 2 and the table.",
+    FOUND,
+  ],
+  [
     "a quote that ends inside a dotted name",
     "The data are on example.com for download.",
     "The data are on example.",
