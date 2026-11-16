@@ -1,6 +1,6 @@
 # Research Marshal tech stack
 
-Status: draft 1, 2026-11-15.
+Status: draft 2, 2026-11-16.
 
 This document defines the technologies that Research Marshal uses. [PRD.md](PRD.md) defines what the product does. Requirement IDs such as W2 and V1 refer to the PRD.
 
@@ -23,9 +23,10 @@ Version 1 runs locally for one user. It has no accounts and no hosted service. T
 | Language | TypeScript, strict mode | 7.0 | All app code. |
 | Framework | Next.js with the App Router | 16.4 | Pages, Server Actions, and the route handler that streams a run. |
 | UI library | React | 19.3 | All components. |
-| Styling | Tailwind CSS | 4.3 | All styles. |
+| Styling | Tailwind CSS with `@tailwindcss/turbopack` | 4.3 | All styles. |
 | Components | shadcn/ui with the default `base-nova` style | CLI 4.23 | The prompt box (U1), the citation popover (U6), the source lists (S3), and the history (U8). |
 | Icons | lucide-react | 1.x | The default icon library of shadcn/ui. |
+| Component support | `@base-ui/react`, `class-variance-authority`, `cn`, `tw-animate-css` | | The packages that the shadcn/ui components import. The shadcn CLI adds them. |
 | Report rendering | Streamdown | 2.7 | Renders the report (R1) and turns each citation into a popover with a link (U6, U7). |
 | Validation | Zod | 4.6 | Parses the question, the environment variables, and the model output. |
 | Web data | Decodo TypeScript SDK (`@decodo/sdk-ts`) | 3.0 | The three web actions (W2). |
@@ -40,7 +41,8 @@ Version 1 runs locally for one user. It has no accounts and no hosted service. T
 
 - Use the App Router. The `app` directory is at the repository root. The project has no `src` directory.
 - Use the import alias `@/*` for the repository root.
-- Set `cacheComponents: true` in `next.config.ts`.
+- Set `cacheComponents: true` and `partialPrefetching: true` in `next.config.ts`. The Next.js caching guide enables the two options together.
+- `next.config.ts` has one Turbopack rule. It sends every CSS file through the `@tailwindcss/turbopack` loader.
 - Use the Node.js runtime for every route. Prisma and SQLite do not run on the Edge runtime.
 - Read data in Server Components. Change data in Server Actions.
 
@@ -65,11 +67,12 @@ The app calls Decodo through `client.webScrapingApi` of the Decodo TypeScript SD
 
 | Web action (W2) | SDK method |
 | --- | --- |
-| Search the web | `search({ query })` |
+| Search the web | `scrape({ target: Target.GoogleSearch, query, parse: true })` |
 | Read one page | `scrape({ target: Target.Universal, url, markdown: true })` |
 | Map one site | `map({ url, limit })` |
 
-- Create the client with `apiKey`. The `search` method and the `map` method reject a basic auth token.
+- Search uses the Google Search target of `scrape`. Do not use the `search` method. In 14 real calls it returned Google redirect links for half to three quarters of the results, and `scrape` rejects those links.
+- Create the client with `apiKey`. The `map` method rejects a basic auth token.
 - Set `timeoutMs` on the client. The default is 180 seconds.
 - The SDK does not retry. It throws `AuthenticationError`, `RateLimitError`, `ValidationError`, `TimeoutError`, or `DecodoError`. The run records each error as a failed page or a failed search (F1, F2).
 - The SDK types every response, but most response fields are optional. Check each field that the app needs.
@@ -103,6 +106,11 @@ The app calls Decodo through `client.webScrapingApi` of the Decodo TypeScript SD
 - The Prisma configuration file is `prisma7.config.ts`. Load the environment variables in that file with `process.loadEnvFile()`. Do not add `dotenv`.
 - Allow the build scripts of `better-sqlite3`, `prisma`, and `@prisma/engines` under `allowBuilds` in `pnpm-workspace.yaml`. pnpm blocks them by default.
 - Git ignores the database file.
+
+## Scripts
+
+- `pnpm research` runs `scripts/research.ts` on Node.js without a build step. Node.js removes the types. `scripts/register.mjs` is a resolve hook that adds what Node.js lacks: the `@/` alias and imports without a file extension.
+- The `verify` directory holds checks that make real paid requests. `pnpm verify:stack` runs them with its own Vitest configuration. `pnpm test` never runs them.
 
 ## Forms
 
