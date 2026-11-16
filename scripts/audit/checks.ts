@@ -7,7 +7,13 @@ import {
   sentencesOf,
   wordCount,
 } from "./report-md";
-import { type Envelope, type Ev, eventsOf, type StoredRun } from "./stored-run";
+import {
+  type Envelope,
+  type Ev,
+  eventsOf,
+  readsOf,
+  type StoredRun,
+} from "./stored-run";
 
 // The PRD's numbers, written here and not imported from lib/research/budget.ts.
 export const PRD = Object.freeze({
@@ -536,12 +542,9 @@ const CHECKS: CheckSpec[] = [
       "Every granted read ends as read or failed, a failed page has a reason, and every read page has stored text.",
     run(ctx) {
       const { stored } = ctx;
-      const granted = eventsOf(stored, "reads.planned").flatMap(
-        (p) => p.granted,
-      );
-      const refused = eventsOf(stored, "reads.planned").flatMap(
-        (p) => p.refused,
-      );
+      const reads = readsOf(stored);
+      const granted = reads.flatMap((r) => r.attempted);
+      const skipped = reads.flatMap((r) => r.skipped);
       const read = eventsOf(stored, "page.read");
       const failed = eventsOf(stored, "page.failed");
       const ended = new Map<string, number>();
@@ -570,13 +573,19 @@ const CHECKS: CheckSpec[] = [
           s.outcome.status === "ok" ? s.outcome.results.map((r) => r.url) : [],
         ),
       );
-      const notChosen = [...found].filter((u) => !granted.includes(u));
+      const skippedUrls = new Set(skipped.map((p) => p.url));
+      const notChosen = [...found].filter(
+        (u) => !granted.includes(u) && !skippedUrls.has(u),
+      );
+      const reasons = [...countBy(skipped, (p) => p.reason)]
+        .map(([reason, n]) => `${n} ${reason}`)
+        .join(", ");
       const kinds = [...countBy(failed, (f) => f.failure?.kind ?? "?")]
         .map(([k, n]) => `${k} ${n}`)
         .join(", ");
       return judge(
         problems,
-        `read ${read.length}, failed ${failed.length}${kinds ? ` (${kinds})` : ""}, skipped ${notChosen.length} found but not chosen and ${refused.length} refused by the budget`,
+        `read ${read.length}, failed ${failed.length}${kinds ? ` (${kinds})` : ""}, skipped ${notChosen.length} found but not chosen${reasons ? ` and ${reasons}` : ""}`,
         ...(unfinished.length > 0
           ? [`${plural(unfinished.length, "read")} still open at the cancel`]
           : []),

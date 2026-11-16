@@ -1,5 +1,5 @@
 import { type Check, plural } from "./checks";
-import { type Envelope, eventsOf, type StoredRun } from "./stored-run";
+import { type Envelope, eventsOf, readsOf, type StoredRun } from "./stored-run";
 
 // Model steps have no start or end event. Their durations here are gaps between the
 // neighbouring events, so they include waits for a free model slot.
@@ -71,23 +71,27 @@ export function timeRun(stored: StoredRun): RunTiming {
     const searchEnd = maxAt(searches, start.at);
     const select = eventsOf(stored, "select.finished").find(inRound);
     const map = eventsOf(stored, "map.finished").find(inRound);
-    const planned = eventsOf(stored, "reads.planned").find(inRound);
+    const planned = readsOf(stored).find((reads) => reads.round === r);
     const gap = eventsOf(stored, "gap.checked").find(inRound);
 
     let readEnd: number | null = null;
     let chainSumMs = 0;
-    const pages = planned?.granted.length ?? 0;
+    const pages = planned?.attempted.length ?? 0;
     if (planned) {
-      const granted = new Set(planned.granted);
       readEnd = planned.at;
-      for (const url of granted) {
+      for (const url of planned.attempted) {
         const own = stored.events.filter(
           (e) =>
             PAGE_EVENTS.has(e.type) &&
             (e as Envelope & { url?: string }).url === url,
         );
-        const chainEnd = maxAt(own, planned.at);
-        chainSumMs += chainEnd - planned.at;
+        // A page that replaces a failed read starts later than the round's reads.
+        const chainStart = Math.max(
+          planned.at,
+          requested.find((q) => q.round === r && q.input === url)?.at ?? 0,
+        );
+        const chainEnd = maxAt(own, chainStart);
+        chainSumMs += chainEnd - chainStart;
         readEnd = Math.max(readEnd, chainEnd);
       }
     }

@@ -8,9 +8,11 @@ const INVISIBLE = /[­​-‍⁠﻿]/g;
 const LINK_TARGET = String.raw`\((?:[^()\s]|\([^()\s]*\))*(?:\s+"[^"]*")?\)`;
 const LINK_TEXT = String.raw`(?:\\.|[^\[\]\\])*`;
 const IMAGE = new RegExp(String.raw`!\[${LINK_TEXT}\]${LINK_TARGET}`, "g");
-// A bare number that links to a fragment is a footnote: `[14](/a#ref-CR14 "…")`, `[\[5\]](#cite_note-5)`.
+// A bare number that links to a fragment and touches the word before it is a footnote:
+// `effects[14](/a#ref-CR14 "…")`, `text.[\[5\]](#cite_note-5)`. After a space the number is part
+// of the sentence, as in `Fig. [4](/a#Fig4)`.
 const FOOTNOTE_LINK = new RegExp(
-  String.raw`\[(?:\\\[)?\^?\d{1,3}(?:\\\])?\](?=\([^)\s]*#)${LINK_TARGET}`,
+  String.raw`(?<=\S)\[(?:\\\[)?\^?\d{1,3}(?:\\\])?\](?=\([^)\s]*#)${LINK_TARGET}`,
   "g",
 );
 const LINK = new RegExp(String.raw`\[(${LINK_TEXT})\]${LINK_TARGET}`, "g");

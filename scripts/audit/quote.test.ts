@@ -36,6 +36,15 @@ describe("the independent V1 check", () => {
     expect(found("Rome fell[1] in 476.", "Rome fell in 476.")).toBe(true);
   });
 
+  it("keeps a linked number after a space, because it is part of the sentence", () => {
+    const page = new PageWords(
+      "No association was found (Fig.\u00a0[4](/articles/x#Fig4)) in adults.",
+    );
+    expect(
+      page.find("No association was found (Fig. 4) in adults.").found,
+    ).toBe(true);
+  });
+
   it("keeps a number that links to another page, because it may be a real word", () => {
     expect(
       found("In [2020](https://x.org/2020) prices fell", "In prices fell"),

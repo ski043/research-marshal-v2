@@ -34,6 +34,15 @@ type Shapes = {
     granted: string[];
     refused: { url: string; reason: string }[];
   };
+  "reads.queued": {
+    round: number;
+    queue: string[];
+    skipped: { url: string; reason: string }[];
+  };
+  "reads.finished": {
+    round: number;
+    skipped: { url: string; reason: string }[];
+  };
   "page.read": { round: number; url: string; title: string; chars: number };
   "page.failed": { round: number; url: string; failure: Failure };
   "page.extracted": { url: string; label: string; drafts: number };
@@ -81,6 +90,46 @@ export function eventsOf<K extends EventType>(
   type: K,
 ): Ev<K>[] {
   return stored.events.filter((e) => e.type === type) as Ev<K>[];
+}
+
+export type RoundReads = {
+  round: number;
+  at: number;
+  attempted: string[];
+  skipped: { url: string; reason: string }[];
+};
+
+// A run stored before the read-attempt rule (B7) logs `reads.planned` once per round. A later
+// run logs `reads.queued` and `reads.finished`. The attempted pages come from the Decodo
+// requests in both cases, so the audit does not trust either event for them.
+export function readsOf(stored: Pick<StoredRun, "events">): RoundReads[] {
+  const rounds = new Map<number, RoundReads>();
+  const roundOf = (round: number, at: number) => {
+    const known = rounds.get(round);
+    if (known) return known;
+    const created = { round, at, attempted: [], skipped: [] };
+    rounds.set(round, created);
+    return created;
+  };
+  // The planning events come first, so the reads of a round start at them.
+  for (const type of [
+    "reads.planned",
+    "reads.queued",
+    "reads.finished",
+  ] as const) {
+    for (const event of eventsOf(stored, type)) {
+      roundOf(event.round, event.at).skipped.push(
+        ...("refused" in event ? event.refused : event.skipped),
+      );
+    }
+  }
+  for (const request of eventsOf(stored, "decodo.requested")) {
+    if (request.endpoint !== "universal") continue;
+    const reads = roundOf(request.round, request.at);
+    if (!reads.attempted.includes(request.input))
+      reads.attempted.push(request.input);
+  }
+  return [...rounds.values()].sort((a, b) => a.round - b.round);
 }
 
 export function databasePath(
