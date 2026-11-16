@@ -1,13 +1,15 @@
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/generated/prisma/client";
-import { env } from "@/lib/env";
+import { readEnv } from "@/lib/env";
 
 const globalForDb = globalThis as typeof globalThis & {
   db?: PrismaClient;
 };
 
 function createClient() {
-  const adapter = new PrismaBetterSqlite3({ url: env.DATABASE_URL });
+  const adapter = new PrismaBetterSqlite3({
+    url: readEnv(["DATABASE_URL"]).DATABASE_URL,
+  });
   return new PrismaClient({ adapter });
 }
 
