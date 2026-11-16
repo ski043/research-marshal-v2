@@ -15,7 +15,11 @@ import {
   type StoppedBy,
   siteOf,
 } from "./events";
-import { MalformedAnswer, type ModelSteps } from "./model-config";
+import {
+  MalformedAnswer,
+  type ModelSteps,
+  QUOTE_MAX_CHARS,
+} from "./model-config";
 import { numberItems, pickByNumber } from "./numbered";
 import { QuotablePage } from "./quote-check";
 import { finalizeReport, noClaimsReport } from "./report";
@@ -273,7 +277,14 @@ async function readAndVerify(
 
   const drafts = extracted.claims.slice(0, LIMITS.claimsPerPage);
   const page = new QuotablePage(outcome.markdown);
-  const v1 = drafts.map((draft) => page.contains(draft.quote));
+  const v1 = drafts.map((draft) =>
+    draft.quote.length > QUOTE_MAX_CHARS
+      ? ({
+          found: false,
+          reason: `too-long: over ${QUOTE_MAX_CHARS} characters`,
+        } as const)
+      : page.contains(draft.quote),
+  );
   const v2 = await Promise.allSettled(
     drafts.map((draft, i) =>
       v1[i]?.found

@@ -64,6 +64,16 @@ describe("lib/env", () => {
     await expect(importEnv()).rejects.toThrow("DECODO_AUTH_TOKEN");
   });
 
+  it("names the command that fixes a missing variable", async () => {
+    stubAll({
+      ANTHROPIC_API_KEY: undefined,
+      DECODO_AUTH_TOKEN: "decodo-key",
+      DATABASE_URL: "file:./test.db",
+    });
+
+    await expect(importEnv()).rejects.toThrow("Run `pnpm bootstrap`");
+  });
+
   it("names every missing variable at once", async () => {
     stubAll({
       ANTHROPIC_API_KEY: undefined,

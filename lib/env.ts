@@ -17,7 +17,8 @@ function parseEnv(): Env {
   if (!result.success) {
     const missing = result.error.issues.map((issue) => issue.path.join("."));
     throw new Error(
-      `Missing or empty environment variables: ${missing.join(", ")}`,
+      `Missing or empty environment variables: ${missing.join(", ")}. ` +
+        "Run `pnpm bootstrap` to create .env.local, then `pnpm doctor:worktree` to see what is still missing.",
     );
   }
   return result.data;

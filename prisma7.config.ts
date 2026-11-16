@@ -1,9 +1,10 @@
 import { existsSync } from "node:fs";
 import { defineConfig } from "prisma/config";
 
-const envFile = [".env.local", ".env"].find((file) => existsSync(file));
-if (envFile) {
-  process.loadEnvFile(envFile);
+// loadEnvFile never overrides a set variable, so .env.local wins over .env and
+// the shell wins over both, the same rule as `pnpm research` and Next.js.
+for (const file of [".env.local", ".env"]) {
+  if (existsSync(file)) process.loadEnvFile(file);
 }
 
 export default defineConfig({

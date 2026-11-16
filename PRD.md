@@ -1,6 +1,6 @@
 # Research Marshal PRD
 
-Status: draft 2, 2026-11-15.
+Status: draft 3, 2026-11-16.
 
 This document is the source of truth for what Research Marshal does. It does not cover the tech stack. [TECH_STACK.md](TECH_STACK.md) covers that.
 
@@ -36,7 +36,7 @@ Version 1 succeeds when all six criteria hold.
 | --- | --- |
 | Question | The one research question that starts a run. |
 | Run | Everything the app does for one question, from the first search to the report. |
-| Round | One search and at most 8 page reads. |
+| Round | At most 5 searches and at most 8 page reads. |
 | Map | A list of the pages of one site. The run uses the list to choose pages to read. |
 | Page | A web page that the run finds. |
 | Quote | A passage that the app copies from a page. |
@@ -63,7 +63,7 @@ Version 1 succeeds when all six criteria hold.
 ### Budget
 
 - **B1.** A run has at most 3 rounds.
-- **B2.** A round has one search and at most 8 page reads.
+- **B2.** A round has at most 5 searches and at most 8 page reads. The run plans the searches of a round together, one for each open part of the question.
 - **B3.** A run has at most 1 map. A page that the run reads from the map counts toward the 8 page reads of its round.
 - **B4.** The run stops before the third round when the verified claims answer the question.
 - **B5.** When the budget ends, the app writes the report with the verified claims that it has.

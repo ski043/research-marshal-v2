@@ -22,6 +22,34 @@ Research Marshal answers one research question with a cited Markdown report. Eve
 - If you need a dependency that the tech stack does not list, ask the user. Do not add it yourself.
 - Change the tech stack only when the user asks you to.
 
+## Setup
+
+- In a fresh worktree, run `pnpm bootstrap` before anything else. It creates `.env.local`, installs the dependencies, generates the Prisma client, and migrates the database. It ends with `READY` or `NOT READY`.
+- When something looks wrong, run `pnpm doctor:worktree`. Each failed check prints the command that fixes it.
+- The API keys come from `~/.config/research-marshal/env`. If bootstrap says a key is missing, ask the user to add it to that file. Do not ask for the key in the chat.
+- Never print, copy, or commit the contents of `.env.local`, `.env`, or the durable env file. Refer to variables by name only.
+
+## Commands
+
+| Command | What it proves | Paid requests |
+| --- | --- | --- |
+| `pnpm bootstrap` | The worktree is set up and ready. | No |
+| `pnpm doctor:worktree` | The worktree is ready. It changes no file. | No |
+| `pnpm doctor:worktree --live` | Both API keys work. | Yes: one Decodo scrape |
+| `pnpm lint` | Lint and formatting pass. | No |
+| `pnpm test` | The unit tests pass. | No |
+| `pnpm typecheck` | The types check. | No |
+| `pnpm build` | The production build succeeds. | No |
+| `pnpm verify:stack` | The app reaches Anthropic, Decodo, and SQLite. | Yes |
+| `pnpm research "question"` | One full research run works end to end. | Yes |
+
+- Run `pnpm lint && pnpm test && pnpm typecheck` before each commit.
+- To run one test file, pass its path: `pnpm test lib/research/budget.test.ts`.
+- To run tests by name, use `pnpm test -t "part of the test name"`.
+- Run a paid command only when the task needs it.
+- pnpm installs missing dependencies before it runs any script. For a check that changes no file at all, run `node scripts/doctor.mjs`.
+- `pnpm dev` and `pnpm start` listen on `127.0.0.1` only. Pass `-p <port>` to pick a port.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know
