@@ -284,6 +284,22 @@ function claimLines(view: RunView): string[] {
   return lines.length > 0 ? lines : ["  none"];
 }
 
+function citationCheckLines(view: RunView): string[] {
+  const check = view.citationCheck;
+  if (check === null) return [];
+  const verdicts = (verdict: string) =>
+    check.uncited.filter((s) => s.verdict === verdict).length;
+  const repairs = (action: string) =>
+    check.repairs.filter((r) => r.action === action).length;
+  return [
+    `Citation check (R3): ${check.uncited.length} sentences without a citation (${verdicts("fact")} fact, ${verdicts("connective")} connective, ${verdicts("scope")} scope); repair: ${repairs("cite")} cited, ${repairs("rewrite")} rewritten, ${repairs("delete")} deleted; removed ${check.removed.length}; ${check.modelCalls} model calls.`,
+    ...check.removed.map(
+      (r) =>
+        `  removed by the ${r.by}${r.opening ? ", opening answer" : ""}  ${webText(r.text, 160)}`,
+    ),
+  ];
+}
+
 function reportLine(view: RunView): string {
   const { report } = view;
   if (report === null) return `Report: none (the run is ${view.status}).`;
@@ -454,6 +470,7 @@ export function formatShow(
     ...claimLines(view),
     "",
     reportLine(view),
+    ...citationCheckLines(view),
     "",
     ...timelineLines(record),
   );
