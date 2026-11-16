@@ -1,11 +1,12 @@
 import {
   type DecodoEndpoint,
   domainOf,
-  type ModelStep,
+  ModelStep,
+  type ModelTokens,
   type RunEvent,
 } from "./events";
 import type { RunRecord } from "./index";
-import type { PageView, RunView } from "./run-view";
+import type { ModelStepUsage, PageView, RunView } from "./run-view";
 
 export type RunCounts = {
   rounds: number;
@@ -316,15 +317,126 @@ function reportLine(view: RunView): string {
   return `Report: written by ${report.writtenBy}, ${report.markdown.length} chars, ${lines} lines, cites ${report.cited.length} claims, removed citations: ${removed}. Print it with --report.`;
 }
 
+const count = (n: number | null) =>
+  n === null ? "-" : n.toLocaleString("en-US");
+
+const callCount = (n: number) => `${n} call${n === 1 ? "" : "s"}`;
+
+function notOkOf(usage: ModelStepUsage): number {
+  return usage.calls - usage.outcomes.ok;
+}
+
+function outcomeList(usage: ModelStepUsage): string {
+  return (["ok", "truncated", "failed", "cancelled"] as const)
+    .filter((outcome) => usage.outcomes[outcome] > 0)
+    .map((outcome) => `${usage.outcomes[outcome]} ${outcome}`)
+    .join(", ");
+}
+
+function tokenList(tokens: ModelTokens): string {
+  const extra = (
+    [
+      ["reasoning", tokens.reasoning],
+      ["cache read", tokens.cacheRead],
+      ["cache write", tokens.cacheWrite],
+    ] as const
+  )
+    .filter(([, n]) => n !== null)
+    .map(([name, n]) => `, ${name} ${count(n)}`)
+    .join("");
+  return `${count(tokens.input)} in, ${count(tokens.output)} out${extra}`;
+}
+
+const NONE_RECORDED = "Model calls: none recorded.";
+
+/** One line with the model calls and the token totals of a run. Prices are not in the repo. */
+export function modelSummaryLine(view: RunView): string {
+  const t = view.model.total;
+  if (t.calls === 0) return NONE_RECORDED;
+  const without =
+    t.withoutTokens > 0
+      ? `; ${callCount(t.withoutTokens)} without a token count`
+      : "";
+  return `Model calls: ${t.calls} (${outcomeList(t)}), ${seconds(t.durationMs)} summed, longest ${seconds(t.longestMs)}; queue wait ${seconds(t.queuedMs)} summed, longest ${seconds(t.longestQueueMs)}; tokens: ${tokenList(t.tokens)}${without}.`;
+}
+
+export type ModelTotals = {
+  calls: number;
+  notOk: number;
+  durationMs: number;
+  queuedMs: number;
+  tokens: ModelTokens;
+};
+
+export function modelTotalsOf(view: RunView): ModelTotals {
+  const t = view.model.total;
+  return {
+    calls: t.calls,
+    notOk: notOkOf(t),
+    durationMs: t.durationMs,
+    queuedMs: t.queuedMs,
+    tokens: t.tokens,
+  };
+}
+
+function modelLines(view: RunView): string[] {
+  const line = modelSummaryLine(view);
+  if (view.model.total.calls === 0) {
+    return [
+      `${line} A run stored before model calls were recorded, or a run on the fake model, has none.`,
+    ];
+  }
+  const rows = ModelStep.options.flatMap((step) => {
+    const usage = view.model.byStep[step];
+    if (!usage) return [];
+    const notOk = notOkOf(usage);
+    return [
+      [
+        `  ${step}`,
+        notOk > 0
+          ? `${usage.calls} (${outcomeList({ ...usage, outcomes: { ...usage.outcomes, ok: 0 } })})`
+          : String(usage.calls),
+        seconds(usage.durationMs),
+        seconds(usage.longestMs),
+        seconds(usage.queuedMs),
+        count(usage.tokens.input),
+        count(usage.tokens.output),
+      ],
+    ];
+  });
+  return [
+    line,
+    ...table([
+      [
+        "  STEP",
+        "CALLS",
+        "TIME",
+        "LONGEST",
+        "QUEUE",
+        "TOKENS IN",
+        "TOKENS OUT",
+      ],
+      ...rows,
+    ]),
+  ];
+}
+
 /**
  * A run of consecutive events of one step. `tookMs` is the time since the previous phase
- * ended: no event marks where a step began.
+ * ended: no event marks where a step began. `decodo` and `model` hold the measured calls
+ * that ended in the phase; a run stored before model calls were recorded has no `model`.
  */
 export type Phase = {
   name: string;
   endMs: number;
   tookMs: number;
   decodo: { calls: number; longestMs: number; sumMs: number } | null;
+  model: {
+    calls: number;
+    longestMs: number;
+    sumMs: number;
+    queuedMs: number;
+  } | null;
 };
 
 // A model call is stored when it ends, next to the events of the phase that made it.
@@ -419,7 +531,7 @@ export function timelineOf(events: readonly RunEvent[]): Phase[] {
     let phase = phases.at(-1);
     if (phase?.name !== name) {
       if (phase) previousEnd = phase.endMs;
-      phase = { name, endMs: at, tookMs: 0, decodo: null };
+      phase = { name, endMs: at, tookMs: 0, decodo: null, model: null };
       phases.push(phase);
     }
     phase.endMs = at;
@@ -431,24 +543,52 @@ export function timelineOf(events: readonly RunEvent[]): Phase[] {
       d.sumMs += event.durationMs;
       phase.decodo = d;
     }
+    if (event.type === "model.called") {
+      const m = phase.model ?? {
+        calls: 0,
+        longestMs: 0,
+        sumMs: 0,
+        queuedMs: 0,
+      };
+      m.calls += 1;
+      m.longestMs = Math.max(m.longestMs, event.durationMs);
+      m.sumMs += event.durationMs;
+      m.queuedMs += event.queuedMs;
+      phase.model = m;
+    }
   }
   return phases;
 }
 
+function measuredOf(p: Phase): string {
+  const parts: string[] = [];
+  if (p.decodo) {
+    const modelInside =
+      p.model === null && p.name.includes("reads")
+        ? "; includes extract and V2 model calls"
+        : "";
+    parts.push(
+      `Decodo ${p.decodo.calls} calls, longest ${seconds(p.decodo.longestMs)}, sum ${seconds(p.decodo.sumMs)}${modelInside}`,
+    );
+  }
+  if (p.model) {
+    parts.push(
+      `model: ${callCount(p.model.calls)} measured, sum ${seconds(p.model.sumMs)}, longest ${seconds(p.model.longestMs)}, queue ${seconds(p.model.queuedMs)}`,
+    );
+  }
+  if (parts.length > 0) return parts.join("; ");
+  return p.name === "start" ? "" : "gap since the previous phase";
+}
+
 function timelineLines(record: RunRecord): string[] {
-  const phases = timelineOf(record.events);
-  const rows = phases.map((p) => [
+  const rows = timelineOf(record.events).map((p) => [
     `  ${p.name}`,
     `+${seconds(p.endMs)}`,
     seconds(p.tookMs),
-    p.decodo
-      ? `Decodo ${p.decodo.calls} calls, longest ${seconds(p.decodo.longestMs)}, sum ${seconds(p.decodo.sumMs)}${p.name.includes("reads") ? "; includes extract and V2 model calls" : ""}`
-      : p.name === "start"
-        ? ""
-        : "gap since the previous phase",
+    measuredOf(p),
   ]);
   return [
-    "Timeline (from the first event; a model step stores no start event, so its time is the gap since the previous phase; Decodo stores each call's duration)",
+    "Timeline (from the first event; TOOK is the gap since the previous phase ended; MEASURED sums the stored Decodo and model calls that ended in the phase, and up to 6 model calls run at once; a run stored before model calls were recorded shows only the gap for a model step)",
     ...table([["  PHASE", "ENDS", "TOOK", "MEASURED"], ...rows]),
   ];
 }
@@ -491,6 +631,8 @@ export function formatShow(
     "",
     reportLine(view),
     ...citationCheckLines(view),
+    "",
+    ...modelLines(view),
     "",
     ...timelineLines(record),
   );

@@ -1,5 +1,10 @@
 import type { RunId } from "@/lib/research/events";
-import { countsOf, type RunCounts } from "@/lib/research/inspect";
+import {
+  countsOf,
+  type ModelTotals,
+  modelTotalsOf,
+  type RunCounts,
+} from "@/lib/research/inspect";
 import type { RunView } from "@/lib/research/run-view";
 
 export const EXIT = Object.freeze({
@@ -87,6 +92,7 @@ export type ResearchSummary = {
   stoppedBy: string | null;
   exitCode: number;
   wallMs: number;
+  model?: ModelTotals;
 } & Partial<RunCounts>;
 
 export function summaryLine(
@@ -100,7 +106,7 @@ export function summaryLine(
     stoppedBy: view?.end?.status === "completed" ? view.end.stoppedBy : null,
     exitCode: exitCodeOf(view?.status ?? null),
     wallMs: Math.round(wallMs),
-    ...(view ? countsOf(view) : {}),
+    ...(view ? { ...countsOf(view), model: modelTotalsOf(view) } : {}),
   };
   return JSON.stringify(summary);
 }

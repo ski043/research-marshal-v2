@@ -14,8 +14,8 @@ import {
   Question,
   type RunEvent,
 } from "./events";
-import { createView, replay } from "./run-view";
 import type { RunRecord } from "./index";
+import { createView, replay } from "./run-view";
 import { createTempDatabase } from "./temp-db";
 import { expectBudgetHeld } from "./testing";
 
@@ -352,7 +352,7 @@ describe("model calls in the runs output (#19)", () => {
     expect(text).toContain(summary);
     const rows = text
       .split("\n")
-      .filter((l) => /^ {2}(STEP|plan|extract|classifySentences) /.test(l))
+      .filter((l) => /^ {2}(STEP|plan|extract|classifySentences) {2}/.test(l))
       .map((l) => l.split(/\s{2,}/).slice(1));
     expect(rows).toEqual([
       ["STEP", "CALLS", "TIME", "LONGEST", "QUEUE", "TOKENS IN", "TOKENS OUT"],
