@@ -13,6 +13,7 @@ type Shapes = {
     round: number;
     endpoint: string;
     input: string;
+    rendered?: true;
   };
   "decodo.settled": {
     call: number;
