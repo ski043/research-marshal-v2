@@ -243,6 +243,28 @@ describe("meterWeb read attempts (B2, B7)", () => {
     });
   });
 
+  it("handles a page that fails while an earlier page is still open", async () => {
+    const { meter } = setup();
+    const round = open(meter);
+    const [first, second] = pages(1, 2);
+    const failure = new Error("provider error");
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      await expect(
+        round.read([first, second].filter(Boolean), async (item) => {
+          if (item.url !== first?.url) throw failure;
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        }),
+      ).rejects.toBe(failure);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+    expect(unhandled).toEqual([]);
+  });
+
   it("stops at 16 attempts when every read fails", async () => {
     const { meter, calls } = setup({ read: async () => failed("http-status") });
     const outcomes = await readAll(open(meter), pages(1, 30));
