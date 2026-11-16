@@ -19,7 +19,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy --config prisma7.config.ts",
     "doctor:worktree": "node scripts/doctor.mjs",
-    "research": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/research.ts"
+    "research": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/research.ts",
+    "runs": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/runs.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.105",
