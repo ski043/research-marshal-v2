@@ -59,7 +59,17 @@ The app, `pnpm research`, `pnpm db:migrate`, `pnpm verify:stack`, and the doctor
 1. Run `pnpm bootstrap`.
 2. Run `pnpm research "How long do lithium iron phosphate batteries last?"`.
 
-The terminal shows each step as it happens. At the end it prints the report between the lines `===== REPORT =====` and `===== END REPORT =====`, the list of Decodo calls, the dropped claims, the budget use, and the run status. Press Ctrl-C to cancel the run. A cancelled run writes no report. The command exits with code 0 only when the run completed.
+The terminal shows each step as it happens. At the end it prints the report between the lines `===== REPORT =====` and `===== END REPORT =====`, the list of Decodo calls, the dropped claims, the budget use, and the run status. Press Ctrl-C to cancel the run. A cancelled run writes no report. The first and the last line name the run ID. Add `--json` to end with one JSON summary line: the run ID, the status, the counts, and the wall time.
+
+The command exits with one of these codes:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | The run completed. |
+| 1 | The run failed. |
+| 2 | Usage error, for example an empty question. |
+| 3 | You cancelled the run with Ctrl-C. |
+| 130 | You pressed Ctrl-C twice. The command quit at once. |
 
 ### Commands
 
@@ -71,6 +81,9 @@ The terminal shows each step as it happens. At the end it prints the report betw
 | `pnpm db:generate` | Generates the Prisma client from `prisma/schema.prisma`. |
 | `pnpm db:migrate` | Applies the database migrations to the SQLite file. |
 | `pnpm research "question"` | Runs one research question from the terminal. The run makes real paid requests to Anthropic and Decodo. |
+| `pnpm research:offline <scenario>` | Runs the pipeline on the fake web and model of a named scenario. It makes no network request and needs only `DATABASE_URL`. Run it with an unknown name to list the scenarios. Add `--pace <ms>` to space the steps out in time. |
+| `pnpm runs list` | Lists every stored run with its counts. |
+| `pnpm runs show <id\|latest>` | Shows one stored run: status, budget use, searches, pages, claims, report, and timeline. Add `--json` for the whole run as JSON or `--report` for only the report. Use `pnpm -s` when a script reads the output. |
 | `pnpm dev` | Starts the development server on `127.0.0.1`. |
 | `pnpm build` | Builds the app for production. |
 | `pnpm start` | Starts the production server on `127.0.0.1`. |

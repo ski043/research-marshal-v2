@@ -14,6 +14,7 @@ import {
   APP_ENV_NAMES,
   DURABLE_ENV_NAMES,
   durableEnvPath,
+  ENV_FILES,
   readEnvFile,
   resolveAppEnv,
   sqlitePath,
@@ -249,23 +250,23 @@ export const CHECKS = [
   },
   ...APP_ENV_NAMES.map(envCheck),
   {
-    id: "env-local-mode",
-    label: ".env.local mode",
+    id: "env-file-modes",
+    label: "Env file modes",
     kind: "required",
     fix: "chmod 600 .env.local",
     check(ctx) {
-      const file = path.join(ctx.root, ".env.local");
-      if (!existsSync(file))
-        return {
-          ok: false,
-          detail: ".env.local does not exist",
-          fix: BOOTSTRAP,
-        };
-      const mode = statSync(file).mode & 0o777;
-      return {
-        ok: (mode & 0o077) === 0,
-        detail: `mode ${mode.toString(8)}, needs 600`,
-      };
+      // A worktree can keep every variable in .env and have no .env.local.
+      const open = ENV_FILES.filter((name) => {
+        const file = path.join(ctx.root, name);
+        return existsSync(file) && (statSync(file).mode & 0o077) !== 0;
+      });
+      return open.length === 0
+        ? { ok: true, detail: "only the owner can read the env files" }
+        : {
+            ok: false,
+            detail: `others can read ${open.join(" and ")}`,
+            fix: `chmod 600 ${open.join(" ")}`,
+          };
     },
   },
   {
@@ -504,7 +505,7 @@ export function realContext(root, { live = false } = {}) {
 const HELP = `Usage: pnpm doctor:worktree [--json] [--live]
 
 Checks whether this worktree is ready: Node.js and pnpm versions, dependencies,
-Prisma client, the three environment variables, the .env.local mode, and the
+Prisma client, the three environment variables, the env file modes, and the
 database migrations. It changes no file. Exit code 0 means ready.
 
   --json   Print the result as JSON.

@@ -17,7 +17,30 @@ const LINK_TARGET = String.raw`(?:[^()\s]|\([^()\s]*\))*(?:\s+(?:"[^"]*"|'[^']*'
 const IMAGE = new RegExp(String.raw`!\[${LINK_TEXT}\]\(${LINK_TARGET}\)`, "g");
 const LINK = new RegExp(String.raw`\[(${LINK_TEXT})\]\(${LINK_TARGET}\)`, "g");
 const REFERENCE_MARK =
-  /\s*\[[*_]*(?:\^?\d{1,3}|[a-z]|note \d{1,3}|citation needed|edit)[*_]*\]/g;
+  /\s*\[[*_]*(?:\^?\d{1,3}(?:[,\u2013-]\d{1,3})*|[a-z]|note \d{1,3}|citation needed|edit)[*_]*\]/g;
+const NOTE = String.raw`[*_]*(?:\^?\d{1,3}(?:[,\u2013-]\d{1,3})*|[a-z]|note \d{1,3})[*_]*`;
+const NOTE_TEXT = String.raw`\[(?:${NOTE}|\\\[${NOTE}\\\])\]`;
+const LINK_TITLE = String.raw`(?:\s+(?:"[^"]*"|'[^']*'))?`;
+// A note link touches the word before it, as in `fell.[43](#R43)` or
+// `effects[14](/articles/x#ref-CR14)`. After a space the linked text is part
+// of the sentence, as in `Fig. [4](#Fig4)`.
+const NOTE_LINK = new RegExp(
+  String.raw`(?<=\S)${NOTE_TEXT}\([^()\s#]*#[^()\s]*${LINK_TITLE}\)`,
+  "g",
+);
+// Comment syntax inside a code block or a code span is page text.
+const CODE_OR_COMMENT =
+  /(^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]*\2[^\n]*$|(?![\s\S]))|`[^`\n]+`)|<!--[\s\S]*?(?:-->|(?![\s\S]))/gm;
+const HTML_BLOCK =
+  /<\/?(?:p|div|li|ul|ol|h[1-6]|table|thead|tbody|tr|td|th|blockquote|dd|dt)\b[^<>]*>/gi;
+const BLANK_LINE = /^[ \t]*(?:>[ \t]*)*$/;
+const HEADING_LINE = /^[ \t]*(?:>[ \t]*)*#{1,6}(?:[ \t]|$)/;
+const TABLE_ROW = /^[ \t]*(?:>[ \t]*)*\|/;
+const TABLE_SEPARATOR =
+  /^[ \t]*(?:>[ \t]*)*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*$/;
+const CELL_BREAK = /(?<!\\)\|/;
+const BULLET_ITEM = /^[ \t]*(?:>[ \t]*)*[-*+][ \t]+/;
+const NUMBERED_ITEM = /^[ \t]*(?:>[ \t]*)*(\d{1,9})[.)][ \t]+/;
 const LINE_PREFIX =
   /^[ \t]*(?:>[ \t]*)*(?:#{1,6}(?=[ \t]|$))?[ \t]*(?:[-*+][ \t]+)?(?:\[[ xX]\][ \t]+)?/;
 const RULE_LINE = /^[ \t]*[-=*_|:][-=*_|: \t]*$/;
@@ -72,13 +95,27 @@ const htmlToText = (text: string) =>
       (entity) => ENTITIES[entity] ?? entity,
     );
 
+const dropComments = (text: string) =>
+  text.replace(CODE_OR_COMMENT, (match, code?: string) =>
+    code === undefined ? "" : match,
+  );
+
+// A mark glued to the next word, as in `risk.[43](#R43)Drinking`, still
+// separates the two words.
+const withoutMark = (mark: string, at: number, text: string) =>
+  /[\p{L}\p{N}]/u.test(text.charAt(at + mark.length)) ? " " : "";
+
+// Runs before linksToTheirText, which would leave the bare note number behind.
+const dropNoteLinks = (text: string) => text.replace(NOTE_LINK, withoutMark);
+
 const linksToTheirText = (text: string) =>
   replaceUntilStable(text.replace(IMAGE, ""), LINK, "$1");
 
 const unescapeMarkdown = (text: string) =>
   text.replace(/\\([!-/:-@[-`{-~])/g, "$1");
 
-const dropReferenceMarks = (text: string) => text.replace(REFERENCE_MARK, "");
+const dropReferenceMarks = (text: string) =>
+  text.replace(REFERENCE_MARK, withoutMark);
 
 const dropLineMarks = (text: string) =>
   text
@@ -100,6 +137,7 @@ const collapseSpaces = (text: string) => text.replace(/ {2,}/g, " ").trim();
 const CANONICAL_STEPS = [
   foldLetterForms,
   htmlToText,
+  dropNoteLinks,
   linksToTheirText,
   unescapeMarkdown,
   dropReferenceMarks,
@@ -113,6 +151,59 @@ export function canonical(text: string): string {
   return CANONICAL_STEPS.reduce((out, step) => step(out), text);
 }
 
+const cellsOf = (row: string) => row.split(CELL_BREAK);
+
+// A table can leave out its outer pipes. Its separator row marks the header
+// row above it and the rows below it.
+function tableRowsOf(lines: readonly string[]): Set<number> {
+  const rows = new Set<number>();
+  for (const [i, line] of lines.entries()) {
+    if (!TABLE_SEPARATOR.test(line)) continue;
+    if (CELL_BREAK.test(lines[i - 1] ?? "")) rows.add(i - 1);
+    for (let k = i + 1; CELL_BREAK.test(lines[k] ?? ""); k += 1) rows.add(k);
+  }
+  return rows;
+}
+
+// A quote must sit inside one block: a paragraph, a heading, a list item or a
+// table cell.
+function blocksOf(markdown: string): string[] {
+  const blocks: string[] = [];
+  let lines: string[] = [];
+  let inItem = false;
+  const close = () => {
+    if (lines.length > 0) blocks.push(lines.join("\n"));
+    lines = [];
+    inItem = false;
+  };
+  const all = dropComments(markdown).replace(HTML_BLOCK, "\n\n").split("\n");
+  const tableRows = tableRowsOf(all);
+  for (const [i, line] of all.entries()) {
+    if (BLANK_LINE.test(line) || RULE_LINE.test(line)) {
+      close();
+    } else if (HEADING_LINE.test(line)) {
+      close();
+      blocks.push(line);
+    } else if (TABLE_ROW.test(line) || tableRows.has(i)) {
+      close();
+      blocks.push(...cellsOf(line));
+    } else {
+      const number = NUMBERED_ITEM.exec(line)?.[1];
+      // As in CommonMark, only a list that starts at 1 interrupts a paragraph.
+      const startsItem =
+        BULLET_ITEM.test(line) ||
+        (number !== undefined && (inItem || number === "1"));
+      if (startsItem) {
+        close();
+        inItem = true;
+      }
+      lines.push(line);
+    }
+  }
+  close();
+  return blocks;
+}
+
 function wordsOf(text: string): string[] {
   const canon = canonical(text);
   return canon === "" ? [] : canon.split(" ");
@@ -120,6 +211,10 @@ function wordsOf(text: string): string[] {
 
 const OPENING = /^["'([]*$/;
 const CLOSING = /^["')\].,;:!?]*$/;
+// The reader can turn a superscript note mark into plain digits, as in
+// `antiquity.1`. Only a quote that ends on a word may leave them out.
+const NOTE_DIGITS = /^[.,;:!?]["')\]]*\d{1,3}$/;
+const ENDS_ON_WORD = /\p{L}{2}$/u;
 
 function trimStart(word: string): string {
   let out = word;
@@ -168,42 +263,49 @@ function edgeMatches(
     const before = pageWord.slice(0, from);
     const after = pageWord.slice(from + word.length);
     const beforeOk = at === "end" ? before === "" : OPENING.test(before);
-    const afterOk = at === "start" ? after === "" : CLOSING.test(after);
+    const afterOk =
+      at === "start"
+        ? after === ""
+        : CLOSING.test(after) ||
+          (ENDS_ON_WORD.test(word) && NOTE_DIGITS.test(after));
     if (beforeOk && afterOk) return true;
   }
   return false;
 }
 
+function blockContains(block: readonly string[], words: string[]): boolean {
+  const first = words[0] ?? "";
+  const last = words[words.length - 1] ?? "";
+  const n = words.length;
+  for (let i = 0; i + n <= block.length; i += 1) {
+    const head = block[i] ?? "";
+    if (n === 1) {
+      if (edgeMatches(head, first, "both")) return true;
+      continue;
+    }
+    if (!edgeMatches(head, first, "start")) continue;
+    let inner = true;
+    for (let k = 1; k < n - 1 && inner; k += 1)
+      inner = block[i + k] === words[k];
+    if (inner && edgeMatches(block[i + n - 1] ?? "", last, "end")) return true;
+  }
+  return false;
+}
+
 export class QuotablePage {
-  readonly #words: readonly string[];
+  readonly #blocks: readonly (readonly string[])[];
 
   constructor(markdown: string) {
-    this.#words = wordsOf(markdown);
+    this.#blocks = blocksOf(markdown)
+      .map(wordsOf)
+      .filter((words) => words.length > 0);
   }
 
   contains(quote: string): QuoteCheck {
     const words = quoteWords(quote);
-    const first = words[0];
-    const last = words[words.length - 1];
-    if (first === undefined || last === undefined) {
-      return { found: false, reason: "empty-quote" };
-    }
-    const page = this.#words;
-    const n = words.length;
-    for (let i = 0; i + n <= page.length; i += 1) {
-      const head = page[i] ?? "";
-      if (n === 1) {
-        if (edgeMatches(head, first, "both")) return { found: true };
-        continue;
-      }
-      if (!edgeMatches(head, first, "start")) continue;
-      let inner = true;
-      for (let k = 1; k < n - 1 && inner; k += 1)
-        inner = page[i + k] === words[k];
-      if (inner && edgeMatches(page[i + n - 1] ?? "", last, "end")) {
-        return { found: true };
-      }
-    }
-    return { found: false, reason: "not-on-page" };
+    if (words.length === 0) return { found: false, reason: "empty-quote" };
+    return this.#blocks.some((block) => blockContains(block, words))
+      ? { found: true }
+      : { found: false, reason: "not-on-page" };
   }
 }

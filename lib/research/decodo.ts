@@ -10,6 +10,7 @@ import { z } from "zod";
 import {
   FatalRunError,
   type MapOutcome,
+  type ReadMode,
   type ReadOutcome,
   type WebActions,
 } from "./budget";
@@ -24,7 +25,7 @@ import {
 // port trusts them.
 export type DecodoPort = {
   googleSearch(query: string): Promise<unknown>;
-  readMarkdown(url: string): Promise<unknown>;
+  readMarkdown(url: string, mode: ReadMode): Promise<unknown>;
   mapSite(url: string, limit: number): Promise<unknown>;
 };
 
@@ -36,8 +37,13 @@ export function sdkPort(apiKey: string): DecodoPort {
   return {
     googleSearch: (query) =>
       api.scrape({ target: Target.GoogleSearch, query, parse: true }),
-    readMarkdown: (url) =>
-      api.scrape({ target: Target.Universal, url, markdown: true }),
+    readMarkdown: (url, mode) =>
+      api.scrape({
+        target: Target.Universal,
+        url,
+        markdown: true,
+        ...(mode === "rendered" ? { headless: "html" as const } : {}),
+      }),
     mapSite: (url, limit) => api.map({ url, limit }),
   };
 }
@@ -144,6 +150,20 @@ export function parseSearch(wire: unknown): SearchOutcome {
   return { status: "ok", results };
 }
 
+// JavaScript shells and bot checks had 4 to 73 letters and digits, the smallest real
+// page (example.com) has 129.
+export const MIN_TEXT_CHARS = 100;
+
+export function textChars(markdown: string): number {
+  const text = markdown
+    .replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/https?:\/\/\S+/g, " ");
+  return text.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
+}
+
 export function parseRead(wire: unknown): ReadOutcome {
   const failure = scrapeFailure(wire);
   if (failure) return { status: "failed", failure };
@@ -164,16 +184,25 @@ export function parseRead(wire: unknown): ReadOutcome {
       failure: { kind: "http-status", detail: `status ${page.status_code}` },
     };
   }
-  if (page.content.startsWith("%PDF-") || page.content.includes("\u0000")) {
+  // A rendered read returns a PDF as base64, which starts with "JVBERi0".
+  if (
+    page.content.startsWith("%PDF-") ||
+    page.content.startsWith("JVBERi0") ||
+    page.content.includes("\u0000")
+  ) {
     return {
       status: "failed",
       failure: { kind: "not-text", detail: "binary content such as a PDF" },
     };
   }
-  if (page.content.trim() === "") {
+  const chars = textChars(page.content);
+  if (chars < MIN_TEXT_CHARS) {
     return {
       status: "failed",
-      failure: { kind: "empty", detail: "no text on the page" },
+      failure: {
+        kind: "empty",
+        detail: `${chars} letters and digits of text, fewer than ${MIN_TEXT_CHARS}`,
+      },
     };
   }
   return { status: "ok", markdown: page.content };
@@ -226,8 +255,8 @@ export function createDecodoWeb(port: DecodoPort): WebActions {
   return {
     search: (query) =>
       port.googleSearch(query).then(parseSearch, failedUnlessKeyRejected),
-    read: (url) =>
-      port.readMarkdown(url).then(parseRead, failedUnlessKeyRejected),
+    read: (url, mode = "plain") =>
+      port.readMarkdown(url, mode).then(parseRead, failedUnlessKeyRejected),
     map: (site, limit) =>
       port.mapSite(site, limit).then(parseMap, failedUnlessKeyRejected),
   };

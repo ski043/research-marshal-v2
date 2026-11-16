@@ -1,0 +1,12 @@
+{
+  "results": [
+    {
+      "content": "# [Quotes to Scrape](/)\n\n[Login](/login)\n\n-   [Next →](/js/page/2/)\n\nQuotes by: [GoodReads.com](https://www.goodreads.com/quotes)\n\nMade with ❤ by [Zyte](https://www.zyte.com)",
+      "type": "markdown",
+      "status_code": 200,
+      "url": "https://quotes.toscrape.com/js/",
+      "created_at": "2026-11-16 15:52:10",
+      "updated_at": "2026-11-16 15:52:12"
+    }
+  ]
+}

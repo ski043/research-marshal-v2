@@ -5,7 +5,7 @@ import {
   type PlannedQuery,
   Question,
   type RunEvent,
-  type RunEventBody,
+  RunEventBody,
   RunId,
 } from "./events";
 import {
@@ -64,7 +64,7 @@ describe("page states (F1)", () => {
     expect(candidatesOf(view).map((c) => c.url)).toEqual([url(1), url(2)]);
   });
 
-  it("reads.planned queues the granted, skips the over-budget, and skips the rest as not chosen", () => {
+  it("a stored reads.planned queues the granted, skips the over-budget, and skips the rest as not chosen", () => {
     const view = run(...found(1, 2, 3, 4), {
       type: "reads.planned",
       round: 1,
@@ -81,6 +81,70 @@ describe("page states (F1)", () => {
       { kind: "skipped", reason: "not-chosen" },
     ]);
     expect(candidatesOf(view)).toEqual([]);
+  });
+
+  it("reads.queued queues the ranked pages, skips a refused site, and skips the rest as not chosen", () => {
+    const view = run(...found(1, 2, 3, 4), {
+      type: "reads.queued",
+      round: 1,
+      queue: [url(1), url(2)],
+      skipped: [{ url: url(3), reason: "site-refused" }],
+    });
+    expect([1, 2, 3, 4].map((n) => stateOf(view, n))).toEqual([
+      { kind: "queued" },
+      { kind: "queued" },
+      { kind: "skipped", reason: "site-refused" },
+      { kind: "skipped", reason: "not-chosen" },
+    ]);
+  });
+
+  it("reads.finished skips the queued pages that the round did not read", () => {
+    const view = run(
+      ...found(1, 2, 3),
+      {
+        type: "reads.queued",
+        round: 1,
+        queue: [url(1), url(2), url(3)],
+        skipped: [],
+      },
+      { type: "page.read", round: 1, url: url(1), title: "Read", chars: 42 },
+      {
+        type: "reads.finished",
+        round: 1,
+        skipped: [
+          { url: url(2), reason: "site-refused" },
+          { url: url(3), reason: "over-budget" },
+        ],
+      },
+    );
+    expect([1, 2, 3].map((n) => stateOf(view, n)?.kind)).toEqual([
+      "read",
+      "skipped",
+      "skipped",
+    ]);
+    expect(stateOf(view, 2)).toEqual({
+      kind: "skipped",
+      reason: "site-refused",
+    });
+    expect(stateOf(view, 3)).toEqual({
+      kind: "skipped",
+      reason: "over-budget",
+    });
+  });
+
+  it("keeps the state of a page that a round skips as already read", () => {
+    const view = run(
+      ...found(1),
+      { type: "reads.queued", round: 1, queue: [url(1)], skipped: [] },
+      { type: "page.read", round: 1, url: url(1), title: "Read", chars: 42 },
+      {
+        type: "reads.queued",
+        round: 1,
+        queue: [],
+        skipped: [{ url: url(1), reason: "already-read" }],
+      },
+    );
+    expect(stateOf(view, 1)?.kind).toBe("read");
   });
 
   it("a read page carries its chars and label, a failed page its failure", () => {
@@ -332,7 +396,8 @@ describe("Decodo calls and budget use (U4)", () => {
     expect(view.budget).toMatchObject({
       rounds: 1,
       queriesThisRound: 1,
-      readsThisRound: 1,
+      readsThisRound: 0,
+      readAttemptsThisRound: 1,
       maps: 0,
     });
     expect(view.decodoCalls.map((c) => c.outcome)).toEqual(["ok", "open"]);
@@ -341,6 +406,54 @@ describe("Decodo calls and budget use (U4)", () => {
       end: { status: "cancelled" },
     });
     expect(done.decodoCalls.map((c) => c.outcome)).toEqual(["ok", "abandoned"]);
+  });
+});
+
+describe("budget limits (B7)", () => {
+  it("counts a read page, not a read attempt, as a page read", () => {
+    const view = run(
+      ...found(1, 2),
+      { type: "reads.queued", round: 1, queue: [url(1), url(2)], skipped: [] },
+      ...[1, 2].map(
+        (n): RunEventBody => ({
+          type: "decodo.requested",
+          call: n,
+          round: 1,
+          endpoint: "universal",
+          input: url(n),
+        }),
+      ),
+      { type: "page.read", round: 1, url: url(1), title: "Read", chars: 42 },
+      {
+        type: "page.failed",
+        round: 1,
+        url: url(2),
+        failure: { kind: "rejected", detail: "x" },
+      },
+    );
+    expect(view.budget).toMatchObject({
+      readsThisRound: 1,
+      readAttemptsThisRound: 2,
+    });
+  });
+
+  it("gives a run stored before the attempt cap its old cap of 8 attempts", () => {
+    const stored = RunEventBody.parse({
+      type: "run.started",
+      limits: {
+        rounds: 3,
+        queriesPerRound: 5,
+        readsPerRound: 8,
+        mapsPerRun: 1,
+      },
+    });
+    expect(run(stored).budget.limits).toEqual({
+      rounds: 3,
+      queriesPerRound: 5,
+      readsPerRound: 8,
+      readAttemptsPerRound: 8,
+      mapsPerRun: 1,
+    });
   });
 });
 
