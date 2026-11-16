@@ -259,6 +259,36 @@ const rows: Row[] = [
     FOUND,
   ],
   [
+    "two note links with a comma between them, left out of the quote",
+    'Some were ‘sick quitters’[12](/a#ref-CR12 "Marmot, M. (1984)."),[13](/a#ref-CR13 "Shaper, A. (1988).")), and others were not.',
+    "Some were ‘sick quitters’), and others were not.",
+    FOUND,
+  ],
+  [
+    "two plain marks with a comma between them, left out of the quote",
+    "Risk rises with intake [1], [2] in most cohorts.",
+    "Risk rises with intake in most cohorts.",
+    FOUND,
+  ],
+  [
+    "a quote that ends where the page glues the next sentence on",
+    "Alcohol caused 16% of intracerebral haemorrhages.These excess stroke risks are large.",
+    "Alcohol caused 16% of intracerebral haemorrhages.",
+    FOUND,
+  ],
+  [
+    "a quote that starts where the page glues it to the sentence before",
+    "They were current drinkers.Hence, the genetic findings imply a cause.",
+    "Hence, the genetic findings imply a cause.",
+    FOUND,
+  ],
+  [
+    "a quote that ends inside a dotted name",
+    "The data are on example.com for download.",
+    "The data are on example.",
+    NOT_ON_PAGE,
+  ],
+  [
     "a linked one-letter word",
     "Choose [a](#option-a) candidate.",
     "Choose candidate.",
