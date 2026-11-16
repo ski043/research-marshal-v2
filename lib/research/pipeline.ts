@@ -15,7 +15,11 @@ import {
   type StoppedBy,
   siteOf,
 } from "./events";
-import { MalformedAnswer, type ModelSteps } from "./model-config";
+import {
+  MalformedAnswer,
+  type ModelSteps,
+  QUOTE_MAX_CHARS,
+} from "./model-config";
 import { numberItems, pickByNumber } from "./numbered";
 import { QuotablePage } from "./quote-check";
 import { finalizeReport, liveReport, noClaimsReport } from "./report";
@@ -162,14 +166,9 @@ async function research(
       const fromMap = mapRequest
         ? await mapStep(deps, round, mapRequest.site, mapRequest.need)
         : [];
-      const plan = round.read([
-        ...fromMap.map((url) => ({ url })),
-        ...picked.items,
-      ]);
-      await settleAll(
-        plan.granted.map((grant) =>
-          readAndVerify(deps, round.no, grant.item.url, grant.outcome),
-        ),
+      await round.read(
+        [...fromMap.map((url) => ({ url })), ...picked.items],
+        (item, outcome) => readAndVerify(deps, round.no, item.url, outcome),
       );
     }
 
@@ -238,10 +237,9 @@ async function readAndVerify(
   deps: PipelineDeps,
   round: RoundNo,
   url: PageUrl,
-  pending: Promise<ReadOutcome>,
+  outcome: ReadOutcome,
 ): Promise<void> {
   const { model, log, savePage } = deps;
-  const outcome = await pending;
   if (outcome.status === "failed") {
     log.emit({ type: "page.failed", round, url, failure: outcome.failure });
     return;
@@ -278,7 +276,14 @@ async function readAndVerify(
 
   const drafts = extracted.claims.slice(0, LIMITS.claimsPerPage);
   const page = new QuotablePage(outcome.markdown);
-  const v1 = drafts.map((draft) => page.contains(draft.quote));
+  const v1 = drafts.map((draft) =>
+    draft.quote.length > QUOTE_MAX_CHARS
+      ? ({
+          found: false,
+          reason: `too-long: over ${QUOTE_MAX_CHARS} characters`,
+        } as const)
+      : page.contains(draft.quote),
+  );
   const v2 = await Promise.allSettled(
     drafts.map((draft, i) =>
       v1[i]?.found

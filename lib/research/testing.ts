@@ -1,6 +1,13 @@
-import { expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { expect, vi } from "vitest";
 import { BUDGET, meterWeb, type WebActions } from "./budget";
-import { PageUrl, Question, type RunEvent, RunId } from "./events";
+import {
+  PageUrl,
+  Question,
+  type RunEvent,
+  RunId,
+  SearchOutcome,
+} from "./events";
 import type { ModelSteps } from "./model-config";
 import type { PipelineDeps } from "./pipeline";
 import { createRunLog } from "./run-log";
@@ -152,15 +159,139 @@ export function expectBudgetHeld(events: readonly RunEvent[]): void {
     ).toBeLessThanOrEqual(BUDGET.queriesPerRound);
     expect(
       count("universal"),
-      `reads in round ${round.round}`,
+      `read attempts in round ${round.round}`,
+    ).toBeLessThanOrEqual(BUDGET.readAttemptsPerRound);
+    expect(
+      events.filter((e) => e.type === "page.read" && e.round === round.round)
+        .length,
+      `pages read in round ${round.round}`,
     ).toBeLessThanOrEqual(BUDGET.readsPerRound);
   }
   expect(
     requested.filter((e) => e.endpoint === "map").length,
     "maps",
   ).toBeLessThanOrEqual(BUDGET.mapsPerRun);
-  const reads = requested
-    .filter((e) => e.endpoint === "universal")
-    .map((e) => e.input);
-  expect(new Set(reads).size, "no URL read twice").toBe(reads.length);
+  const reads = requested.filter((e) => e.endpoint === "universal");
+  const plain = reads.filter((e) => !e.rendered).map((e) => e.input);
+  expect(new Set(plain).size, "no URL read twice").toBe(plain.length);
+  const rendered = reads.filter((e) => e.rendered).map((e) => e.input);
+  expect(new Set(rendered).size, "no URL rendered twice").toBe(rendered.length);
+  for (const url of rendered) {
+    expect(plain, "a rendered read retries a plain read").toContain(url);
+  }
+}
+
+export type HostilePage =
+  | "page-close-tag"
+  | "v2-injection-quote"
+  | "quote-giant";
+
+function hostileFixture(name: string): string {
+  return readFileSync(
+    new URL(`./fixtures/hostile/${name}`, import.meta.url),
+    "utf8",
+  );
+}
+
+export function hostilePage(name: HostilePage): string {
+  return hostileFixture(`${name}.md`);
+}
+
+export function hostileSearch(): SearchOutcome {
+  return SearchOutcome.parse(
+    JSON.parse(hostileFixture("select-hostile-snippet.json")),
+  );
+}
+
+export function outsideWebData(text: string): string {
+  return text.replace(/<web_data>[\s\S]*?<\/web_data>/g, "");
+}
+
+export type AnthropicRequest = {
+  max_tokens: number;
+  system: string;
+  prompt: string;
+  stream: boolean;
+};
+
+type AnthropicAnswer = { text: string; stopReason?: "end_turn" | "max_tokens" };
+
+function textOf(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.map((part) => part?.text ?? "").join("\n");
+}
+
+function sse(answer: AnthropicAnswer): string {
+  const events = [
+    {
+      type: "message_start",
+      message: {
+        id: "msg_test",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-5-5",
+        content: [],
+        stop_reason: null,
+        usage: { input_tokens: 10, output_tokens: 1 },
+      },
+    },
+    {
+      type: "content_block_start",
+      index: 0,
+      content_block: { type: "text", text: "" },
+    },
+    {
+      type: "content_block_delta",
+      index: 0,
+      delta: { type: "text_delta", text: answer.text },
+    },
+    { type: "content_block_stop", index: 0 },
+    {
+      type: "message_delta",
+      delta: { stop_reason: answer.stopReason ?? "end_turn" },
+      usage: { output_tokens: 10 },
+    },
+    { type: "message_stop" },
+  ];
+  return events
+    .map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`)
+    .join("");
+}
+
+// Stubs the Anthropic Messages API under the real AI SDK, so a test sees the
+// request that a model step sends and controls the answer.
+export function fakeAnthropic(
+  answer: (request: AnthropicRequest) => AnthropicAnswer,
+) {
+  const requests: AnthropicRequest[] = [];
+  vi.stubGlobal("fetch", async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body));
+    const request: AnthropicRequest = {
+      max_tokens: body.max_tokens,
+      system: textOf(body.system),
+      prompt: body.messages
+        .map((m: { content: unknown }) => textOf(m.content))
+        .join("\n"),
+      stream: body.stream === true,
+    };
+    requests.push(request);
+    const reply = answer(request);
+    if (request.stream) {
+      return new Response(sse(reply), {
+        headers: { "content-type": "text/event-stream" },
+      });
+    }
+    return Response.json({
+      id: "msg_test",
+      type: "message",
+      role: "assistant",
+      model: "claude-sonnet-5-5",
+      content: [{ type: "text", text: reply.text }],
+      stop_reason: reply.stopReason ?? "end_turn",
+      stop_sequence: null,
+      usage: { input_tokens: 10, output_tokens: 10 },
+    });
+  });
+  return { requests };
 }

@@ -6,16 +6,19 @@
     "node": ">=26"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
     "lint": "biome check",
     "format": "biome format --write",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "verify:stack": "vitest run --config verify/vitest.config.mts",
     "postinstall": "prisma generate",
+    "bootstrap": "node scripts/setup-worktree.mjs",
+    "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy --config prisma7.config.ts",
+    "doctor:worktree": "node scripts/doctor.mjs",
     "research": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/research.ts"
   },
   "dependencies": {
