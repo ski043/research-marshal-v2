@@ -28,6 +28,7 @@ Version 1 runs locally for one user. It has no accounts and no hosted service. T
 | Icons | lucide-react | 1.x | The default icon library of shadcn/ui. |
 | Component support | `@base-ui/react`, `class-variance-authority`, `cn`, `tw-animate-css` | | The packages that the shadcn/ui components import. The shadcn CLI adds them. |
 | Report rendering | Streamdown | 2.7 | Renders the report (R1) and turns each citation into a popover with a link (U6, U7). |
+| Report cleanup | `mdast-util-from-markdown`, `micromark-extension-gfm`, `mdast-util-gfm`, and `mdast-util-to-markdown`, with `@types/mdast` | 2.1.0, 3.0.0, 3.1.0, 2.2.3, and 4.0.4 | Parses the model draft with the parser that Streamdown uses, keeps only the constructs that a report can contain, and writes the draft back as Markdown (R7, V4). |
 | Validation | Zod | 4.6 | Parses the question, the environment variables, and the model output. |
 | Web data | Decodo TypeScript SDK (`@decodo/sdk-ts`) | 3.0 | The three web actions (W2). |
 | Model calls | AI SDK (`ai`) with `@ai-sdk/anthropic` | 7.0 and 4.0 | Every call to a model. |
