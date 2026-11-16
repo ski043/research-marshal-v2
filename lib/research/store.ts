@@ -1,6 +1,7 @@
 import type { RunStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import {
+  ModelChoice,
   type PageUrl,
   Question,
   type RunEnd,
@@ -13,13 +14,14 @@ import type { RunView } from "./run-view";
 export type RunSummary = {
   runId: RunId;
   question: Question;
+  model: ModelChoice;
   status: RunView["status"];
   createdAt: Date;
   finishedAt: Date | null;
 };
 
 export type Store = {
-  createRun(question: Question): Promise<RunId>;
+  createRun(run: { question: Question; model: ModelChoice }): Promise<RunId>;
   appendEvent(runId: RunId, event: RunEvent): Promise<void>;
   readEvents(runId: RunId, afterSeq: number): Promise<readonly RunEvent[]>;
   savePageText(runId: RunId, url: PageUrl, markdown: string): Promise<void>;
@@ -43,6 +45,7 @@ const VIEW_STATUS: Record<RunStatus, RunView["status"]> = {
 function summaryOf(row: {
   id: string;
   question: string;
+  model: string;
   status: RunStatus;
   createdAt: Date;
   finishedAt: Date | null;
@@ -50,6 +53,7 @@ function summaryOf(row: {
   return {
     runId: RunId.parse(row.id),
     question: Question.parse(row.question),
+    model: ModelChoice.parse(row.model),
     status: VIEW_STATUS[row.status],
     createdAt: row.createdAt,
     finishedAt: row.finishedAt,
@@ -58,8 +62,8 @@ function summaryOf(row: {
 
 export function openStore(): Store {
   return {
-    async createRun(question) {
-      const run = await db.run.create({ data: { question } });
+    async createRun({ question, model }) {
+      const run = await db.run.create({ data: { question, model } });
       return RunId.parse(run.id);
     },
 

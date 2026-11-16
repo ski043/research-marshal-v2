@@ -7,6 +7,7 @@ import {
 } from "@/lib/research";
 import { Question, type ReadSkip, type RunEvent } from "@/lib/research/events";
 import { modelSummaryLine } from "@/lib/research/inspect";
+import { MODELS } from "@/lib/research/model-config";
 import type { RunView, SkipReason } from "@/lib/research/run-view";
 import {
   EXIT,
@@ -314,8 +315,12 @@ function printSummary(view: RunView): void {
   console.log(`Wall time: ${seconds(performance.now() - startedAt)}`);
 }
 
-const run = await startRun(parsed.data, ports);
+const run = await startRun(
+  { question: parsed.data, model: cli.args.model },
+  ports,
+);
 console.log(`Run ${run.runId}: ${parsed.data}`);
+console.log(`Model: ${MODELS[cli.args.model].name}`);
 
 let interrupts = 0;
 process.on("SIGINT", () => {

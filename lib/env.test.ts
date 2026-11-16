@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ENV_NAMES, readEnv } from "@/lib/env";
+import { ENV_NAMES, readEnv, readFakesPace } from "@/lib/env";
 
 function stubAll(
   values: Record<(typeof ENV_NAMES)[number], string | undefined>,
@@ -87,5 +87,30 @@ describe("readEnv", () => {
     expect(readEnv(["DATABASE_URL"])).toEqual({
       DATABASE_URL: "file:./test.db",
     });
+  });
+});
+
+describe("readFakesPace", () => {
+  it("is null when RESEARCH_MARSHAL_FAKES is unset or empty", () => {
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", undefined);
+    expect(readFakesPace()).toBeNull();
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", "");
+    expect(readFakesPace()).toBeNull();
+  });
+
+  it("reads the pace in milliseconds", () => {
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", "0");
+    expect(readFakesPace()).toBe(0);
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", "150");
+    expect(readFakesPace()).toBe(150);
+  });
+
+  it.each(["yes", "-5", "1.5", " 10"])("rejects %j", (value) => {
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", value);
+    expect(() => readFakesPace()).toThrow("RESEARCH_MARSHAL_FAKES");
+  });
+
+  it("is not a required variable", () => {
+    expect(ENV_NAMES).not.toContain("RESEARCH_MARSHAL_FAKES");
   });
 });

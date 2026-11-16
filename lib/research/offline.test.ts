@@ -10,9 +10,11 @@ import {
 import { BUDGET } from "./budget";
 import {
   type ModelCall,
+  type ModelChoice,
   type ModelStep,
   Question,
   type RunEvent,
+  RunId,
 } from "./events";
 import type { RunRecord } from "./index";
 import { createView, replay } from "./run-view";
@@ -45,17 +47,32 @@ beforeEach(() => {
   vi.stubEnv("DECODO_AUTH_TOKEN", undefined);
 });
 
-async function runScenario(name: string): Promise<RunRecord> {
+async function recordOf(runId: RunId): Promise<RunRecord> {
+  const record = await research.loadRunRecord(runId);
+  if (!record) throw new Error(`run ${runId} is not stored`);
+  return record;
+}
+
+async function runScenario(
+  name: string,
+  model: ModelChoice = "sonnet",
+): Promise<RunRecord> {
   const scenario = SCENARIOS.get(name);
   if (!scenario) throw new Error(`no scenario ${name}`);
   const run = await research.startRun(
-    Question.parse(offlineQuestion(scenario)),
+    { question: Question.parse(offlineQuestion(scenario)), model },
     offlinePorts(scenario),
   );
   await run.finished;
-  const record = await research.loadRunRecord(run.runId);
-  if (!record) throw new Error(`run ${run.runId} is not stored`);
-  return record;
+  return recordOf(run.runId);
+}
+
+async function followAll(runId: RunId, after?: number): Promise<RunEvent[]> {
+  const followed: RunEvent[] = [];
+  for await (const event of research.followRun(runId, { after })) {
+    followed.push(event);
+  }
+  return followed;
 }
 
 const stoppedBy = ({ view }: RunRecord) =>
@@ -145,18 +162,36 @@ describe("offline scenarios on the real store", () => {
 
   it("follows a stored run to run.finished", async () => {
     const { summary, events } = await runScenario("completed");
-    const followed: RunEvent[] = [];
-    for await (const event of research.followRun(summary.runId)) {
-      followed.push(event);
-    }
-    expect(followed).toEqual(events);
+    expect(await followAll(summary.runId)).toEqual(events);
+  });
+
+  it("follows a finished run from its last event and returns at once", async () => {
+    const { summary, events } = await runScenario("completed");
+    const last = events.at(-1)?.seq ?? 0;
+    expect(await followAll(summary.runId, last)).toEqual([]);
+    expect(await followAll(summary.runId, last + 10)).toEqual([]);
+    expect(await followAll(summary.runId, last - 1)).toEqual(events.slice(-1));
+  });
+
+  it("returns at once for an unknown run", async () => {
+    expect(await followAll(RunId.parse("no-such-run"))).toEqual([]);
+  });
+
+  it("stores the model of a run", async () => {
+    const record = await runScenario("completed", "haiku");
+    expect(record.summary.model).toBe("haiku");
+    const listed = await research.listRuns();
+    expect(listed.find((r) => r.runId === record.summary.runId)?.model).toBe(
+      "haiku",
+    );
+    expect(formatShow(record)).toContain("Model     Haiku 5.5 (haiku)");
   });
 
   it("cancels a paced run and stores no report", async () => {
     const scenario = SCENARIOS.get("completed");
     if (!scenario) throw new Error("no completed scenario");
     const run = await research.startRun(
-      Question.parse(offlineQuestion(scenario)),
+      { question: Question.parse(offlineQuestion(scenario)), model: "sonnet" },
       offlinePorts(scenario, 50),
     );
     for await (const event of research.followRun(run.runId)) {
@@ -167,6 +202,46 @@ describe("offline scenarios on the real store", () => {
     const record = await research.loadRunRecord(run.runId);
     expect(record?.summary.status).toBe("cancelled");
     expect(record?.view.report).toBeNull();
+  });
+});
+
+describe("RESEARCH_MARSHAL_FAKES", () => {
+  it("is off when unset", () => {
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", undefined);
+    expect(research.fakesEnabled()).toBe(false);
+  });
+
+  it("runs the scenario that the question names, with no network call", async () => {
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", "0");
+    const fetch = vi.fn(() => {
+      throw new Error("a run on the fakes called fetch");
+    });
+    vi.stubGlobal("fetch", fetch);
+    try {
+      expect(research.fakesEnabled()).toBe(true);
+      const run = await research.startRun({
+        question: Question.parse("  Failures "),
+        model: "opus",
+      });
+      expect(await run.finished).toMatchObject({ status: "completed" });
+      const record = await recordOf(run.runId);
+      expect(record.summary.question).toBe("Failures");
+      expect(record.summary.model).toBe("opus");
+      PROMISES.failures?.(record);
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("runs the completed scenario for any other question", async () => {
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", "0");
+    const run = await research.startRun({
+      question: Question.parse("How long do LFP batteries last?"),
+      model: "sonnet",
+    });
+    await run.finished;
+    PROMISES.completed?.(await recordOf(run.runId));
   });
 });
 
@@ -187,6 +262,7 @@ describe("runs output on scenario runs", () => {
       failures.summary.runId,
       expect.stringMatching(/^\d{4}-\d\d-\d\d \d\d:\d\d$/),
       "completed",
+      "sonnet",
       "1",
       "1",
       "1",

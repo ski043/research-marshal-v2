@@ -1,4 +1,4 @@
-import type { RunId } from "@/lib/research/events";
+import { DEFAULT_MODEL, ModelChoice, type RunId } from "@/lib/research/events";
 import {
   countsOf,
   type ModelTotals,
@@ -14,9 +14,10 @@ export const EXIT = Object.freeze({
   cancelled: 3,
 });
 
-export const USAGE = `Usage: pnpm research [--json] "your research question"
+export const USAGE = `Usage: pnpm research [--model <m>] [--json] "your research question"
        pnpm research:offline <scenario> [--pace <ms>] [--json] ["question"]
 
+  --model <m>    the model of every step: ${ModelChoice.options.join(", ")} (default ${DEFAULT_MODEL})
   --json         end with one JSON summary line on stdout
   --offline <s>  run scenario <s> on the fake web and model: no network, no API keys
   --pace <ms>    offline only: wait <ms> before each web call, model step and report chunk
@@ -31,6 +32,7 @@ export function exitCodeOf(status: RunView["status"] | null): number {
 
 export type ResearchArgs = {
   question: string;
+  model: ModelChoice;
   json: boolean;
   offline: { scenario: string; paceMs: number } | null;
 };
@@ -40,6 +42,7 @@ export function parseResearchArgs(
 ): { ok: true; args: ResearchArgs } | { ok: false; error: string } {
   const words: string[] = [];
   let json = false;
+  let model: ModelChoice = DEFAULT_MODEL;
   let scenario: string | null = null;
   let paceMs: number | null = null;
   for (let i = 0; i < argv.length; i += 1) {
@@ -55,6 +58,14 @@ export function parseResearchArgs(
       break;
     } else if (arg === "--json") {
       json = true;
+    } else if (arg === "--model") {
+      const parsed = ModelChoice.safeParse(value());
+      if (!parsed.success)
+        return {
+          ok: false,
+          error: `--model needs one of ${ModelChoice.options.join(", ")}.`,
+        };
+      model = parsed.data;
     } else if (arg === "--offline") {
       scenario = value();
       if (scenario === null)
@@ -80,6 +91,7 @@ export function parseResearchArgs(
     ok: true,
     args: {
       question: words.join(" "),
+      model,
       json,
       offline: scenario === null ? null : { scenario, paceMs: paceMs ?? 0 },
     },

@@ -15,17 +15,19 @@ for (const file of [".env.local", ".env"]) {
 }
 const { ENV_NAMES, readEnv } = await import("@/lib/env");
 const env = readEnv(ENV_NAMES);
-const { MODEL_CONFIG } = await import("@/lib/research/model-config");
+const { stepConfig } = await import("@/lib/research/model-config");
 const { createDecodoWeb, sdkPort } = await import("@/lib/research/decodo");
 const { FatalRunError } = await import("@/lib/research/budget");
-const { PageUrl, SiteUrl } = await import("@/lib/research/events");
+const { DEFAULT_MODEL, ModelChoice, PageUrl, SiteUrl } = await import(
+  "@/lib/research/events"
+);
 
-const MODEL_ID = MODEL_CONFIG.select.model;
-const providerOptions = {
-  anthropic: {
-    effort: MODEL_CONFIG.select.effort,
-  } satisfies AnthropicLanguageModelOptions,
-};
+const optionsOf = (config: { effort: "low" | "medium" | "high" }) => ({
+  anthropic: { effort: config.effort } satisfies AnthropicLanguageModelOptions,
+});
+const select = stepConfig(DEFAULT_MODEL, "select");
+const MODEL_ID = select.model;
+const providerOptions = optionsOf(select);
 
 const requests: { url: string; signalAborted: boolean }[] = [];
 const recordingFetch: typeof fetch = (input, init) => {
@@ -68,6 +70,26 @@ describe("Anthropic through the AI SDK", () => {
     ).toMatch(/^claude-sonnet-5-5/);
     expect(result.text.trim(), "the model returned text").not.toBe("");
   });
+
+  // M1: every choice of the switcher is an ID that Anthropic accepts with the effort option.
+  it.each(ModelChoice.options)(
+    "the %s model answers with its own ID and the effort option",
+    async (choice) => {
+      const config = stepConfig(choice, "select");
+      const result = await generateText({
+        model: anthropic(config.model),
+        providerOptions: optionsOf(config),
+        maxOutputTokens: config.maxOutputTokens,
+        maxRetries: 0,
+        prompt: "Reply with the single word: ready",
+      });
+      expect(
+        result.finalStep.response.modelId,
+        `the response came from ${config.model}`,
+      ).toMatch(new RegExp(`^${config.model}`));
+      expect(result.text.trim(), "the model returned text").not.toBe("");
+    },
+  );
 
   it("Output.object parses the answer with the Zod schema", async () => {
     const schema = z.object({ product: z.number().int() });

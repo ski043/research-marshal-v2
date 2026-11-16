@@ -7,10 +7,11 @@ import {
   type PlannedQuery,
   type RunEvent,
 } from "./events";
+import { PAGE_TEXT, slug } from "./fakes";
 import { MalformedAnswer } from "./model-config";
 import { type PipelineLog, runPipeline } from "./pipeline";
 import { createView, replay } from "./run-view";
-import { expectBudgetHeld, PAGE_TEXT, slug, testRun } from "./testing";
+import { expectBudgetHeld, testRun } from "./testing";
 
 const many = (count: number, tag: string): PlannedQuery[] =>
   Array.from({ length: count }, (_, i) => ({

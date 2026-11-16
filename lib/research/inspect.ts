@@ -6,6 +6,7 @@ import {
   type RunEvent,
 } from "./events";
 import type { RunRecord } from "./index";
+import { MODELS } from "./model-config";
 import type { ModelStepUsage, PageView, RunView } from "./run-view";
 
 export type RunCounts = {
@@ -98,12 +99,13 @@ export function formatList(rows: readonly ListRow[]): string {
     const lead = [summary.runId, utc(summary.createdAt).slice(0, 16)];
     const question = oneLine(summary.question, 60);
     if (!row.ok) {
-      return [...lead, "log error", "", "", "", "", question];
+      return [...lead, "log error", summary.model, "", "", "", "", question];
     }
     const c = countsOf(row.record.view);
     return [
       ...lead,
       summary.status,
+      summary.model,
       String(c.rounds),
       String(c.pagesRead),
       String(c.verified),
@@ -120,6 +122,7 @@ export function formatList(rows: readonly ListRow[]): string {
         "RUN",
         "CREATED (UTC)",
         "STATUS",
+        "MODEL",
         "ROUNDS",
         "READ",
         "VERIFIED",
@@ -606,6 +609,7 @@ export function formatShow(
   const lines = [
     `Run ${summary.runId}`,
     `Question  ${oneLine(summary.question, 200)}`,
+    `Model     ${MODELS[summary.model].name} (${summary.model})`,
     `Status    ${endOf(view)}`,
     `Created   ${utc(summary.createdAt)}, ${wall}, ${events.length} events`,
     WEB_TEXT_NOTE,

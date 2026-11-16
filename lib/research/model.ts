@@ -12,6 +12,7 @@ import { BUDGET, FatalRunError, RunCancelled } from "./budget";
 import {
   type ModelCall,
   type ModelCallOutcome,
+  type ModelChoice,
   type ModelStep,
   type ModelTokens,
   type PlannedQuery,
@@ -20,9 +21,9 @@ import {
 } from "./events";
 import {
   MalformedAnswer,
-  MODEL_CONFIG,
   type ModelSteps,
   QUOTE_MAX_CHARS,
+  stepConfig,
 } from "./model-config";
 
 const QuerySchema = z.object({
@@ -399,12 +400,13 @@ function cleanQueries(
     .filter((q) => q.subQuestion !== "" && q.query !== "");
 }
 
-function hitLimit(step: keyof ModelSteps): string {
-  return `the answer reached the output limit of ${MODEL_CONFIG[step].maxOutputTokens} tokens`;
+function hitLimit(maxOutputTokens: number): string {
+  return `the answer reached the output limit of ${maxOutputTokens} tokens`;
 }
 
 export function createModelSteps(deps: {
   apiKey: string;
+  model: ModelChoice;
   signal: AbortSignal;
   record: (call: ModelCall) => void;
   now?: () => number;
@@ -437,7 +439,7 @@ export function createModelSteps(deps: {
     schema: z.ZodType<T>,
     input: StepInput<K>,
   ): Promise<T> {
-    const config = MODEL_CONFIG[step];
+    const config = stepConfig(deps.model, step);
     const { instructions, prompt } = PROMPTS[step](input);
     const close = await slot(step);
     try {
@@ -462,7 +464,9 @@ export function createModelSteps(deps: {
       const truncated =
         NoObjectGeneratedError.isInstance(error) &&
         error.finishReason === "length";
-      const message = truncated ? hitLimit(step) : messageOf(error);
+      const message = truncated
+        ? hitLimit(config.maxOutputTokens)
+        : messageOf(error);
       const local =
         step === "extract" ||
         step === "supports" ||
@@ -523,7 +527,7 @@ export function createModelSteps(deps: {
     },
 
     async *writeReport(brief) {
-      const config = MODEL_CONFIG.writeReport;
+      const config = stepConfig(deps.model, "writeReport");
       const close = await slot("writeReport");
       // What a stream records when it ends without a finish part.
       let end: CallEnd = { outcome: "failed" };
@@ -551,7 +555,10 @@ export function createModelSteps(deps: {
               );
             }
             if (part.finishReason === "length") {
-              throw new FatalRunError("writeReport", hitLimit("writeReport"));
+              throw new FatalRunError(
+                "writeReport",
+                hitLimit(config.maxOutputTokens),
+              );
             }
           }
         }

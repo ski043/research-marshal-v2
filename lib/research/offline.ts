@@ -1,9 +1,9 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { BUDGET, type WebActions } from "./budget";
 import type { PlannedQuery } from "./events";
+import { defaultModel, defaultWeb } from "./fakes";
 import type { RunPorts } from "./index";
 import type { ModelSteps } from "./model-config";
-import { defaultModel, defaultWeb } from "./testing";
 
 export type OfflineScenario = {
   name: string;

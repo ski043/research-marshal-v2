@@ -28,3 +28,24 @@ export function readEnv<const K extends EnvName>(
   }
   return values as Pick<Env, K>;
 }
+
+const FakesPace = z
+  .string()
+  .regex(/^\d+$/, "a whole number of milliseconds")
+  .transform(Number);
+
+/**
+ * `RESEARCH_MARSHAL_FAKES`: the pace in milliseconds of the offline fakes, or null when it is
+ * unset and runs are live. Optional, so it is not one of `ENV_NAMES`.
+ */
+export function readFakesPace(): number | null {
+  const value = process.env.RESEARCH_MARSHAL_FAKES;
+  if (value === undefined || value === "") return null;
+  const parsed = FakesPace.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(
+      "RESEARCH_MARSHAL_FAKES must be a whole number of milliseconds, for example 0 or 150.",
+    );
+  }
+  return parsed.data;
+}

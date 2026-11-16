@@ -1,82 +1,11 @@
 import { readFileSync } from "node:fs";
 import { expect, vi } from "vitest";
 import { BUDGET, meterWeb, type WebActions } from "./budget";
-import {
-  PageUrl,
-  Question,
-  type RunEvent,
-  RunId,
-  SearchOutcome,
-} from "./events";
-import { MODEL_CONFIG, type ModelSteps } from "./model-config";
+import { Question, type RunEvent, RunId, SearchOutcome } from "./events";
+import { defaultModel, defaultWeb } from "./fakes";
+import type { ModelSteps } from "./model-config";
 import type { PipelineDeps } from "./pipeline";
 import { createRunLog } from "./run-log";
-
-export const PAGE_TEXT =
-  "# Battery life\n\nLFP cells last about 3,000 cycles. Heat shortens their life.";
-
-export function slug(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-}
-
-export const defaultWeb: WebActions = {
-  search: async (query) => ({
-    status: "ok",
-    results: [1, 2, 3].map((n) => ({
-      position: n,
-      title: `${query} result ${n}`,
-      url: PageUrl.parse(`https://example.org/${slug(query)}/${n}`),
-      snippet: `About ${query}`,
-    })),
-  }),
-  read: async () => ({ status: "ok", markdown: PAGE_TEXT }),
-  map: async (site) => ({
-    status: "ok",
-    urls: [1, 2, 3].map((n) => PageUrl.parse(`${site}/mapped/${n}`)),
-  }),
-};
-
-export const defaultModel: ModelSteps = {
-  plan: async () => [
-    { subQuestion: "How long do LFP cells last?", query: "lfp cycle life" },
-    { subQuestion: "What shortens their life?", query: "lfp aging heat" },
-  ],
-  select: async ({ candidates }) => ({
-    picks: candidates.slice(0, 2).map((c) => c.number),
-    map: null,
-  }),
-  pickFromMap: async () => ({ picks: [1] }),
-  extract: async () => ({
-    label: "Reference",
-    claims: [
-      {
-        statement: "LFP cells last about 3,000 cycles.",
-        quote: "LFP cells last about 3,000 cycles.",
-      },
-    ],
-  }),
-  supports: async () => ({ supported: true, reason: "The quote says so." }),
-  checkGaps: async () => ({ answered: true, missing: [], queries: [] }),
-  writeReport: async function* ({ claims }) {
-    yield "LFP cells last long";
-    yield ` [^${claims[0]?.number ?? 1}].`;
-  },
-  classifySentences: async ({ sentences }) => ({
-    verdicts: sentences.map((_, i) => ({
-      sentence: i + 1,
-      verdict: "fact",
-      reason: "It states a fact.",
-    })),
-  }),
-  repairSentences: async ({ sentences }) => ({
-    repairs: sentences.map((_, i) => ({
-      sentence: i + 1,
-      action: "delete",
-      claims: [],
-      text: "",
-    })),
-  }),
-};
 
 type CallName = keyof ModelSteps | keyof WebActions;
 
@@ -227,6 +156,7 @@ export function outsideWebData(text: string): string {
 }
 
 export type AnthropicRequest = {
+  model: string;
   max_tokens: number;
   system: string;
   prompt: string;
@@ -241,7 +171,7 @@ function textOf(content: unknown): string {
   return content.map((part) => part?.text ?? "").join("\n");
 }
 
-function sse(answer: AnthropicAnswer): string {
+function sse(model: string, answer: AnthropicAnswer): string {
   const events = [
     {
       type: "message_start",
@@ -249,7 +179,7 @@ function sse(answer: AnthropicAnswer): string {
         id: "msg_test",
         type: "message",
         role: "assistant",
-        model: MODEL_CONFIG.extract.model,
+        model,
         content: [],
         stop_reason: null,
         usage: { input_tokens: 10, output_tokens: 1 },
@@ -287,6 +217,7 @@ export function fakeAnthropic(
   vi.stubGlobal("fetch", async (_url: unknown, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body));
     const request: AnthropicRequest = {
+      model: body.model,
       max_tokens: body.max_tokens,
       system: textOf(body.system),
       prompt: body.messages
@@ -297,7 +228,7 @@ export function fakeAnthropic(
     requests.push(request);
     const reply = answer(request);
     if (request.stream) {
-      return new Response(sse(reply), {
+      return new Response(sse(request.model, reply), {
         headers: { "content-type": "text/event-stream" },
       });
     }
@@ -305,7 +236,7 @@ export function fakeAnthropic(
       id: "msg_test",
       type: "message",
       role: "assistant",
-      model: MODEL_CONFIG.extract.model,
+      model: request.model,
       content: [{ type: "text", text: reply.text }],
       stop_reason: reply.stopReason ?? "end_turn",
       stop_sequence: null,
