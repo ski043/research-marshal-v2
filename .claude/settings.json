@@ -36,6 +36,10 @@
       "Read(**/.env)",
       "Read(**/.env.local)",
       "Read(~/.config/research-marshal/env)",
+      "Bash(pnpm test --config *)",
+      "Bash(pnpm test * --config *)",
+      "Bash(git diff --no-index *)",
+      "Bash(git diff * --no-index *)",
       "Bash(env)",
       "Bash(printenv)",
       "Bash(printenv *)"

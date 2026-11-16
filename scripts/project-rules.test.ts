@@ -295,7 +295,9 @@ describe("git keeps secrets and data out", () => {
 });
 
 describe("paid commands stay out of the free paths", () => {
-  const PAID = /pnpm research|verify:stack|--live|scripts\/research\.ts/;
+  // `pnpm research:offline` runs on fakes and is free.
+  const PAID =
+    /pnpm research(?!:offline)|verify:stack|--live|scripts\/research\.ts/;
   const settings = JSON.parse(read(".claude/settings.json"));
 
   test("pnpm check runs no paid command", () => {
@@ -309,6 +311,19 @@ describe("paid commands stay out of the free paths", () => {
     for (const rule of allow) {
       expect(rule).not.toMatch(/^Bash\((pnpm|pnpm doctor:worktree|node) \*\)$/);
     }
+  });
+
+  test("an allowed command cannot take a flag that makes it paid or prints a key", () => {
+    expect(settings.permissions.deny).toEqual(
+      expect.arrayContaining([
+        // `pnpm test --config verify/vitest.config.mts` runs the paid checks.
+        "Bash(pnpm test --config *)",
+        "Bash(pnpm test * --config *)",
+        // `git diff --no-index /dev/null .env.local` prints the file.
+        "Bash(git diff --no-index *)",
+        "Bash(git diff * --no-index *)",
+      ]),
+    );
   });
 
   test("Claude Code cannot read the env files or the durable key file", () => {
