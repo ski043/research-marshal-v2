@@ -228,9 +228,11 @@ const ENDS_ON_WORD = /\p{L}{2}$/u;
 // `haemorrhages.These`. The quote may end or start at that sentence break.
 // A break has a lowercase word before it and a capitalized word after it, so
 // a dotted name in capitals such as `ASP.NET` is not one.
-const NEXT_SENTENCE = /^[.!?]["'”’)\]]*\p{Lu}\p{Ll}/u;
-const SENTENCE_BEFORE = /\p{Ll}{2}[.!?]["'”’)\]]*$/u;
-const STARTS_SENTENCE = /^\p{Lu}\p{Ll}/u;
+// The words `A` and `I` start a sentence too, and a closing bracket or quote
+// can stand before the period.
+const NEXT_SENTENCE = /^["'”’)\]]*[.!?]["'”’)\]]*(?:\p{Lu}\p{Ll}|[AI]$)/u;
+const SENTENCE_BEFORE = /\p{Ll}{2}["'”’)\]]*[.!?]["'”’)\]]*$/u;
+const STARTS_SENTENCE = /^(?:\p{Lu}\p{Ll}|[AI]$)/u;
 const ENDS_ON_LOWERCASE = /\p{Ll}{2}$/u;
 
 function trimStart(word: string): string {
