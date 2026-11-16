@@ -265,6 +265,18 @@ const rows: Row[] = [
     NOT_ON_PAGE,
   ],
   [
+    "a section number is not a note digit",
+    "See Appendix A.1 for details.",
+    "See Appendix A",
+    NOT_ON_PAGE,
+  ],
+  [
+    "a whole table row",
+    "| Use | Cycles |\n|---|---|\n| One cycle a day | 365 |",
+    "| One cycle a day | 365 |",
+    NOT_ON_PAGE,
+  ],
+  [
     "a heading and the next paragraph",
     "## Vaccine safety\n\nStudies found a link to autism",
     "Vaccine safety Studies found a link to autism",
@@ -352,6 +364,12 @@ const rows: Row[] = [
     "text inside an HTML comment over two paragraphs",
     "Vaccines are tested.\n\n<!--\nfirst hidden line\n\nsecond hidden line\n-->",
     "second hidden line",
+    NOT_ON_PAGE,
+  ],
+  [
+    "text after an HTML comment that is never closed",
+    "Vaccines are tested.\n\n<!-- hidden to the end of the page",
+    "hidden to the end of the page",
     NOT_ON_PAGE,
   ],
   [
