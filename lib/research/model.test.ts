@@ -344,6 +344,37 @@ describe("model call records (#19)", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("starts no waiting call after the run is cancelled", async () => {
+    const controller = new AbortController();
+    let requests = 0;
+    vi.stubGlobal(
+      "fetch",
+      (_url: unknown, init?: RequestInit) =>
+        new Promise((_, reject) => {
+          requests += 1;
+          const abort = () => reject(new DOMException("aborted", "AbortError"));
+          if (init?.signal?.aborted) abort();
+          else init?.signal?.addEventListener("abort", abort);
+        }),
+    );
+    const { calls, record } = recorded();
+    const steps = createModelSteps({
+      apiKey: "test-key",
+      signal: controller.signal,
+      record,
+    });
+    const pending = Array.from({ length: 8 }, () =>
+      steps.plan(SAMPLES.plan).catch(() => undefined),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(requests).toBe(6);
+    controller.abort();
+    await Promise.all(pending);
+
+    expect(requests).toBe(6);
+    expect(calls.map((c) => c.outcome)).toEqual(Array(6).fill("cancelled"));
+  });
+
   it("records a failed request with no token count", async () => {
     vi.stubGlobal("fetch", async () =>
       Response.json(
