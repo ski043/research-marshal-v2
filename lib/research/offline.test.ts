@@ -244,6 +244,7 @@ describe("runs output on scenario runs", () => {
       "r1 gap check (model)",
       "report: first text (model)",
       "report: streaming",
+      "report: citation check",
       "finish",
     ]);
     expect(phases.find((p) => p.name === "r1 searches")?.decodo?.calls).toBe(3);

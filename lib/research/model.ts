@@ -2,7 +2,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { generateText, NoObjectGeneratedError, Output, streamText } from "ai";
 import { z } from "zod";
 import { BUDGET, FatalRunError, RunCancelled } from "./budget";
-import { type PlannedQuery, SourceLabel } from "./events";
+import { type PlannedQuery, SentenceVerdict, SourceLabel } from "./events";
 import {
   MalformedAnswer,
   MODEL_CONFIG,
@@ -54,6 +54,27 @@ const GapSchema = z.object({
   answered: z.boolean(),
   missing: z.array(z.string()),
   queries: z.array(QuerySchema),
+});
+
+const VerdictSchema = z.object({
+  verdicts: z.array(
+    z.object({
+      sentence: z.number(),
+      reason: z.string(),
+      verdict: SentenceVerdict,
+    }),
+  ),
+});
+
+const RepairSchema = z.object({
+  repairs: z.array(
+    z.object({
+      sentence: z.number(),
+      action: z.enum(["cite", "rewrite", "delete"]),
+      claims: z.array(z.number()).describe("For cite: the claim numbers."),
+      text: z.string().describe("For rewrite: the new text. Otherwise empty."),
+    }),
+  ),
 });
 
 const WEB_OPEN = "<web_data>";
@@ -129,13 +150,71 @@ const REPORT = `You write a research report in Markdown from verified claims onl
 Rules:
 - Open with a direct answer to the question in the first paragraph.
 - Keep the report between one and two pages: about 300 to 900 words. Use short sections with "##" headings when they help.
-- Every sentence that states a fact ends with at least one citation in the form [^N], where N is the number of a verified claim that supports the sentence. Several claims: [^2][^5]. Use only the numbers in the list.
+- Every sentence that states a fact ends with at least one citation in the form [^N], where N is the number of a verified claim that supports the sentence. Put the citation after the last word and before the closing period: "LFP cells last about 3,000 cycles [^4]." Several claims: "[^2][^5]." Use only the numbers in the list.
 - This holds for the opening answer too. A sentence that sums up several facts, such as a list of causes, cites every claim that it sums up.
 - A sentence without a citation only connects other sentences. It states no fact.
 - Use only facts from the claims. Add no knowledge of your own, and draw no conclusion that no claim states.
 - When claims disagree, present each side with its quote and its citation.
 - When the claims do not answer the whole question, say so and name each part that stays unanswered.
 - Write no links, no URLs, no source list, no reference section, and no footnote definitions. The app adds the source list.`;
+
+const CLASSIFY = `You check the sentences of a research report that carry no citation.
+The report was written from verified claims. Every sentence that states a fact must cite a claim. A sentence may go without a citation only when it states no fact.
+
+Read each numbered sentence in the context of the whole report and give it one verdict:
+- "fact": the sentence states something about the world: what is, was, or happens, a number, a date, a cause, a definition, a comparison, an assessment, or the answer to the question. The direct answer to the question at the start of the report states a fact, even when it sums up the sentences after it.
+- "connective": the sentence only introduces, connects, or sums up the cited sentences right next to it, and states nothing that they do not state. Examples: "Guidance varies:", "The evidence points two ways."
+- "scope": the sentence speaks about the report or its claims: what they cover, what they leave out, or which parts of the question stay open. Example: "The claims give no figures for older adults."
+
+When a sentence could be "fact" or another verdict, choose "fact".
+Give a short reason first, then the verdict. Answer for every sentence number.`;
+
+const REPAIR = `You repair sentences of a research report that state a fact but cite no claim.
+Every sentence that states a fact must cite at least one verified claim that supports it. The verified claims are numbered.
+
+For each numbered sentence, choose one action:
+- "cite": one or more claims state everything that the sentence says. Put their numbers in "claims" and leave "text" empty.
+- "rewrite": the claims support only part of the sentence. Write in "text" a replacement that states only what the claims state. End each sentence of it with the citations of the claims it uses, after the last word and before the closing period: "LFP cells last about 3,000 cycles [^4]." Leave "claims" empty.
+- "delete": no claim supports the sentence. Leave "claims" and "text" empty.
+
+Rules:
+- Change as little as you can. Prefer "cite" to "rewrite", and "rewrite" to "delete".
+- Cite a claim only when it states the fact of the sentence. A sentence that sums up several claims is supported when those claims together state what it says. It cites every claim that it sums up. Use only numbers from the list.
+- A rewrite adds no fact, number, cause, or conclusion that its cited claims do not state. It replaces only this sentence, keeps its language, does not repeat the sentences around it, and fits between them. Write plain text without Markdown.
+- A sentence marked "opening" is part of the direct answer that opens the report. Do not delete it. Cite the claims that support it. If they support it only in part, rewrite it into the answer that the claims do support. State it as an answer to the question, with the certainty that the claims allow, for example "LFP cells most likely outlast lead-acid cells [^2][^7].", not as a summary of what studies did.
+Answer for every sentence number.`;
+
+const numbered = (items: readonly string[]) =>
+  items.map((item, i) => `Sentence ${i + 1}:\n${item}`).join("\n\n");
+
+export function classifyPrompt(
+  input: Parameters<ModelSteps["classifySentences"]>[0],
+): Prompt {
+  return {
+    instructions: `${CLASSIFY}\n\n${WEB_DATA_CLAUSE}`,
+    prompt: `Question: ${input.question}\n\nReport:\n${webData(input.report)}\n\nSentences without a citation:\n\n${numbered(input.sentences.map(webData))}`,
+  };
+}
+
+export function repairPrompt(
+  input: Parameters<ModelSteps["repairSentences"]>[0],
+): Prompt {
+  const claims = input.claims
+    .map(
+      (claim) =>
+        `[^${claim.number}]\n${webData(`Statement: ${claim.statement}\nQuote: ${claim.quote}`)}`,
+    )
+    .join("\n\n");
+  const sentences = numbered(
+    input.sentences.map(
+      (s) => `${s.opening ? "(opening)\n" : ""}${webData(s.text)}`,
+    ),
+  );
+  return {
+    instructions: `${REPAIR}\n\n${WEB_DATA_CLAUSE}`,
+    prompt: `Question: ${input.question}\n\nReport:\n${webData(input.report)}\n\nVerified claims:\n${claims}\n\nSentences to repair:\n\n${sentences}`,
+  };
+}
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -227,6 +306,10 @@ export const PROMPTS: {
       `Question: ${question}${stopped}${open}\n\nVerified claims:\n${list}`,
     );
   },
+
+  classifySentences: classifyPrompt,
+
+  repairSentences: repairPrompt,
 };
 
 function cleanQueries(
@@ -278,7 +361,11 @@ export function createModelSteps(deps: {
         NoObjectGeneratedError.isInstance(error) &&
         error.finishReason === "length";
       const message = truncated ? hitLimit(step) : messageOf(error);
-      const local = step === "extract" || step === "supports";
+      const local =
+        step === "extract" ||
+        step === "supports" ||
+        step === "classifySentences" ||
+        step === "repairSentences";
       if (
         local &&
         NoObjectGeneratedError.isInstance(error) &&
@@ -323,6 +410,14 @@ export function createModelSteps(deps: {
     async checkGaps(input) {
       const answer = await structured("checkGaps", GapSchema, input);
       return { ...answer, queries: cleanQueries(answer.queries) };
+    },
+
+    async classifySentences(input) {
+      return structured("classifySentences", VerdictSchema, input);
+    },
+
+    async repairSentences(input) {
+      return structured("repairSentences", RepairSchema, input);
     },
 
     async *writeReport(brief) {

@@ -179,6 +179,8 @@ export function offlinePorts(scenario: OfflineScenario, paceMs = 0): RunPorts {
       extract: paced(m.extract),
       supports: paced(m.supports),
       checkGaps: paced(m.checkGaps),
+      classifySentences: paced(m.classifySentences),
+      repairSentences: paced(m.repairSentences),
       writeReport: async function* (input) {
         for await (const chunk of m.writeReport(input)) {
           await pace();

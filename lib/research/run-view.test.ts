@@ -358,6 +358,33 @@ describe("report (U5)", () => {
     expect(view.report).toMatchObject({ kind: "final", markdown: "Final" });
   });
 
+  it("keeps the citation check of a completed run (#7)", () => {
+    const check: RunEventBody = {
+      type: "report.checked",
+      uncited: [
+        { text: "Heat hurts.", opening: false, verdict: "fact", reason: "R" },
+      ],
+      repairs: [
+        {
+          sentence: 0,
+          action: "delete",
+          claims: [],
+          unknownClaims: [],
+          text: null,
+        },
+      ],
+      rewritten: [],
+      removed: [{ text: "Heat hurts.", opening: false, by: "repair" }],
+      modelCalls: 2,
+    };
+    const view = run(draft, check, final, {
+      type: "run.finished",
+      end: { status: "completed", stoppedBy: "budget" },
+    });
+    const { type: _, ...stored } = check;
+    expect(view.citationCheck).toEqual(stored);
+  });
+
   it("a failed run has no report", () => {
     const view = run(draft, {
       type: "run.finished",

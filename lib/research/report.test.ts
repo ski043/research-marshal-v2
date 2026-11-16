@@ -11,7 +11,7 @@ import {
   Question,
   RunId,
 } from "./events";
-import { finalizeReport, noClaimsReport } from "./report";
+import { finalizeReport, noClaimsReport, reportSentences } from "./report";
 import { createView, type RunView, type VerifiedClaim } from "./run-view";
 
 function claim(n: number, page: "a" | "b"): VerifiedClaim {
@@ -398,5 +398,98 @@ describe("noClaimsReport (R6)", () => {
     expect(textOf(renderReport(markdown, "static"))).toContain(
       '"![q](https\u2060://evil.example/q.png) # Heading", no results',
     );
+  });
+});
+
+describe("reportSentences (R3, #7)", () => {
+  const texts = (draft: string) =>
+    reportSentences(draft, verified).map((s) => s.text);
+
+  it.each([
+    ["Fig. 4", "See Fig. 4 for the curve [^1]. Heat hurts."],
+    ["e.g.", "Some cells, e.g. LFP cells, last long [^1]. Heat hurts."],
+    [
+      "i.e. and vs.",
+      "LFP vs. NMC, i.e. Two chemistries, differ [^1]. Heat hurts.",
+    ],
+    ["a decimal", "They last 3.5 years on average [^1]. Heat hurts."],
+    [
+      "a name with an initial",
+      "A study by J. Smith found it [^1]. Heat hurts.",
+    ],
+    [
+      "a quote that ends inside the sentence",
+      'Harper writes "disease won." as his summary [^1]. Heat hurts.',
+    ],
+  ])("keeps %s inside its sentence", (_, draft) => {
+    expect(texts(draft)).toHaveLength(2);
+    expect(texts(draft)[1]).toBe("Heat hurts.");
+  });
+
+  it("gives a citation mark after the closing period to the sentence before it", () => {
+    expect(
+      reportSentences("One fact. [^1] Two facts.[^2][^3] Third.", verified),
+    ).toEqual([
+      { text: "One fact [^1].", citations: [1], opening: true },
+      { text: "Two facts [^2][^3].", citations: [2, 3], opening: true },
+      { text: "Third.", citations: [], opening: true },
+    ]);
+  });
+
+  it("finds sentences in paragraphs and list items, not in headings or the source list", () => {
+    const sentences = reportSentences(
+      "# Battery life\n\nThey last long [^1].\n\n## Detail\n\n- **Heat:** It hurts. Cold slows charging [^2].\n\nThe claims say nothing on cost.\n\n## Sources\n\n- [A](https://a.org) · a.org · Official · [^1]",
+      verified,
+    );
+    expect(sentences.map((s) => [s.text, s.opening])).toEqual([
+      ["They last long [^1].", true],
+      ["Heat: It hurts.", false],
+      ["Cold slows charging [^2].", false],
+      ["The claims say nothing on cost.", false],
+    ]);
+  });
+
+  it("counts a citation of an unknown claim as no citation (V4)", () => {
+    expect(reportSentences("A guess [^9].", verified)).toEqual([
+      { text: "A guess.", citations: [], opening: true },
+    ]);
+  });
+});
+
+describe("finalizeReport citation position (#7)", () => {
+  it.each([
+    [
+      "text. [^2]",
+      "Cells fade. [^2] Heat hurts [^1].",
+      "Cells fade [^2]. Heat hurts [^1].",
+    ],
+    ["text [^2].", "Cells fade [^2].", "Cells fade [^2]."],
+    ["text.[^2] [^3]", "Cells fade.[^2] [^3]", "Cells fade [^2][^3]."],
+    [
+      "a closing parenthesis",
+      "It fell (p < 0.05). [^1]",
+      "It fell (p < 0.05) [^1].",
+    ],
+    [
+      "a closing quote",
+      'It says "no level is safe". [^1]',
+      'It says "no level is safe" [^1].',
+    ],
+    ["a period inside a quote", 'He said "stop." [^1]', 'He said "stop." [^1]'],
+    [
+      "a list item without a period",
+      "- Heat [^1]\n- Cold. [^2]",
+      "- Heat [^1]\n- Cold [^2].",
+    ],
+    [
+      "a mark in the middle",
+      "Of 58,943 adults [^1], women gained. [^2]",
+      "Of 58,943 adults [^1], women gained [^2].",
+    ],
+    ["emphasis", "**Heat hurts.** [^1]", "**Heat hurts [^1].**"],
+  ])("puts the citation before the closing period for %s", (_, draft, body) => {
+    expect(
+      finalizeReport(draft, verified).markdown.split("\n\n## Sources")[0],
+    ).toBe(body);
   });
 });

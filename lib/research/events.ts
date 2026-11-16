@@ -111,6 +111,46 @@ export const RunEnd = z.discriminatedUnion("status", [
 ]);
 export type RunEnd = z.infer<typeof RunEnd>;
 
+// Why a sentence of the report carries no citation (R3, R4, R6).
+export const SentenceVerdict = z.enum(["fact", "connective", "scope"]);
+export type SentenceVerdict = z.infer<typeof SentenceVerdict>;
+
+export const RepairAction = z.enum(["cite", "rewrite", "delete", "none"]);
+export type RepairAction = z.infer<typeof RepairAction>;
+
+const JudgedSentence = z.object({
+  text: z.string(),
+  opening: z.boolean(),
+  verdict: SentenceVerdict,
+  reason: z.string(),
+});
+
+export const CitationCheck = z.object({
+  // Every sentence of the draft without a citation, judged.
+  uncited: z.array(JudgedSentence),
+  // One entry per factual sentence of `uncited`, by its index there.
+  repairs: z.array(
+    z.object({
+      sentence: z.int().nonnegative(),
+      action: RepairAction,
+      claims: z.array(ClaimNumber),
+      unknownClaims: z.array(z.number()),
+      text: z.string().nullable(),
+    }),
+  ),
+  // The sentences of the rewrites without a citation, judged again.
+  rewritten: z.array(JudgedSentence),
+  removed: z.array(
+    z.object({
+      text: z.string(),
+      opening: z.boolean(),
+      by: z.enum(["repair", "check"]),
+    }),
+  ),
+  modelCalls: z.int().nonnegative(),
+});
+export type CitationCheck = z.infer<typeof CitationCheck>;
+
 const MapEventOutcome = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("ok"),
@@ -233,6 +273,7 @@ export const RunEventBody = z.discriminatedUnion("type", [
     message: z.string(),
   }),
   z.object({ type: z.literal("report.delta"), text: z.string() }),
+  CitationCheck.extend({ type: z.literal("report.checked") }),
   z.object({
     type: z.literal("report.finished"),
     writtenBy: z.enum(["model", "code"]),

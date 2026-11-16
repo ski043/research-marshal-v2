@@ -98,6 +98,7 @@ The app calls Decodo through `client.webScrapingApi` of the Decodo TypeScript SD
 - Every step uses `claude-sonnet-5-5`. Set the effort level for every step. Claude Sonnet 5.5 always thinks, and its default effort is `high`.
 - V1 is a string comparison in code. V1 is never a model call.
 - V2 is its own model call. The call receives the claim and the quote. The call does not receive the output of the step that wrote the claim.
+- R3 is checked after the report is written. The `classifySentences` step judges each sentence without a citation, the `repairSentences` step gets one chance to cite or rewrite a factual one, and code removes what still states a fact without a citation.
 
 ## Database
 

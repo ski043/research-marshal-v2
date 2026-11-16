@@ -11,7 +11,7 @@
       "plan": 10000,
       "select": 10000,
       "gapCheck": 10000,
-      "report": 15000
+      "report": 25000
     }
   },
   "bundle": {

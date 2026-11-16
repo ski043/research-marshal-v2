@@ -93,6 +93,9 @@ export async function measureShape(
     })),
     supports: delayed("supports", defaultModel.supports),
     checkGaps: delayed("checkGaps", defaultModel.checkGaps),
+    // The fake report cites every sentence, so the citation check makes no call.
+    classifySentences: defaultModel.classifySentences,
+    repairSentences: defaultModel.repairSentences,
     writeReport: async function* (input) {
       const release = await gate("writeReport");
       m.enter("writeReport");

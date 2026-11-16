@@ -46,6 +46,7 @@ if (!parsed.success) usage("The question must have 1 to 2000 characters.");
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 const startedAt = performance.now();
 let reportOpen = false;
+let lastDeltaAt: string | null = null;
 
 function line(text: string): void {
   if (reportOpen) {
@@ -166,6 +167,15 @@ function describeStep(event: RunEvent): string[] {
           ];
     case "run.error":
       return [`\nRun error in step "${event.step}": ${event.message}`];
+    case "report.checked": {
+      const facts = event.uncited.filter((s) => s.verdict === "fact").length;
+      const took = lastDeltaAt
+        ? `, ${seconds(Date.parse(event.at) - Date.parse(lastDeltaAt))}`
+        : "";
+      return [
+        `\nCitation check: ${event.uncited.length} sentences without a citation, ${facts} state a fact. Model calls: ${event.modelCalls}${took}.`,
+      ];
+    }
     case "report.finished":
       return [
         `\nReport finished, written by ${event.writtenBy}. Cited claims: ${event.cited.length}. Removed citations: ${event.removedCitations.join(", ") || "none"}.`,
@@ -177,6 +187,7 @@ function describeStep(event: RunEvent): string[] {
 
 function printStep(event: RunEvent): void {
   if (event.type === "report.delta") {
+    lastDeltaAt = event.at;
     if (!reportOpen) {
       line("\nWriting the report:");
       reportOpen = true;
@@ -249,6 +260,25 @@ function printSummary(view: RunView): void {
   }
 
   printPages(view);
+  const check = view.citationCheck;
+  if (check) {
+    const count = (verdict: string) =>
+      check.uncited.filter((s) => s.verdict === verdict).length;
+    const did = (action: string) =>
+      check.repairs.filter((r) => r.action === action).length;
+    console.log(
+      `\nCitation check (R3): ${check.uncited.length} sentences without a citation: ${count("fact")} fact, ${count("connective")} connective, ${count("scope")} scope.`,
+    );
+    console.log(
+      `Repair: ${did("cite")} cited, ${did("rewrite")} rewritten, ${did("delete")} deleted, ${did("none")} not answered. Sentences of rewrites judged again: ${check.rewritten.length}. Model calls: ${check.modelCalls}.`,
+    );
+    console.log(`Removed sentences: ${check.removed.length}`);
+    for (const removed of check.removed) {
+      console.log(
+        `- [${removed.by}${removed.opening ? ", opening answer" : ""}] ${removed.text}`,
+      );
+    }
+  }
 
   const { budget } = view;
   const attempts = view.decodoCalls.filter((c) => c.endpoint === "universal");

@@ -91,6 +91,20 @@ const SAMPLES: { [K in keyof ModelSteps]: Parameters<ModelSteps[K]>[0] } = {
     missing: ["Calendar life"],
     claims: [claim(1), claim(2)],
   },
+  classifySentences: {
+    question,
+    report: hostile("classify.report"),
+    sentences: [hostile("classify.sentence1"), hostile("classify.sentence2")],
+  },
+  repairSentences: {
+    question,
+    report: hostile("repair.report"),
+    sentences: [
+      { text: hostile("repair.sentence1"), opening: true },
+      { text: hostile("repair.sentence2"), opening: false },
+    ],
+    claims: [claim(1), claim(2)],
+  },
 };
 
 const STEPS = Object.keys(SAMPLES) as (keyof ModelSteps)[];
@@ -190,6 +204,9 @@ function answerFor(request: AnthropicRequest): string {
     return JSON.stringify({ reason: "It says so.", supported: true });
   if (step.startsWith("You check whether"))
     return JSON.stringify({ answered: true, missing: [], queries: [] });
+  if (step.startsWith("You check the sentences"))
+    return JSON.stringify({ verdicts: [] });
+  if (step.startsWith("You repair")) return JSON.stringify({ repairs: [] });
   return "LFP cells last long [^1].";
 }
 

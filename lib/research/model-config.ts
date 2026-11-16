@@ -1,9 +1,22 @@
-import type { PageUrl, PlannedQuery, Question, SourceLabel } from "./events";
+import type {
+  PageUrl,
+  PlannedQuery,
+  Question,
+  SentenceVerdict,
+  SourceLabel,
+} from "./events";
 import type { Numbered } from "./numbered";
 import type { ReportBrief } from "./report";
 import type { Candidate, VerifiedClaim } from "./run-view";
 
 export type ClaimDraft = { statement: string; quote: string };
+
+export type SentenceRepair = {
+  sentence: number;
+  action: "cite" | "rewrite" | "delete";
+  claims: readonly number[];
+  text: string;
+};
 
 // Longer than every real quote of the stored runs once link targets are left
 // out. A quote over the cap is dropped as a V1 failure.
@@ -54,6 +67,23 @@ export type ModelSteps = {
     queries: readonly PlannedQuery[];
   }>;
   writeReport(input: ReportBrief): AsyncIterable<string>;
+  classifySentences(input: {
+    question: Question;
+    report: string;
+    sentences: readonly string[];
+  }): Promise<{
+    verdicts: readonly {
+      sentence: number;
+      verdict: SentenceVerdict;
+      reason: string;
+    }[];
+  }>;
+  repairSentences(input: {
+    question: Question;
+    report: string;
+    sentences: readonly { text: string; opening: boolean }[];
+    claims: readonly VerifiedClaim[];
+  }): Promise<{ repairs: readonly SentenceRepair[] }>;
 };
 
 export type Effort = "low" | "medium" | "high";
@@ -77,4 +107,12 @@ export const MODEL_CONFIG: Readonly<Record<keyof ModelSteps, StepConfig>> =
     supports: { model: SONNET, effort: "low", maxOutputTokens: 2_000 },
     checkGaps: { model: SONNET, effort: "medium", maxOutputTokens: 4_000 },
     writeReport: { model: SONNET, effort: "medium", maxOutputTokens: 12_000 },
+    // The largest answers on the three stored reports were 575 tokens to
+    // classify and 275 to repair, thinking included.
+    classifySentences: { model: SONNET, effort: "low", maxOutputTokens: 4_000 },
+    repairSentences: {
+      model: SONNET,
+      effort: "medium",
+      maxOutputTokens: 4_000,
+    },
   });

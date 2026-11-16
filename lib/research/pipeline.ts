@@ -22,7 +22,12 @@ import {
 } from "./model-config";
 import { numberItems, pickByNumber } from "./numbered";
 import { QuotablePage } from "./quote-check";
-import { finalizeReport, liveReport, noClaimsReport } from "./report";
+import {
+  checkCitations,
+  finalizeReport,
+  liveReport,
+  noClaimsReport,
+} from "./report";
 import {
   candidatesOf,
   lastGap,
@@ -352,12 +357,19 @@ async function report(deps: PipelineDeps, stoppedBy: StoppedBy): Promise<void> {
   }
   const rest = live.end();
   if (rest !== "") log.emit({ type: "report.delta", text: rest });
-  const final = finalizeReport(draft, verified);
+  const checked = await checkCitations({
+    draft,
+    question: log.view.question,
+    verified,
+    model,
+  });
+  const final = finalizeReport(checked.draft, verified);
+  log.emit({ type: "report.checked", ...checked.check });
   log.emit({
     type: "report.finished",
     writtenBy: "model",
     markdown: final.markdown,
     cited: [...final.cited],
-    removedCitations: [...final.removedCitations],
+    removedCitations: [...checked.removedCitations],
   });
 }

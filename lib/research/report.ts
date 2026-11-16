@@ -1,6 +1,7 @@
 import type {
   BlockContent,
   ListItem,
+  Paragraph,
   PhrasingContent,
   RootContent,
   Text,
@@ -9,7 +10,12 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown, gfmToMarkdown } from "mdast-util-gfm";
 import { toMarkdown } from "mdast-util-to-markdown";
 import { gfm } from "micromark-extension-gfm";
-import type { ClaimNumber, Question, StoppedBy } from "./events";
+import type { CitationCheck, ClaimNumber, Question, StoppedBy } from "./events";
+import {
+  MalformedAnswer,
+  type ModelSteps,
+  type SentenceRepair,
+} from "./model-config";
 import type { RunView, VerifiedClaim } from "./run-view";
 
 const CITATION = /\[\^(\d+)\]/g;
@@ -40,6 +46,17 @@ const TITLE_MAX = 200;
 const SEGMENT_END =
   /\n[ \t]*\n(?:[ \t]*\n)*|\n(?=(?:#{1,6}|[-*+]|\d{1,9}[.)])[ \t])/g;
 const LIST_ITEM_START = /^(?:[-*+]|\d{1,9}[.)])[ \t]/;
+const SENTENCES = new Intl.Segmenter("en", { granularity: "sentence" });
+// Intl.Segmenter ends a sentence after these words when a capital follows.
+const ABBREVIATION =
+  /(?:^|[\s(])(?:e\.g|i\.e|cf|vs|approx|ca|Dr|Mr|Mrs|Ms|Prof|St|Fig|Figs|Eq|No|Nos|Vol|pp|al|[A-Z])\.$/;
+const PROTECTED = /\uE000(\d+)\uE001/g;
+const LEADING_MARKS = /^\s*(?:\uE000\d+\uE001\s*)+/;
+const ONLY_MARKS = /^\s*(?:\uE000\d+\uE001\s*)*$/;
+// What may follow the last word of a sentence: closing punctuation, spaces
+// and citation marks.
+const SENTENCE_TAIL = /(?:[\s.!?…"'”’»)\]]|\uE000\d+\uE001)*$/;
+const TERMINAL = /[.!?…]+$/;
 
 export type ReportBrief = {
   question: Question;
@@ -162,27 +179,174 @@ function blocks(nodes: readonly RootContent[]): BlockContent[] {
   });
 }
 
+type Span = { start: number; end: number };
+
+// The text of a paragraph as a sentence splitter sees it. Citation marks are
+// still placeholders here.
+function flatText(nodes: readonly PhrasingContent[]): string {
+  return nodes
+    .map((node) => {
+      switch (node.type) {
+        case "text":
+          return node.value;
+        case "break":
+          return "\n";
+        case "emphasis":
+        case "strong":
+          return flatText(node.children);
+        default:
+          return "";
+      }
+    })
+    .join("");
+}
+
+// Replaces the characters [start, end) of the flat text with `insert`.
+// Emphasis that loses all its text goes too.
+function splice(
+  nodes: readonly PhrasingContent[],
+  start: number,
+  end: number,
+  insert: string,
+): PhrasingContent[] {
+  let offset = 0;
+  let inserted = insert === "";
+  const walk = (list: readonly PhrasingContent[]): PhrasingContent[] =>
+    list.flatMap((node): PhrasingContent[] => {
+      switch (node.type) {
+        case "text": {
+          const from = offset;
+          offset += node.value.length;
+          const at = (i: number) =>
+            Math.min(Math.max(i - from, 0), node.value.length);
+          let value = node.value.slice(0, at(start));
+          if (!inserted && start <= offset) {
+            value += insert;
+            inserted = true;
+          }
+          value += node.value.slice(at(end));
+          return value === "" ? [] : [textNode(value)];
+        }
+        case "break": {
+          offset += 1;
+          return offset > start && offset <= end ? [] : [node];
+        }
+        case "emphasis":
+        case "strong": {
+          const children = walk(node.children);
+          return hasText(children) ? [{ ...node, children }] : [];
+        }
+        default:
+          return [node];
+      }
+    });
+  const out = walk(nodes);
+  return unlinked(inserted ? out : [...out, textNode(insert)]);
+}
+
+function sentenceSpans(text: string): Span[] {
+  const spans: Span[] = [];
+  for (const { index, segment } of SENTENCES.segment(text)) {
+    const last = spans.at(-1);
+    const end = index + segment.length;
+    if (
+      last &&
+      (ABBREVIATION.test(text.slice(last.start, last.end).trimEnd()) ||
+        /^\s*[a-z]/.test(segment) ||
+        ONLY_MARKS.test(segment))
+    ) {
+      last.end = end;
+    } else {
+      spans.push({ start: index, end });
+    }
+  }
+  // A citation mark after the closing period belongs to the sentence before.
+  for (const [i, span] of spans.entries()) {
+    const before = spans[i - 1];
+    const lead = LEADING_MARKS.exec(text.slice(span.start, span.end));
+    if (before && lead) {
+      before.end += lead[0].length;
+      span.start += lead[0].length;
+    }
+  }
+  return spans.filter((span) =>
+    /[\p{L}\p{N}]/u.test(
+      text.slice(span.start, span.end).replace(PROTECTED, ""),
+    ),
+  );
+}
+
+function paragraphsIn(
+  nodes: readonly (BlockContent | ListItem["children"][number])[],
+): Paragraph[] {
+  return nodes.flatMap((node): Paragraph[] => {
+    if (node.type === "paragraph") return [node];
+    if (node.type === "list") {
+      return node.children.flatMap((item) => paragraphsIn(item.children));
+    }
+    return [];
+  });
+}
+
+type Located = {
+  paragraph: Paragraph;
+  flat: string;
+  span: Span;
+  text: string;
+  citations: readonly number[];
+  opening: boolean;
+};
+
+function locate(children: readonly BlockContent[]): Located[] {
+  const first = children.find((block) => block.type !== "heading");
+  return paragraphsIn(children).flatMap((paragraph) => {
+    const flat = flatText(paragraph.children);
+    return sentenceSpans(flat).map((span) => {
+      const raw = flat.slice(span.start, span.end);
+      return {
+        paragraph,
+        flat,
+        span,
+        text: raw.replace(PROTECTED, "[^$1]").trim(),
+        citations: [...raw.matchAll(PROTECTED)].map((m) => Number(m[1])),
+        opening: paragraph === first,
+      };
+    });
+  });
+}
+
+// Puts the citation marks that end a sentence in one place: after the last
+// word, before the closing period, as in "text [^2][^5]."
+function normalizeCitations(children: readonly BlockContent[]): void {
+  for (const paragraph of paragraphsIn(children)) {
+    const flat = flatText(paragraph.children);
+    for (const span of sentenceSpans(flat).reverse()) {
+      const body = flat.slice(span.start, span.end).trimEnd();
+      const at = body.search(SENTENCE_TAIL);
+      const tail = body.slice(at);
+      const marks = tail.match(PROTECTED);
+      if (!marks) continue;
+      const rest = tail.replace(PROTECTED, "").replace(/\s+/g, "");
+      const terminal = TERMINAL.exec(rest)?.[0] ?? "";
+      const joined = [...new Set(marks)].join("");
+      const next = `${rest.slice(0, rest.length - terminal.length)} ${joined}${terminal}`;
+      if (next !== tail) {
+        paragraph.children = splice(
+          paragraph.children,
+          span.start + at,
+          span.start + body.length,
+          next,
+        );
+      }
+    }
+  }
+}
+
 type Cleaned = { markdown: string; endsInList: boolean };
 
-function cleanMarkdown(markdown: string): Cleaned {
-  const protectedMarks = markdown
-    .replace(/\r\n?/g, "\n")
-    .replace(CONTROL, "")
-    .replace(MARKS, "")
-    .replace(
-      /(^[ \t]{0,3})?\[\^(\d+)\](:)?/gm,
-      (mark: string, lead?: string, digits?: string, colon?: string) =>
-        lead !== undefined && colon
-          ? mark
-          : `${lead ?? ""}${MARK_OPEN}${digits}${MARK_CLOSE}${colon ?? ""}`,
-    );
-  const tree = fromMarkdown(protectedMarks, {
-    extensions: [gfm()],
-    mdastExtensions: [gfmFromMarkdown()],
-  });
-  const children = blocks(tree.children);
+function serialize(children: readonly BlockContent[]): Cleaned {
   const markdownOut = toMarkdown(
-    { type: "root", children },
+    { type: "root", children: [...children] },
     {
       bullet: "-",
       emphasis: "*",
@@ -202,10 +366,35 @@ function cleanMarkdown(markdown: string): Cleaned {
   return { markdown: restored, endsInList: children.at(-1)?.type === "list" };
 }
 
-function cleanBody(
+function cleanMarkdown(markdown: string): Cleaned {
+  return serialize(parseMarkdown(markdown));
+}
+
+function parseMarkdown(markdown: string): BlockContent[] {
+  const protectedMarks = markdown
+    .replace(/\r\n?/g, "\n")
+    .replace(CONTROL, "")
+    .replace(MARKS, "")
+    .replace(
+      /(^[ \t]{0,3})?\[\^(\d+)\](:)?/gm,
+      (mark: string, lead?: string, digits?: string, colon?: string) =>
+        lead !== undefined && colon
+          ? mark
+          : `${lead ?? ""}${MARK_OPEN}${digits}${MARK_CLOSE}${colon ?? ""}`,
+    );
+  const tree = fromMarkdown(protectedMarks, {
+    extensions: [gfm()],
+    mdastExtensions: [gfmFromMarkdown()],
+  });
+  const children = blocks(tree.children);
+  normalizeCitations(children);
+  return children;
+}
+
+function markCitations(
   text: string,
   known: ReadonlySet<number>,
-): Cleaned & { removed: number[] } {
+): { marked: string; removed: number[] } {
   const removed: number[] = [];
   const marked = text
     .replace(FOOTNOTE_DEFINITION, "")
@@ -221,6 +410,14 @@ function cleanBody(
       if (!removed.includes(number)) removed.push(number);
       return "";
     });
+  return { marked, removed };
+}
+
+function cleanBody(
+  text: string,
+  known: ReadonlySet<number>,
+): Cleaned & { removed: number[] } {
+  const { marked, removed } = markCitations(text, known);
   return { ...cleanMarkdown(marked), removed };
 }
 
@@ -393,4 +590,281 @@ export function noClaimsReport(view: RunView): string {
   );
   lines.push(...(searches.length > 0 ? searches : ["The run made no search."]));
   return `${lines.join("\n")}\n`;
+}
+
+export type DraftSentence = {
+  text: string;
+  citations: readonly number[];
+  opening: boolean;
+};
+
+// The sentences of the report body in reading order. Headings and the source
+// list hold no sentence.
+export function reportSentences(
+  draft: string,
+  verified: readonly VerifiedClaim[],
+): DraftSentence[] {
+  const known = new Set<number>(verified.map((claim) => claim.number));
+  const { marked } = markCitations(cutSourceSection(draft), known);
+  return locate(parseMarkdown(marked)).map(({ text, citations, opening }) => ({
+    text,
+    citations,
+    opening,
+  }));
+}
+
+type Edit =
+  | { at: Located; kind: "remove" }
+  | { at: Located; kind: "cite"; claims: readonly number[] }
+  | { at: Located; kind: "rewrite"; text: string };
+
+function markOf(number: number): string {
+  return `${MARK_OPEN}${number}${MARK_CLOSE}`;
+}
+
+// Removes the space that a removed sentence leaves at either end.
+function trimEdges(children: PhrasingContent[]): PhrasingContent[] {
+  const flat = flatText(children);
+  const end = flat.trimEnd().length;
+  const trimmed =
+    end < flat.length ? splice(children, end, flat.length, "") : children;
+  const lead = flat.length - flat.trimStart().length;
+  return lead > 0 && end > 0 ? splice(trimmed, 0, lead, "") : trimmed;
+}
+
+function applyEdits(
+  children: readonly BlockContent[],
+  edits: readonly Edit[],
+): BlockContent[] {
+  const byParagraph = new Map<Paragraph, Edit[]>();
+  for (const edit of edits) {
+    const list = byParagraph.get(edit.at.paragraph) ?? [];
+    list.push(edit);
+    byParagraph.set(edit.at.paragraph, list);
+  }
+  for (const [paragraph, list] of byParagraph) {
+    list.sort((a, b) => b.at.span.start - a.at.span.start);
+    for (const edit of list) {
+      const { span, flat } = edit.at;
+      const end =
+        span.start + flat.slice(span.start, span.end).trimEnd().length;
+      paragraph.children =
+        edit.kind === "remove"
+          ? splice(paragraph.children, span.start, span.end, "")
+          : edit.kind === "cite"
+            ? splice(
+                paragraph.children,
+                end,
+                end,
+                ` ${edit.claims.map(markOf).join("")}`,
+              )
+            : splice(paragraph.children, span.start, end, edit.text);
+    }
+    paragraph.children = trimEdges(paragraph.children);
+  }
+  const cleaned = blocks(children);
+  normalizeCitations(cleaned);
+  return cleaned;
+}
+
+// A rewrite from the model as plain text. Its citations of verified claims
+// stay; any other number goes.
+function rewriteOf(
+  text: string,
+  original: string,
+  known: ReadonlySet<number>,
+): { text: string; claims: number[]; unknown: number[] } {
+  const { marked, removed } = markCitations(
+    text.replace(CONTROL, "").replace(MARKS, "").replace(/\s+/g, " ").trim(),
+    known,
+  );
+  const claims: number[] = [];
+  let plain = marked.replace(CITATION, (_, digits: string) => {
+    const number = Number(digits);
+    if (!claims.includes(number)) claims.push(number);
+    return markOf(number);
+  });
+  // Without its period a rewrite would run into the next sentence.
+  const ended = (value: string) =>
+    /[.!?…]["'”’)\]]*$/.test(value.replace(PROTECTED, "").trimEnd());
+  if (plain !== "" && ended(original) && !ended(plain)) plain += ".";
+  return { text: plain, claims, unknown: removed };
+}
+
+type Judged = CitationCheck["uncited"][number];
+type CheckSteps = Pick<ModelSteps, "classifySentences" | "repairSentences">;
+
+async function judge(
+  model: CheckSteps,
+  question: Question,
+  report: string,
+  sentences: readonly Located[],
+): Promise<Judged[]> {
+  let verdicts: Awaited<
+    ReturnType<ModelSteps["classifySentences"]>
+  >["verdicts"];
+  try {
+    ({ verdicts } = await model.classifySentences({
+      question,
+      report,
+      sentences: sentences.map((sentence) => sentence.text),
+    }));
+  } catch (error) {
+    if (!(error instanceof MalformedAnswer)) throw error;
+    verdicts = [];
+  }
+  return sentences.map((sentence, i) => {
+    const answer = verdicts.find((v) => v.sentence === i + 1);
+    return {
+      text: sentence.text,
+      opening: sentence.opening,
+      verdict: answer?.verdict ?? "fact",
+      reason: answer?.reason ?? "The check gave no verdict.",
+    };
+  });
+}
+
+async function repair(
+  model: CheckSteps,
+  input: Parameters<ModelSteps["repairSentences"]>[0],
+): Promise<readonly SentenceRepair[]> {
+  try {
+    return (await model.repairSentences(input)).repairs;
+  } catch (error) {
+    if (!(error instanceof MalformedAnswer)) throw error;
+    return [];
+  }
+}
+
+export type CheckedReport = {
+  draft: string;
+  removedCitations: readonly number[];
+  check: CitationCheck;
+};
+
+// R3: every sentence that states a fact cites a verified claim. A separate
+// step judges each sentence without a citation, the writer gets one repair,
+// and code removes what still states a fact without one.
+export async function checkCitations(input: {
+  draft: string;
+  question: Question;
+  verified: readonly VerifiedClaim[];
+  model: CheckSteps;
+}): Promise<CheckedReport> {
+  const { question, model } = input;
+  const known = new Set<number>(input.verified.map((claim) => claim.number));
+  const { marked, removed } = markCitations(
+    cutSourceSection(input.draft),
+    known,
+  );
+  let children = parseMarkdown(marked);
+  const check: CitationCheck = {
+    uncited: [],
+    repairs: [],
+    rewritten: [],
+    removed: [],
+    modelCalls: 0,
+  };
+  const done = (): CheckedReport => ({
+    draft: serialize(children).markdown,
+    removedCitations: removed,
+    check,
+  });
+  const uncited = () =>
+    locate(children).filter((sentence) => sentence.citations.length === 0);
+
+  const first = uncited();
+  if (first.length === 0) return done();
+  check.modelCalls += 1;
+  check.uncited = await judge(model, question, done().draft, first);
+  const factual = first.flatMap((at, i) =>
+    check.uncited[i]?.verdict === "fact" ? [{ at, index: i }] : [],
+  );
+  if (factual.length === 0) return done();
+
+  check.modelCalls += 1;
+  const repairs = await repair(model, {
+    question,
+    report: done().draft,
+    sentences: factual.map(({ at }) => ({
+      text: at.text,
+      opening: at.opening,
+    })),
+    claims: input.verified,
+  });
+  const edits: Edit[] = [];
+  for (const [k, { at, index }] of factual.entries()) {
+    const answer = repairs.find((r) => r.sentence === k + 1);
+    const entry = {
+      sentence: index,
+      claims: [] as ClaimNumber[],
+      unknownClaims: [] as number[],
+      text: null as string | null,
+    };
+    const asClaims = (numbers: readonly number[]) =>
+      numbers.flatMap((n) => {
+        const claim = input.verified.find((c) => c.number === n);
+        return claim ? [claim.number] : [];
+      });
+    const fail = (by: "repair" | "check") => {
+      edits.push({ at, kind: "remove" });
+      check.removed.push({ text: at.text, opening: at.opening, by });
+    };
+    if (answer === undefined) {
+      check.repairs.push({ ...entry, action: "none" });
+      fail("check");
+    } else if (answer.action === "delete") {
+      check.repairs.push({ ...entry, action: "delete" });
+      fail("repair");
+    } else if (answer.action === "cite") {
+      const unique = [...new Set(answer.claims)];
+      const claims = asClaims(unique);
+      check.repairs.push({
+        ...entry,
+        action: "cite",
+        claims,
+        unknownClaims: unique.filter((n) => !known.has(n)),
+      });
+      if (claims.length > 0) edits.push({ at, kind: "cite", claims });
+      else fail("check");
+    } else {
+      const rewrite = rewriteOf(answer.text, at.text, known);
+      check.repairs.push({
+        ...entry,
+        action: "rewrite",
+        claims: asClaims(rewrite.claims),
+        unknownClaims: rewrite.unknown,
+        text: answer.text,
+      });
+      if (rewrite.text.replace(PROTECTED, "").trim() !== "") {
+        edits.push({ at, kind: "rewrite", text: rewrite.text });
+      } else {
+        fail("check");
+      }
+    }
+  }
+  children = applyEdits(children, edits);
+
+  // A rewrite may add a sentence without a citation. It is judged like the
+  // draft, and a fact in it is not repaired again.
+  const accepted = new Set(
+    check.uncited.flatMap((s) => (s.verdict === "fact" ? [] : [s.text])),
+  );
+  const fresh = uncited().filter((sentence) => !accepted.has(sentence.text));
+  if (fresh.length > 0) {
+    check.modelCalls += 1;
+    check.rewritten = await judge(model, question, done().draft, fresh);
+    for (const sentence of check.rewritten) {
+      if (sentence.verdict !== "fact") accepted.add(sentence.text);
+    }
+  }
+  const left = uncited().filter((sentence) => !accepted.has(sentence.text));
+  for (const at of left) {
+    check.removed.push({ text: at.text, opening: at.opening, by: "check" });
+  }
+  children = applyEdits(
+    children,
+    left.map((at) => ({ at, kind: "remove" as const })),
+  );
+  return done();
 }
