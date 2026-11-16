@@ -279,9 +279,16 @@ function modelSlots(deps: {
     else open -= 1;
   };
   return async (step: ModelStep): Promise<(end: CallEnd) => void> => {
+    if (deps.signal.aborted) throw new RunCancelled();
     const requested = deps.now();
     if (open < deps.limit) open += 1;
     else await new Promise<void>((resolve) => waiting.push(resolve));
+    // A cancel frees the slots of the open calls. A call that waited for one
+    // must not start now.
+    if (deps.signal.aborted) {
+      release();
+      throw new RunCancelled();
+    }
     const started = deps.now();
     let closed = false;
     const close = (end: CallEnd) => {
