@@ -140,11 +140,12 @@ The step files under `scripts/steps/` are the recipes. Each one checks one flow 
 | `cancel-and-rerun.json` | Reload a running run, cancel it, rerun it (U5, U8, U10, M4). |
 | `history.json` | The history, its filter, a past run, a run without a verified claim, an unknown run (U2, U8, U9, R6). |
 | `screens.json` | Light and dark theme, theme after a reload, reduced motion, 390px width. |
+| `reconnect.json` | An event stream that closed for good opens again, and the run says that the connection was lost. |
 
 Run all of them against one served app:
 
 ```sh
-for flow in history citation failures budget ask-and-watch cancel-and-rerun screens; do
+for flow in history citation failures budget ask-and-watch cancel-and-rerun screens reconnect; do
   node .claude/skills/verify/scripts/browser.mjs --base http://127.0.0.1:3210 \
     --out <evidence folder> .claude/skills/verify/scripts/steps/$flow.json || echo "FAILED: $flow"
 done
