@@ -57,7 +57,7 @@ top=$!
 sleep "$wait_s" &
 wait $!
 
-leaf=$(nodes_below "$top" | tail -1)
+leaf=$(leaf_nodes_below "$top" | tail -1)
 if [ -z "$leaf" ]; then
   wait "$top"
   echo "NOT PROVEN: the run ended before the interrupt (exit code $?). Use fewer seconds. Evidence: $evidence" >&2
