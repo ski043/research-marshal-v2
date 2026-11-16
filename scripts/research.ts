@@ -1,12 +1,47 @@
-import { cancelRun, followRun, loadRun, startRun } from "@/lib/research";
+import {
+  cancelRun,
+  followRun,
+  loadRun,
+  type RunPorts,
+  startRun,
+} from "@/lib/research";
 import { Question, type RunEvent } from "@/lib/research/events";
 import type { RunView } from "@/lib/research/run-view";
+import {
+  EXIT,
+  exitCodeOf,
+  parseResearchArgs,
+  summaryLine,
+  USAGE,
+} from "./research-args";
 
-const parsed = Question.safeParse(process.argv.slice(2).join(" "));
-if (!parsed.success) {
-  console.error('Usage: pnpm research "your research question"');
-  process.exit(2);
+function usage(error: string): never {
+  console.error(`${error}\n\n${USAGE}`);
+  process.exit(EXIT.usage);
 }
+
+const cli = parseResearchArgs(process.argv.slice(2));
+if (!cli.ok) usage(cli.error);
+let questionText = cli.args.question;
+let ports: RunPorts | undefined;
+if (cli.args.offline) {
+  // Imported only here so a live run never loads the fakes.
+  const offline = await import("@/lib/research/offline");
+  const scenario = offline.SCENARIOS.get(cli.args.offline.scenario);
+  if (!scenario) {
+    usage(
+      `Unknown scenario "${cli.args.offline.scenario}". Scenarios:\n${[
+        ...offline.SCENARIOS.values(),
+      ]
+        .map((s) => `  ${s.name.padEnd(10)} ${s.promise}`)
+        .join("\n")}`,
+    );
+  }
+  ports = offline.offlinePorts(scenario, cli.args.offline.paceMs);
+  questionText ||= offline.offlineQuestion(scenario);
+}
+const parsed = Question.safeParse(questionText);
+if (!parsed.success) usage("The question must have 1 to 2000 characters.");
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 const startedAt = performance.now();
@@ -179,7 +214,7 @@ function printSummary(view: RunView): void {
   console.log(`Wall time: ${seconds(performance.now() - startedAt)}`);
 }
 
-const run = await startRun(parsed.data);
+const run = await startRun(parsed.data, ports);
 console.log(`Run ${run.runId}: ${parsed.data}`);
 
 let interrupts = 0;
@@ -204,4 +239,11 @@ try {
 }
 const view = await loadRun(run.runId);
 if (view) printSummary(view);
-process.exit(view?.status === "completed" ? 0 : 1);
+const exitCode = exitCodeOf(view?.status ?? null);
+console.log(
+  `Run ${run.runId}: ${view?.status ?? "not stored"}, exit code ${exitCode}`,
+);
+if (cli.args.json) {
+  console.log(summaryLine(run.runId, view, performance.now() - startedAt));
+}
+process.exit(exitCode);

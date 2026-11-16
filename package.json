@@ -20,6 +20,7 @@
     "db:migrate": "prisma migrate deploy --config prisma7.config.ts",
     "doctor:worktree": "node scripts/doctor.mjs",
     "research": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/research.ts",
+    "research:offline": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/research.ts --offline",
     "runs": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/runs.ts"
   },
   "dependencies": {
