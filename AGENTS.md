@@ -43,7 +43,7 @@ Research Marshal answers one research question with a cited Markdown report. Eve
 | `pnpm typecheck` | The types check. | No |
 | `pnpm build` | The production build succeeds. | No |
 | `pnpm verify:stack` | The app reaches Anthropic, Decodo, and SQLite. | Yes |
-| `pnpm research "question"` | One full research run works end to end. | Yes |
+| `pnpm research [--model <m>] "question"` | One full research run works end to end. | Yes |
 | `pnpm research:offline <scenario>` | The pipeline, the store, and the terminal output work end to end on fakes. | No |
 | `pnpm runs list`, `pnpm runs show <id\|latest>` | What a stored run holds: budget, searches, pages, claims, report. | No |
 | `pnpm verify:run <id\|latest>` | A stored run kept the PRD rules. The check uses its own code. | No (`--live` is paid) |

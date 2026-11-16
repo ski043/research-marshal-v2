@@ -1,6 +1,6 @@
 # Research Marshal tech stack
 
-Status: draft 2, 2026-11-16.
+Status: draft 3, 2026-11-16.
 
 This document defines the technologies that Research Marshal uses. [PRD.md](PRD.md) defines what the product does. Requirement IDs such as W2 and V1 refer to the PRD.
 
@@ -32,7 +32,7 @@ Version 1 runs locally for one user. It has no accounts and no hosted service. T
 | Validation | Zod | 4.6 | Parses the question, the environment variables, and the model output. |
 | Web data | Decodo TypeScript SDK (`@decodo/sdk-ts`) | 3.0 | The three web actions (W2). |
 | Model calls | AI SDK (`ai`) with `@ai-sdk/anthropic` | 7.0 and 4.0 | Every call to a model. |
-| Model | Claude Sonnet 5.5 | `claude-sonnet-5-5` | Every model step. |
+| Model | Claude Fable 5.2, Claude Opus 5.5, Claude Sonnet 5.5, and Claude Haiku 5.5 | `claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5-5`, and `claude-haiku-5-5` | Every model step. The user chooses one model per run (M1, M2). |
 | Database | SQLite | | Stores every run (U8, U9). |
 | ORM | Prisma ORM with `@prisma/adapter-better-sqlite3` | 7.10.1 | The schema, the migrations, and the queries. |
 | Tests | Vitest | 5.1 | Unit tests. |
@@ -62,6 +62,7 @@ Version 1 runs locally for one user. It has no accounts and no hosted service. T
 - The app records each model call with its duration, its wait for a free model slot, and its token use.
 - The Decodo SDK does not accept a signal. After a cancel, the app ignores the result of a Decodo request that is still open.
 - Code enforces the budget (B1 to B3). No prompt enforces a limit.
+- When `RESEARCH_MARSHAL_FAKES` is set, every run that the app starts uses the offline fakes instead of Decodo and Anthropic. The question picks the scenario by its name, and any other question runs the `completed` scenario. A run on the fakes sends no paid request and needs no API key.
 
 ## Web data
 
@@ -95,8 +96,9 @@ The app calls Decodo through `client.webScrapingApi` of the Decodo TypeScript SD
 - Call the model one step at a time. Use `generateText` with `Output.object` and a Zod schema when a step returns data.
 - The step that writes the report uses `streamText`. Streamdown renders the report while the model writes it.
 - Do not use an agent loop. The budget fixes the number and the order of the web actions, so code decides the next action.
-- One module maps each model step to a model ID and an effort level. No other file names a model.
-- Every step uses `claude-sonnet-5-5`. Set the effort level for every step. Claude Sonnet 5.5 always thinks, and its default effort is `high`.
+- The user chooses one of four models for a run (M1). The run uses that model for every model step (M2). The default is Claude Sonnet 5.5.
+- One module maps each model and each model step to a model ID, an effort level, and an output limit. No other file names a model. The run and the history store a short key for the model, not the model ID.
+- Every step sets its effort, because the default effort differs by model. A step has the same effort and the same output limit on every model.
 - V1 is a string comparison in code. V1 is never a model call.
 - V2 is its own model call. The call receives the claim and the quote. The call does not receive the output of the step that wrote the claim.
 - R3 is checked after the report is written. The `classifySentences` step judges each sentence without a citation, the `repairSentences` step gets one chance to cite or rewrite a factual one, and code removes what still states a fact without a citation.
@@ -130,6 +132,7 @@ Write unit tests for logic that has no network access. The V1 comparison and the
 | `ANTHROPIC_API_KEY` | The Anthropic API key. |
 | `DECODO_AUTH_TOKEN` | The Decodo API key. |
 | `DATABASE_URL` | The path of the SQLite file, for example `file:./dev.db`. |
+| `RESEARCH_MARSHAL_FAKES` | Optional. The pace of the offline fakes in milliseconds, for example `0` or `150`. Unset means live runs. |
 
 One module parses the environment variables with Zod when the app starts.
 
@@ -168,7 +171,6 @@ Do not add a technology from this table.
 | `@decodo/sdk` | This package is not the Decodo TypeScript SDK. The SDK is `@decodo/sdk-ts`. |
 | The Decodo crawl methods | W3 forbids a crawl of a whole site. |
 | react-markdown | Streamdown renders the report. |
-| Claude Opus 5.5 and Claude Haiku 5.5 | Every model step uses Claude Sonnet 5.5. |
 | `dotenv` | Next.js and `process.loadEnvFile()` load the environment variables. |
 | Prisma ORM 8 | Version 8 is a release candidate. |
 | Drizzle | The project uses Prisma. |

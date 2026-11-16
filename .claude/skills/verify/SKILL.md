@@ -32,6 +32,7 @@ Two helpers do a whole proof in one command. Both use a scratch database inside 
 | --- | --- | --- |
 | Prove one scenario on fakes | `.claude/skills/verify/scripts/prove.sh <slug> offline <scenario>` | Free, about 3 s |
 | Prove one real run | `.claude/skills/verify/scripts/prove.sh <slug> live "<question>"` | Paid, 75 to 120 s |
+| Prove one real run on another model | `.claude/skills/verify/scripts/prove.sh <slug> live --model <fable\|opus\|sonnet\|haiku> "<question>"` | Paid, the time depends on the model |
 | Prove cancel on fakes | `.claude/skills/verify/scripts/cancel-run.sh <slug> offline` | Free, about 5 s |
 | Prove cancel on a real run | `.claude/skills/verify/scripts/cancel-run.sh <slug> live 15 "<question>"` | Paid, about 20 s |
 
