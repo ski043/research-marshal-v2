@@ -32,7 +32,9 @@ const LINK_TITLE = String.raw`(?:\s+(?:"[^"]*"|'[^']*'))?`;
 // of the sentence, as in `Fig. [4](#Fig4)`.
 const ONE_NOTE_LINK = String.raw`${NOTE_TEXT}\([^()\s#]*#[^()\s]*${LINK_TITLE}\)`;
 const NOTE_LINK = new RegExp(
-  String.raw`(?<=\S)${ONE_NOTE_LINK}(?:${BETWEEN_NOTES}${ONE_NOTE_LINK})*`,
+  // Every link of the group touches what stands before it. A linked number
+  // after a space, as in `Figs.[1](#a), [2](#b)`, stays part of the sentence.
+  String.raw`(?<=\S)${ONE_NOTE_LINK}(?:[,\u2013-]${ONE_NOTE_LINK})*`,
   "g",
 );
 // Comment syntax inside a code block or a code span is page text.
@@ -224,9 +226,12 @@ const NOTE_DIGITS = /^[.,;:!?]["')\]]*\d{1,3}$/;
 const ENDS_ON_WORD = /\p{L}{2}$/u;
 // A page can leave out the space between two sentences, as in
 // `haemorrhages.These`. The quote may end or start at that sentence break.
-const NEXT_SENTENCE = /^[.!?]["'”’)\]]*\p{Lu}/u;
-const SENTENCE_BEFORE = /[.!?]["'”’)\]]*$/;
-const STARTS_SENTENCE = /^\p{Lu}/u;
+// A break has a lowercase word before it and a capitalized word after it, so
+// a dotted name in capitals such as `ASP.NET` is not one.
+const NEXT_SENTENCE = /^[.!?]["'”’)\]]*\p{Lu}\p{Ll}/u;
+const SENTENCE_BEFORE = /\p{Ll}{2}[.!?]["'”’)\]]*$/u;
+const STARTS_SENTENCE = /^\p{Lu}\p{Ll}/u;
+const ENDS_ON_LOWERCASE = /\p{Ll}{2}$/u;
 
 function trimStart(word: string): string {
   let out = word;
@@ -283,8 +288,8 @@ function edgeMatches(
       at === "start"
         ? after === ""
         : CLOSING.test(after) ||
-          (ENDS_ON_WORD.test(word) &&
-            (NOTE_DIGITS.test(after) || NEXT_SENTENCE.test(after)));
+          (ENDS_ON_WORD.test(word) && NOTE_DIGITS.test(after)) ||
+          (ENDS_ON_LOWERCASE.test(word) && NEXT_SENTENCE.test(after));
     if (beforeOk && afterOk) return true;
   }
   return false;
