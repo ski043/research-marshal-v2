@@ -44,6 +44,10 @@ Research Marshal answers one research question with a cited Markdown report. Eve
 | `pnpm build` | The production build succeeds. | No |
 | `pnpm verify:stack` | The app reaches Anthropic, Decodo, and SQLite. | Yes |
 | `pnpm research "question"` | One full research run works end to end. | Yes |
+| `pnpm research:offline <scenario>` | The pipeline, the store, and the terminal output work end to end on fakes. | No |
+| `pnpm runs list`, `pnpm runs show <id\|latest>` | What a stored run holds: budget, searches, pages, claims, report. | No |
+| `pnpm verify:run <id\|latest>` | A stored run kept the PRD rules. The check uses its own code. | No (`--live` is paid) |
+| `pnpm perf:check` | The bundle size and the parallel shape of the pipeline are inside their limits. | No |
 
 - Run `pnpm check` before each commit.
 - To run one test file, pass its path: `pnpm test lib/research/budget.test.ts`.
@@ -69,8 +73,8 @@ The rules live in `biome.json`, `scripts/lint/`, and `scripts/project-rules.test
 ## Done means
 
 - `pnpm check` passes.
-- The change is proven on the real thing: run the command, the page, or the script that the change affects, and read the actual result.
-- The evidence is kept: the command and its output go into the PR under Verification.
+- The change is proven on the real thing: run the command, the page, or the script that the change affects, and read the actual result. For a change to the pipeline, the report, the budget, the CLI, or the stored run, use the `verify` skill (`.claude/skills/verify/SKILL.md`). Its helpers drive a run and audit it in one command.
+- The evidence is kept: the command and its output go into the PR under Verification. The `verify` skill writes it to `.verify/`.
 - A paid command runs only when the task needs it.
 
 ## Conventions
