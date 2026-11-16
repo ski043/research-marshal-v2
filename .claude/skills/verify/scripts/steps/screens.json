@@ -21,6 +21,33 @@
     "that": "the light scheme of the system gives the light theme"
   },
   {
+    "click": "main ul[aria-label='Example questions'] button"
+  },
+  {
+    "wait": 200
+  },
+  {
+    "expect": "$v('textarea').value === $v(\"main ul[aria-label='Example questions'] button\").textContent && document.activeElement === $v('textarea')",
+    "that": "an example question fills the prompt box and moves the focus there"
+  },
+  {
+    "expect": "$v('button[type=submit]').disabled === false",
+    "that": "the send button is ready once the box has a question"
+  },
+  {
+    "reload": true
+  },
+  {
+    "waitFor": "main canvas"
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "expect": "$v('button[type=submit]').disabled === true",
+    "that": "the send button is off while the box is empty"
+  },
+  {
     "shot": "start-light.png"
   },
   {
