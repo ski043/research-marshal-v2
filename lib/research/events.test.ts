@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PageUrl, RoundNo, RunEvent, siteOf } from "./events";
+import { ModelStep, PageUrl, RoundNo, RunEvent, siteOf } from "./events";
+import { MODEL_CONFIG } from "./model-config";
 
 describe("PageUrl", () => {
   it("drops the fragment, so one page has one identity", () => {
@@ -53,4 +54,30 @@ it("a stored event parses back to the same event", () => {
     at: "2026-11-15T21:00:00.000Z",
   };
   expect(RunEvent.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
+});
+
+it("a stored model call parses back to the same event", () => {
+  const event = {
+    type: "model.called",
+    step: "extract",
+    outcome: "truncated",
+    queuedMs: 1_200,
+    durationMs: 8_400,
+    tokens: {
+      input: 5_120,
+      output: 8_000,
+      reasoning: null,
+      cacheRead: 0,
+      cacheWrite: null,
+    },
+    seq: 9,
+    at: "2026-11-15T21:00:00.000Z",
+  };
+  expect(RunEvent.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
+});
+
+it("ModelStep names every model step of the config", () => {
+  expect([...ModelStep.options].sort()).toEqual(
+    Object.keys(MODEL_CONFIG).sort(),
+  );
 });

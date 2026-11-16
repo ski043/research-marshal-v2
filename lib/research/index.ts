@@ -1,7 +1,7 @@
 import { readEnv } from "@/lib/env";
 import { meterWeb, type WebActions } from "./budget";
 import { createDecodoWeb, sdkPort } from "./decodo";
-import type { Question, RunEnd, RunEvent, RunId } from "./events";
+import type { ModelCall, Question, RunEnd, RunEvent, RunId } from "./events";
 import { createModelSteps } from "./model";
 import type { ModelSteps } from "./model-config";
 import { runPipeline } from "./pipeline";
@@ -13,7 +13,10 @@ export type { RunSummary } from "./store";
 
 export type StartedRun = { runId: RunId; finished: Promise<RunEnd> };
 
-/** The web and the model a run talks to. `startRun` uses Decodo and Anthropic when none are given. */
+/**
+ * The web and the model a run talks to. `startRun` uses Decodo and Anthropic when none are
+ * given. Only the Anthropic model records `model.called` events; a fake model makes no call.
+ */
 export type RunPorts = { web: WebActions; model: ModelSteps };
 
 /** One stored run: its row, the view derived from its events, and the events themselves. */
@@ -29,12 +32,19 @@ const activeRuns = new Map<RunId, AbortController>();
 
 const store = openStore();
 
-function livePorts(signal: AbortSignal): RunPorts {
+// Reads the keys at once, so a missing key fails before the run is stored.
+function livePorts(
+  signal: AbortSignal,
+): (record: (call: ModelCall) => void) => RunPorts {
   const keys = readEnv(["ANTHROPIC_API_KEY", "DECODO_AUTH_TOKEN"]);
-  return {
+  return (record) => ({
     web: createDecodoWeb(sdkPort(keys.DECODO_AUTH_TOKEN)),
-    model: createModelSteps({ apiKey: keys.ANTHROPIC_API_KEY, signal }),
-  };
+    model: createModelSteps({
+      apiKey: keys.ANTHROPIC_API_KEY,
+      signal,
+      record,
+    }),
+  });
 }
 
 export async function startRun(
@@ -43,7 +53,7 @@ export async function startRun(
 ): Promise<StartedRun> {
   const controller = new AbortController();
   const { signal } = controller;
-  const { web: port, model } = ports ?? livePorts(signal);
+  const connect = ports ? () => ports : livePorts(signal);
   const runId = await store.createRun(question);
   const log = createRunLog({
     runId,
@@ -51,6 +61,7 @@ export async function startRun(
     persist: (event) => store.appendEvent(runId, event),
     now: () => new Date(),
   });
+  const { web: port, model } = connect(log.emit);
   const web = meterWeb({
     web: port,
     emit: log.emit,

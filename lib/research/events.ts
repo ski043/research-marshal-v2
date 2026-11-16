@@ -151,6 +151,39 @@ export const CitationCheck = z.object({
 });
 export type CitationCheck = z.infer<typeof CitationCheck>;
 
+export const ModelStep = z.enum([
+  "plan",
+  "select",
+  "pickFromMap",
+  "extract",
+  "supports",
+  "checkGaps",
+  "writeReport",
+  "classifySentences",
+  "repairSentences",
+]);
+export type ModelStep = z.infer<typeof ModelStep>;
+
+// "truncated": the answer reached the output limit of the step.
+export const ModelCallOutcome = z.enum([
+  "ok",
+  "truncated",
+  "failed",
+  "cancelled",
+]);
+export type ModelCallOutcome = z.infer<typeof ModelCallOutcome>;
+
+// A count is null when the SDK did not report it, for example for a request that failed.
+const TokenCount = z.int().nonnegative().nullable();
+export const ModelTokens = z.object({
+  input: TokenCount,
+  output: TokenCount,
+  reasoning: TokenCount,
+  cacheRead: TokenCount,
+  cacheWrite: TokenCount,
+});
+export type ModelTokens = z.infer<typeof ModelTokens>;
+
 const MapEventOutcome = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("ok"),
@@ -183,6 +216,15 @@ export const RunEventBody = z.discriminatedUnion("type", [
     outcome: z.enum(["ok", "failed"]),
     detail: z.string().nullable(),
     durationMs: z.int().nonnegative(),
+  }),
+  z.object({
+    type: z.literal("model.called"),
+    step: ModelStep,
+    outcome: ModelCallOutcome,
+    // From the request of the step to the start of the call: the wait for a free slot.
+    queuedMs: z.int().nonnegative(),
+    durationMs: z.int().nonnegative(),
+    tokens: ModelTokens,
   }),
   z.object({
     type: z.literal("search.finished"),
@@ -289,6 +331,8 @@ const Envelope = z.object({ seq: z.int().positive(), at: z.iso.datetime() });
 
 export const RunEvent = RunEventBody.and(Envelope);
 export type RunEvent = z.infer<typeof RunEvent>;
+
+export type ModelCall = Extract<RunEventBody, { type: "model.called" }>;
 
 export type EmittableEvent = Exclude<
   RunEventBody,

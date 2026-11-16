@@ -59,6 +59,7 @@ Version 1 runs locally for one user. It has no accounts and no hosted service. T
 - One route handler sends the steps of a run to the browser as Server-Sent Events. The browser reads them with `EventSource`.
 - Each run has one `AbortSignal`. A cancel (U5) aborts the signal. The run stops when the signal aborts.
 - The app passes the signal to every model call.
+- The app records each model call with its duration, its wait for a free model slot, and its token use.
 - The Decodo SDK does not accept a signal. After a cancel, the app ignores the result of a Decodo request that is still open.
 - Code enforces the budget (B1 to B3). No prompt enforces a limit.
 

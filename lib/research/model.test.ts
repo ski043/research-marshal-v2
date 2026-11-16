@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FatalRunError } from "./budget";
-import { ClaimNumber, PageUrl, Question } from "./events";
+import { ClaimNumber, type ModelCall, PageUrl, Question } from "./events";
 import {
   createModelSteps,
   ExtractSchema,
@@ -222,11 +222,21 @@ async function callStep(steps: ModelSteps, step: keyof ModelSteps) {
   return call(SAMPLES[step]);
 }
 
-const realSteps = () =>
+const realSteps = (
+  record: (call: ModelCall) => void = () => {},
+  now?: () => number,
+) =>
   createModelSteps({
     apiKey: "test-key",
     signal: new AbortController().signal,
+    record,
+    ...(now ? { now } : {}),
   });
+
+function recorded() {
+  const calls: ModelCall[] = [];
+  return { calls, record: (call: ModelCall) => calls.push(call) };
+}
 
 describe("model requests", () => {
   it.each(STEPS)("%s sends its output limit and its prompt", async (step) => {
@@ -268,6 +278,177 @@ describe("model requests", () => {
     await expect(failed).rejects.toThrow(
       `the answer reached the output limit of ${MODEL_CONFIG.writeReport.maxOutputTokens} tokens`,
     );
+  });
+});
+
+describe("model call records (#19)", () => {
+  it.each(STEPS)("%s records one call with its tokens", async (step) => {
+    fakeAnthropic((request) => ({ text: answerFor(request) }));
+    const { calls, record } = recorded();
+    await callStep(realSteps(record), step);
+    expect(calls).toEqual([
+      {
+        type: "model.called",
+        step,
+        outcome: "ok",
+        queuedMs: expect.any(Number),
+        durationMs: expect.any(Number),
+        tokens: expect.objectContaining({ input: 10, output: 10 }),
+      },
+    ]);
+  });
+
+  it("records a cut-off answer as truncated, with its tokens", async () => {
+    fakeAnthropic(() => ({
+      text: '{"label":"Blog","cla',
+      stopReason: "max_tokens",
+    }));
+    const { calls, record } = recorded();
+    await expect(callStep(realSteps(record), "extract")).rejects.toThrow();
+    await expect(callStep(realSteps(record), "writeReport")).rejects.toThrow();
+    expect(calls.map((c) => [c.step, c.outcome, c.tokens.output])).toEqual([
+      ["extract", "truncated", 10],
+      ["writeReport", "truncated", 10],
+    ]);
+  });
+
+  it("records an open call as cancelled before any later cancel step runs", async () => {
+    const controller = new AbortController();
+    vi.stubGlobal(
+      "fetch",
+      (_url: unknown, init?: RequestInit) =>
+        new Promise((_, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    );
+    const { calls, record } = recorded();
+    const steps = createModelSteps({
+      apiKey: "test-key",
+      signal: controller.signal,
+      record,
+    });
+    // The pipeline seals the run log in its own abort listener, which it adds
+    // after the model steps exist. A record that comes later is lost.
+    let atSeal: ModelCall[] = [];
+    controller.signal.addEventListener("abort", () => {
+      atSeal = [...calls];
+    });
+    const pending = steps.plan(SAMPLES.plan).catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    controller.abort();
+    await pending;
+
+    expect(atSeal).toMatchObject([{ step: "plan", outcome: "cancelled" }]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("starts no waiting call after the run is cancelled", async () => {
+    const controller = new AbortController();
+    let requests = 0;
+    vi.stubGlobal(
+      "fetch",
+      (_url: unknown, init?: RequestInit) =>
+        new Promise((_, reject) => {
+          requests += 1;
+          const abort = () => reject(new DOMException("aborted", "AbortError"));
+          if (init?.signal?.aborted) abort();
+          else init?.signal?.addEventListener("abort", abort);
+        }),
+    );
+    const { calls, record } = recorded();
+    const steps = createModelSteps({
+      apiKey: "test-key",
+      signal: controller.signal,
+      record,
+    });
+    const pending = Array.from({ length: 8 }, () =>
+      steps.plan(SAMPLES.plan).catch(() => undefined),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(requests).toBe(6);
+    controller.abort();
+    await Promise.all(pending);
+
+    expect(requests).toBe(6);
+    expect(calls.map((c) => c.outcome)).toEqual(Array(6).fill("cancelled"));
+  });
+
+  it("records a failed request with no token count", async () => {
+    vi.stubGlobal("fetch", async () =>
+      Response.json(
+        {
+          type: "error",
+          error: { type: "invalid_request_error", message: "bad" },
+        },
+        { status: 400 },
+      ),
+    );
+    const { calls, record } = recorded();
+    await expect(callStep(realSteps(record), "plan")).rejects.toBeInstanceOf(
+      FatalRunError,
+    );
+    await expect(
+      callStep(realSteps(record), "writeReport"),
+    ).rejects.toBeInstanceOf(FatalRunError);
+    expect(calls.map((c) => [c.step, c.outcome, c.tokens])).toEqual([
+      [
+        "plan",
+        "failed",
+        {
+          input: null,
+          output: null,
+          reasoning: null,
+          cacheRead: null,
+          cacheWrite: null,
+        },
+      ],
+      [
+        "writeReport",
+        "failed",
+        {
+          input: null,
+          output: null,
+          reasoning: null,
+          cacheRead: null,
+          cacheWrite: null,
+        },
+      ],
+    ]);
+  });
+
+  it("records the wait for a free slot, and the report stream waits too", async () => {
+    fakeAnthropic((request) => ({ text: answerFor(request) }));
+    const answer = globalThis.fetch;
+    let open = 0;
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal("fetch", async (...args: Parameters<typeof fetch>) => {
+      open += 1;
+      await gate;
+      return answer(...args);
+    });
+    let clock = 0;
+    const { calls, record } = recorded();
+    const steps = realSteps(record, () => clock);
+    const first = Array.from({ length: 6 }, () => callStep(steps, "supports"));
+    const report = callStep(steps, "writeReport");
+    await vi.waitFor(() => expect(open).toBe(6));
+    clock = 4_000;
+    release();
+    await Promise.all([...first, report]);
+
+    const supports = calls.filter((c) => c.step === "supports");
+    expect(supports.map((c) => [c.queuedMs, c.durationMs])).toEqual(
+      Array.from({ length: 6 }, () => [0, 4_000]),
+    );
+    expect(calls.find((c) => c.step === "writeReport")).toMatchObject({
+      queuedMs: 4_000,
+      durationMs: 0,
+    });
   });
 });
 

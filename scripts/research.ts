@@ -6,6 +6,7 @@ import {
   startRun,
 } from "@/lib/research";
 import { Question, type ReadSkip, type RunEvent } from "@/lib/research/events";
+import { modelSummaryLine } from "@/lib/research/inspect";
 import type { RunView, SkipReason } from "@/lib/research/run-view";
 import {
   EXIT,
@@ -94,6 +95,7 @@ function describeStep(event: RunEvent): string[] {
         `  Decodo #${event.call} ${event.endpoint}${event.rendered ? " (rendered)" : ""} ${event.input}`,
       ];
     case "decodo.settled":
+    case "model.called":
     case "report.delta":
       return [];
     case "search.finished": {
@@ -299,6 +301,7 @@ function printSummary(view: RunView): void {
   console.log(
     `Verified claims: ${view.verified.length}. Dropped claims: ${view.dropped.length}.`,
   );
+  console.log(modelSummaryLine(view));
   if (view.error) {
     console.log(
       `Saved error: step "${view.error.step}": ${view.error.message}`,

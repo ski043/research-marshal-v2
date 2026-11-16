@@ -21,6 +21,13 @@ type Shapes = {
     detail: string | null;
     durationMs: number;
   };
+  "model.called": {
+    step: string;
+    outcome: string;
+    queuedMs: number;
+    durationMs: number;
+    tokens: { input: number | null; output: number | null };
+  };
   "search.finished": {
     round: number;
     query: { query: string };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Envelope, StoredRun } from "./stored-run";
 import { syntheticRun } from "./synthetic";
-import { timeRun, timingCheck } from "./timing";
+import { renderTiming, timeRun, timingCheck } from "./timing";
 
 const LIMITS = {
   wallMsByRounds: { "1": 30_000 },
@@ -90,6 +90,88 @@ describe("the run timing", () => {
   it("skips a run that did not complete", () => {
     expect(timingCheck(timeRun(parallel), LIMITS, "CANCELLED").status).toBe(
       "skip",
+    );
+  });
+});
+
+describe("measured model calls (#19)", () => {
+  const call = (
+    step: string,
+    durationMs: number,
+    queuedMs: number,
+    input: number | null,
+    output: number | null,
+  ) => ({
+    type: "model.called",
+    step,
+    outcome: input === null ? "failed" : "ok",
+    queuedMs,
+    durationMs,
+    tokens: { input, output, reasoning: null, cacheRead: 0, cacheWrite: null },
+  });
+  const withCalls = syntheticRun({
+    edit: (bodies) => [
+      bodies[0] as (typeof bodies)[number],
+      call("plan", 4_000, 0, 300, 200),
+      ...bodies.slice(1),
+      call("extract", 9_000, 2_500, 6_000, 900),
+      call("extract", 7_000, 500, 5_000, 1_100),
+      call("supports", 1_000, 27_000, null, null),
+    ],
+  });
+
+  it("sums the measured time, the queue wait and the tokens per step", () => {
+    const { model } = timeRun(withCalls);
+    expect(model).toEqual({
+      calls: 4,
+      sumMs: 21_000,
+      queuedMs: 30_000,
+      longestQueueMs: 27_000,
+      steps: [
+        {
+          step: "plan",
+          calls: 1,
+          sumMs: 4_000,
+          longestMs: 4_000,
+          queuedMs: 0,
+          inputTokens: 300,
+          outputTokens: 200,
+        },
+        {
+          step: "extract",
+          calls: 2,
+          sumMs: 16_000,
+          longestMs: 9_000,
+          queuedMs: 3_000,
+          inputTokens: 11_000,
+          outputTokens: 2_000,
+        },
+        {
+          step: "supports",
+          calls: 1,
+          sumMs: 1_000,
+          longestMs: 1_000,
+          queuedMs: 27_000,
+          inputTokens: null,
+          outputTokens: null,
+        },
+      ],
+    });
+    const text = renderTiming(timeRun(withCalls));
+    expect(text).toContain(
+      "Model 4 calls measured, 21.0 s summed; queue wait 30.0 s summed, longest 27.0 s",
+    );
+    expect(text).toMatch(
+      /extract\s+2\s+16\.0 s\s+9\.0 s\s+3\.0 s\s+11,000\s+2,000/,
+    );
+    expect(text).not.toContain("are gaps between events, not measured calls");
+  });
+
+  it("falls back to the gaps for a run stored before model calls were recorded", () => {
+    const old = timeRun(syntheticRun());
+    expect(old.model).toBeNull();
+    expect(renderTiming(old)).toContain(
+      "Model steps (plan, select, gap, report) are gaps between events, not measured calls.",
     );
   });
 });

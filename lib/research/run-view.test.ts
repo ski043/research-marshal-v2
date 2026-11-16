@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ClaimNumber,
+  type ModelCallOutcome,
+  type ModelStep,
+  type ModelTokens,
   PageUrl,
   type PlannedQuery,
   Question,
@@ -496,5 +499,80 @@ describe("log invariants", () => {
     expect(() =>
       then(view, { type: "run.error", step: "x", message: "y" }),
     ).toThrow();
+  });
+});
+
+describe("model calls (#19)", () => {
+  const call = (
+    step: ModelStep,
+    durationMs: number,
+    queuedMs: number,
+    tokens: Partial<ModelTokens> | null,
+    outcome: ModelCallOutcome = "ok",
+  ): RunEventBody => ({
+    type: "model.called",
+    step,
+    outcome,
+    queuedMs,
+    durationMs,
+    tokens: {
+      input: null,
+      output: null,
+      reasoning: null,
+      cacheRead: null,
+      cacheWrite: null,
+      ...tokens,
+    },
+  });
+
+  it("sums the calls, the time, the queue wait and the tokens per step and for the run", () => {
+    const view = run(
+      call("plan", 4_000, 0, { input: 300, output: 200 }),
+      call("extract", 9_000, 2_500, {
+        input: 6_000,
+        output: 900,
+        cacheRead: 0,
+      }),
+      call("extract", 7_000, 500, {
+        input: 5_000,
+        output: 1_100,
+        cacheRead: 0,
+      }),
+      call("extract", 2_000, 0, null, "failed"),
+    );
+    const extract = view.model.byStep.extract;
+    expect(extract).toEqual({
+      calls: 3,
+      outcomes: { ok: 2, truncated: 0, failed: 1, cancelled: 0 },
+      durationMs: 18_000,
+      longestMs: 9_000,
+      queuedMs: 3_000,
+      longestQueueMs: 2_500,
+      tokens: {
+        input: 11_000,
+        output: 2_000,
+        reasoning: null,
+        cacheRead: 0,
+        cacheWrite: null,
+      },
+      withoutTokens: 1,
+    });
+    expect(view.model.byStep.select).toBeUndefined();
+    expect(view.model.total).toMatchObject({
+      calls: 4,
+      durationMs: 22_000,
+      longestMs: 9_000,
+      queuedMs: 3_000,
+      tokens: { input: 11_300, output: 2_200, reasoning: null, cacheRead: 0 },
+    });
+  });
+
+  it("a run stored before model calls were recorded has no model calls", () => {
+    const view = run(...found(1), {
+      type: "run.finished",
+      end: { status: "completed", stoppedBy: "answered" },
+    });
+    expect(view.model.total.calls).toBe(0);
+    expect(view.model.byStep).toEqual({});
   });
 });

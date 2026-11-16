@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { EXIT, exitCodeOf, parseResearchArgs } from "./research-args";
+import { Question, RunId } from "@/lib/research/events";
+import { createView, replay } from "@/lib/research/run-view";
+import {
+  EXIT,
+  exitCodeOf,
+  parseResearchArgs,
+  summaryLine,
+} from "./research-args";
 
 describe("exitCodeOf", () => {
   it("gives each end of a run its own code", () => {
@@ -71,5 +78,42 @@ describe("parseResearchArgs", () => {
     const parsed = parseResearchArgs(argv);
     expect(parsed.ok).toBe(false);
     expect(parsed.ok ? "" : parsed.error).toContain(error);
+  });
+});
+
+describe("summaryLine", () => {
+  it("adds the model totals to the JSON summary", () => {
+    const runId = RunId.parse("run-1");
+    const view = replay(createView(runId, Question.parse("Q?")), [
+      {
+        type: "model.called",
+        step: "plan",
+        outcome: "ok",
+        queuedMs: 250,
+        durationMs: 4_000,
+        tokens: {
+          input: 300,
+          output: 200,
+          reasoning: null,
+          cacheRead: 0,
+          cacheWrite: 0,
+        },
+        seq: 1,
+        at: "2026-11-15T21:00:00.000Z",
+      },
+    ]);
+    expect(JSON.parse(summaryLine(runId, view, 5_000)).model).toEqual({
+      calls: 1,
+      notOk: 0,
+      durationMs: 4_000,
+      queuedMs: 250,
+      tokens: {
+        input: 300,
+        output: 200,
+        reasoning: null,
+        cacheRead: 0,
+        cacheWrite: 0,
+      },
+    });
   });
 });

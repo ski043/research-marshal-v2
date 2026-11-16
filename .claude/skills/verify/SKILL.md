@@ -103,7 +103,7 @@ The helpers delete their scratch database when they exit. They start no process 
 - The audit lists sentences without a citation as a warning (`report.uncited`, R3). It is a heuristic. Read the sentences before you report them.
 - The V2 check drops about half of the draft claims in a normal live run. A high count of V2 drops is not a failure.
 - `v1.drops` in the audit can list a whole table row. The app rejects a quote that spans table cells on purpose, and the audit's looser check finds the row on the page. That row is not a defect.
-- Model steps store no start time and no token count (issue #19). The timeline shows a model step as the gap between events.
+- Each live model call stores one `model.called` event with its duration, its wait for one of the 6 model slots, and its tokens. The fake model makes no call, so an offline run prints `Model calls: none recorded.` and its timeline shows a model step as the gap between events, like a run stored before the event.
 - pnpm installs missing dependencies before any script. `node scripts/doctor.mjs` is the only check that changes no file at all.
 
 ## Web UI

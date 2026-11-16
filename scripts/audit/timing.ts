@@ -1,8 +1,9 @@
 import { type Check, plural } from "./checks";
 import { type Envelope, eventsOf, readsOf, type StoredRun } from "./stored-run";
 
-// Model steps have no start or end event. Their durations here are gaps between the
-// neighbouring events, so they include waits for a free model slot.
+// The phase columns are gaps between the neighbouring events, so a model step there includes
+// its wait for a free model slot. A run with model.called events also gets the measured time
+// of each call; a run stored before them has only the gaps.
 
 export type RoundTiming = {
   round: number;
@@ -18,6 +19,16 @@ export type RoundTiming = {
   fetchSumMs: number;
 };
 
+export type ModelStepTiming = {
+  step: string;
+  calls: number;
+  sumMs: number;
+  longestMs: number;
+  queuedMs: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+};
+
 export type RunTiming = {
   wallMs: number;
   planMs: number | null;
@@ -28,6 +39,13 @@ export type RunTiming = {
     totalMs: number;
   } | null;
   decodo: { calls: number; sumMs: number };
+  model: {
+    calls: number;
+    sumMs: number;
+    queuedMs: number;
+    longestQueueMs: number;
+    steps: ModelStepTiming[];
+  } | null;
   slowestCalls: {
     call: number;
     round: number;
@@ -46,6 +64,40 @@ const PAGE_EVENTS = new Set([
   "claim.verified",
   "claim.dropped",
 ]);
+
+const addCount = (sum: number | null, n: number | null | undefined) =>
+  n === null || n === undefined ? sum : (sum ?? 0) + n;
+
+function modelOf(stored: StoredRun): RunTiming["model"] {
+  const calls = eventsOf(stored, "model.called");
+  if (calls.length === 0) return null;
+  const steps = new Map<string, ModelStepTiming>();
+  for (const c of calls) {
+    const t = steps.get(c.step) ?? {
+      step: c.step,
+      calls: 0,
+      sumMs: 0,
+      longestMs: 0,
+      queuedMs: 0,
+      inputTokens: null,
+      outputTokens: null,
+    };
+    t.calls += 1;
+    t.sumMs += c.durationMs;
+    t.longestMs = Math.max(t.longestMs, c.durationMs);
+    t.queuedMs += c.queuedMs;
+    t.inputTokens = addCount(t.inputTokens, c.tokens?.input);
+    t.outputTokens = addCount(t.outputTokens, c.tokens?.output);
+    steps.set(c.step, t);
+  }
+  return {
+    calls: calls.length,
+    sumMs: calls.reduce((n, c) => n + c.durationMs, 0),
+    queuedMs: calls.reduce((n, c) => n + c.queuedMs, 0),
+    longestQueueMs: calls.reduce((m, c) => Math.max(m, c.queuedMs), 0),
+    steps: [...steps.values()],
+  };
+}
 
 const maxAt = (events: readonly Envelope[], floor: number) =>
   events.reduce((m, e) => Math.max(m, e.at), floor);
@@ -151,6 +203,7 @@ export function timeRun(stored: StoredRun): RunTiming {
       calls: calls.length,
       sumMs: calls.reduce((n, c) => n + (c.durationMs ?? 0), 0),
     },
+    model: modelOf(stored),
     slowestCalls: [...calls]
       .sort((a, b) => (b.durationMs ?? -1) - (a.durationMs ?? -1))
       .slice(0, 5),
@@ -186,6 +239,19 @@ export function renderTiming(t: RunTiming): string {
       `  Report: first delta ${s(t.report.firstTokenMs)}, streaming ${s(t.report.streamMs)}, total ${s(t.report.totalMs)}`,
     );
   }
+  if (t.model) {
+    const m = t.model;
+    const tokens = (n: number | null) =>
+      n === null ? "-" : n.toLocaleString("en-US");
+    lines.push(
+      `  Model ${m.calls} calls measured, ${s(m.sumMs)} summed; queue wait ${s(m.queuedMs)} summed, longest ${s(m.longestQueueMs)}`,
+      "  Model step         calls  time     longest  queue    tokens in  tokens out",
+      ...m.steps.map(
+        (st) =>
+          `  ${st.step.padEnd(17)}  ${String(st.calls).padEnd(5)}  ${[st.sumMs, st.longestMs, st.queuedMs].map((ms) => s(ms).padEnd(7)).join("  ")}  ${tokens(st.inputTokens).padEnd(9)}  ${tokens(st.outputTokens)}`,
+      ),
+    );
+  }
   lines.push("  Slowest Decodo calls:");
   for (const c of t.slowestCalls) {
     lines.push(
@@ -193,7 +259,9 @@ export function renderTiming(t: RunTiming): string {
     );
   }
   lines.push(
-    "  Model steps (plan, select, gap, report) are gaps between events, not measured calls.",
+    t.model
+      ? "  The phase columns are gaps between events. The model rows are measured calls: up to 6 run at once, so their sum can exceed the wall time."
+      : "  Model steps (plan, select, gap, report) are gaps between events, not measured calls.",
     "  Parallelism = sum of page chains (fetch, extract, V2) / wall time of the read phase; 1.0 is sequential.",
   );
   return lines.join("\n");

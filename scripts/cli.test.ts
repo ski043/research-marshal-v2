@@ -60,7 +60,9 @@ describe("pnpm research", () => {
       stoppedBy: "answered",
       exitCode: 0,
       rounds: 1,
+      model: { calls: 0 },
     });
+    expect(result.stdout).toContain("\nModel calls: none recorded.\n");
     const lines = result.stdout.trimEnd().split("\n");
     expect(lines[0]).toMatch(new RegExp(`^Run ${summary.runId}: `));
     expect(lines.at(-2)).toBe(`Run ${summary.runId}: completed, exit code 0`);

@@ -8,8 +8,14 @@ import {
   vi,
 } from "vitest";
 import { BUDGET } from "./budget";
-import { Question, type RunEvent } from "./events";
+import {
+  type ModelCall,
+  type ModelStep,
+  Question,
+  type RunEvent,
+} from "./events";
 import type { RunRecord } from "./index";
+import { createView, replay } from "./run-view";
 import { createTempDatabase } from "./temp-db";
 import { expectBudgetHeld } from "./testing";
 
@@ -19,9 +25,14 @@ vi.stubEnv("DATABASE_URL", temp.url);
 const research = await import("./index");
 const { db } = await import("@/lib/db");
 const { SCENARIOS, offlinePorts, offlineQuestion } = await import("./offline");
-const { countsOf, formatList, formatShow, timelineOf } = await import(
-  "./inspect"
-);
+const {
+  countsOf,
+  formatList,
+  formatShow,
+  modelSummaryLine,
+  modelTotalsOf,
+  timelineOf,
+} = await import("./inspect");
 
 afterAll(async () => {
   await db.$disconnect();
@@ -252,5 +263,156 @@ describe("runs output on scenario runs", () => {
       Date.parse(failures.events.at(-1)?.at ?? "") -
         Date.parse(failures.events[0]?.at ?? ""),
     );
+  });
+});
+
+describe("model calls in the runs output (#19)", () => {
+  let failures: RunRecord;
+  beforeAll(async () => {
+    failures = await runScenario("failures");
+  });
+
+  const call = (
+    step: ModelStep,
+    durationMs: number,
+    queuedMs: number,
+    input: number | null,
+    output: number | null,
+    outcome: ModelCall["outcome"] = "ok",
+  ): ModelCall => ({
+    type: "model.called",
+    step,
+    outcome,
+    queuedMs,
+    durationMs,
+    tokens: { input, output, reasoning: null, cacheRead: 0, cacheWrite: null },
+  });
+
+  // The fake model records nothing, so the calls of a live run are put back in by hand,
+  // each before the first event that the call produced.
+  function withCalls(
+    record: RunRecord,
+    before: Partial<Record<RunEvent["type"], ModelCall[]>>,
+  ): RunRecord {
+    const events: RunEvent[] = [];
+    for (const event of record.events) {
+      for (const body of before[event.type] ?? []) {
+        events.push({ ...body, seq: events.length + 1, at: event.at });
+      }
+      delete before[event.type];
+      events.push({ ...event, seq: events.length + 1 });
+    }
+    const { runId, question } = record.view;
+    return {
+      ...record,
+      events,
+      view: replay(createView(runId, question), events),
+    };
+  }
+
+  const live = () =>
+    withCalls(failures, {
+      "round.started": [call("plan", 4_000, 0, 300, 200)],
+      "select.finished": [call("select", 2_000, 0, 1_500, 120)],
+      "page.extracted": [call("extract", 9_000, 2_500, 6_000, 900)],
+      "claim.verified": [call("supports", 1_500, 500, 400, 80)],
+      "gap.checked": [call("checkGaps", 3_000, 0, 700, 150)],
+      "report.checked": [
+        call("writeReport", 12_000, 0, 2_000, 1_800),
+        call("classifySentences", 1_000, 0, null, null, "failed"),
+      ],
+    });
+
+  it("says that a run on the fake model or an old run has no model calls", () => {
+    const text = formatShow(failures);
+    expect(text).toContain("Model calls: none recorded.");
+    expect(modelSummaryLine(failures.view)).toBe("Model calls: none recorded.");
+    expect(text).toMatch(/r1 select \(model\).*gap since the previous phase/);
+    expect(modelTotalsOf(failures.view)).toEqual({
+      calls: 0,
+      notOk: 0,
+      durationMs: 0,
+      queuedMs: 0,
+      tokens: {
+        input: null,
+        output: null,
+        reasoning: null,
+        cacheRead: null,
+        cacheWrite: null,
+      },
+    });
+  });
+
+  it("prints one line of totals and one row per step", () => {
+    const record = live();
+    const summary =
+      "Model calls: 7 (6 ok, 1 failed), 32.5 s summed, longest 12.0 s; queue wait 3.0 s summed, longest 2.5 s; tokens: 10,900 in, 3,250 out, cache read 0; 1 call without a token count.";
+    expect(modelSummaryLine(record.view)).toBe(summary);
+    const text = formatShow(record);
+    expect(text).toContain(summary);
+    const rows = text
+      .split("\n")
+      .filter((l) => /^ {2}(STEP|plan|extract|classifySentences) {2}/.test(l))
+      .map((l) => l.split(/\s{2,}/).slice(1));
+    expect(rows).toEqual([
+      ["STEP", "CALLS", "TIME", "LONGEST", "QUEUE", "TOKENS IN", "TOKENS OUT"],
+      ["plan", "1", "4.0 s", "4.0 s", "0.0 s", "300", "200"],
+      ["extract", "1", "9.0 s", "9.0 s", "2.5 s", "6,000", "900"],
+      [
+        "classifySentences",
+        "1 (1 failed)",
+        "1.0 s",
+        "1.0 s",
+        "0.0 s",
+        "-",
+        "-",
+      ],
+    ]);
+    expect(modelTotalsOf(record.view)).toEqual({
+      calls: 7,
+      notOk: 1,
+      durationMs: 32_500,
+      queuedMs: 3_000,
+      tokens: {
+        input: 10_900,
+        output: 3_250,
+        reasoning: null,
+        cacheRead: 0,
+        cacheWrite: null,
+      },
+    });
+  });
+
+  it("puts each call in the phase of its step and shows it as measured", () => {
+    const record = live();
+    const phases = timelineOf(record.events);
+    expect(phases.map((p) => p.name)).toEqual(
+      timelineOf(failures.events).map((p) => p.name),
+    );
+    const model = (name: string) => phases.find((p) => p.name === name)?.model;
+    expect(model("plan (model)")).toEqual({
+      calls: 1,
+      longestMs: 4_000,
+      sumMs: 4_000,
+      queuedMs: 0,
+    });
+    expect(model("r1 reads, extract, V2")).toEqual({
+      calls: 2,
+      longestMs: 9_000,
+      sumMs: 10_500,
+      queuedMs: 3_000,
+    });
+    expect(model("report: streaming")?.calls).toBe(1);
+    expect(model("report: citation check")?.calls).toBe(1);
+    expect(model("r1 searches")).toBeNull();
+
+    const text = formatShow(record);
+    expect(text).toMatch(
+      /plan \(model\).*model: 1 call measured, sum 4\.0 s, longest 4\.0 s, queue 0\.0 s$/m,
+    );
+    expect(text).toMatch(
+      /r1 reads, extract, V2.*Decodo \d+ calls, .*; model: 2 calls measured, sum 10\.5 s, longest 9\.0 s, queue 3\.0 s$/m,
+    );
+    expect(text).not.toMatch(/r1 select \(model\).*gap since/);
   });
 });
