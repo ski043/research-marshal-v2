@@ -14,6 +14,10 @@ import type { RunView, VerifiedClaim } from "./run-view";
 
 const CITATION = /\[\^(\d+)\]/g;
 const CITATION_GROUP = /\[\^(\d+(?:\s*,\s*\^?\d+)+)\]/g;
+// A definition and its indented continuation lines. It must go before the
+// marks do, or its text stays behind as report prose.
+const FOOTNOTE_DEFINITION =
+  /^[ \t]{0,3}\[\^\d+\]:[^\n]*(?:\n(?:[ \t]{2,}|\t)[^\n]*)*\n?/gm;
 const SOURCE_HEADING =
   /^#{1,6}[ \t]+(?:sources|references|bibliography|citations)[ \t]*:?[ \t]*$/gim;
 // Control characters and the bidi overrides that reorder text on screen.
@@ -204,6 +208,7 @@ function cleanBody(
 ): Cleaned & { removed: number[] } {
   const removed: number[] = [];
   const marked = text
+    .replace(FOOTNOTE_DEFINITION, "")
     .replace(CITATION_GROUP, (_, group: string) =>
       group
         .split(",")
