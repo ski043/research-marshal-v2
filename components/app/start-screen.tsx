@@ -51,10 +51,7 @@ export function StartScreen({
   };
 
   return (
-    <main
-      id="main"
-      className="relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs"
-    >
+    <main className="relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs">
       <DotField
         clear={{ width: 760, height: 520 }}
         className="-z-10 hidden sm:block"

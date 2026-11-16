@@ -247,10 +247,7 @@ export function RunScreen({
 
   return (
     <>
-      <main
-        id="main"
-        className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs"
-      >
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs">
         <header className="flex h-13 shrink-0 items-center gap-2 border-b px-3 lg:px-4">
           <SidebarTrigger />
           <h1 className="min-w-0 flex-1 truncate text-sm font-medium">

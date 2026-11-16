@@ -1,0 +1,85 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "media": {
+      "scheme": "light"
+    }
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "nav[aria-label='Past runs'] a"
+  },
+  {
+    "click": "nav[aria-label='Past runs'] a",
+    "text": "Completed:[offline:completed]"
+  },
+  {
+    "waitText": "Finished"
+  },
+  {
+    "hover": "article a[aria-label^='Citation']"
+  },
+  {
+    "waitFor": "[data-slot=hover-card-content]"
+  },
+  {
+    "wait": 400
+  },
+  {
+    "expect": "$v('[data-slot=hover-card-content]').innerText.includes('LFP cells last about 3,000 cycles.')",
+    "that": "the popover shows the full quote (U6)"
+  },
+  {
+    "expect": "['lfp cycle life result 1', 'example.org', 'Reference'].every((t) => $v('[data-slot=hover-card-content]').innerText.includes(t))",
+    "that": "the popover shows the source title, the domain and the label (U6, S3)"
+  },
+  {
+    "expect": "(() => { const a = $v(\"article a[aria-label^='Citation']\"); return a.href === 'https://example.org/lfp-cycle-life/1' && a.target === '_blank' && a.rel === 'noopener noreferrer'; })()",
+    "that": "a click opens the source page in a new tab (U7)"
+  },
+  {
+    "shot": "citation.png"
+  },
+  {
+    "press": "Escape"
+  },
+  {
+    "focus": "article a[aria-label^='Citation']"
+  },
+  {
+    "press": "Tab",
+    "shift": true
+  },
+  {
+    "press": "Tab"
+  },
+  {
+    "waitFor": "[data-slot=hover-card-content]"
+  },
+  {
+    "expect": "document.activeElement.getAttribute('aria-label').startsWith('Citation 1')",
+    "that": "keyboard focus opens the popover too"
+  },
+  {
+    "expect": "(() => { const li = [...$$v('article li')].at(-1).innerText; return ['example.org', 'Reference'].every((t) => li.includes(t)) && [...$$v('article li a')].some((a) => a.href.startsWith('https://example.org/')); })()",
+    "that": "the source list of the report has the title link, the domain and the label (R7)"
+  },
+  {
+    "click": "[role=tab]",
+    "text": "Sources"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "['example.org', 'Reference', 'Claim'].every((t) => $v(\"section[aria-label='Progress']\").innerText.includes(t))",
+    "that": "the live source list shows the domain, the label and the claim numbers (S3)"
+  },
+  {
+    "console": true
+  }
+]

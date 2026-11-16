@@ -1,0 +1,78 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "media": {
+      "scheme": "light"
+    }
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "nav[aria-label='Past runs'] a"
+  },
+  {
+    "click": "nav[aria-label='Past runs'] a",
+    "text": "Completed:[offline:budget]"
+  },
+  {
+    "waitText": "Finished"
+  },
+  {
+    "expect": "(() => { const m = (name) => $v(`meter[aria-label='${name}']`); return m('Round').value === 3 && m('Round').max === 3 && m('Site map').value === 1 && m('Site map').max === 1 && m('Pages read this round').value === 8 && m('Pages read this round').max === 8 && m('Searches this round').max === 5; })()",
+    "that": "the meters show 3 of 3 rounds, 1 of 1 map and 8 of 8 pages, against the fixed limits (U4, B1 to B3)"
+  },
+  {
+    "expect": "['Round 1', 'Round 2', 'Round 3'].every((t) => $v(\"section[aria-label='Progress']\").innerText.includes(t))",
+    "that": "the Activity list has one group per round"
+  },
+  {
+    "click": "section[aria-label='Progress'] button[aria-expanded]",
+    "text": "plan"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('dropped: over the search budget of the round')",
+    "that": "a query that the budget dropped is shown as dropped"
+  },
+  {
+    "click": "section[aria-label='Progress'] button[aria-expanded]",
+    "text": "map"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('3 listed, 1 picked')",
+    "that": "the one map of the run is on screen (B3)"
+  },
+  {
+    "click": "section[aria-label='Progress'] button[aria-expanded]",
+    "text": "skipped"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('over the page budget of the round')",
+    "that": "a page over the budget is shown as skipped with the reason (B2)"
+  },
+  {
+    "expect": "$v('main').innerText.includes('Finished')",
+    "that": "the report is still written when the budget ends (B5)"
+  },
+  {
+    "expect": "$$v('input[type=number], input[type=range]').length === 0",
+    "that": "the budget has no setting (B6)"
+  },
+  {
+    "shot": "budget.png"
+  },
+  {
+    "console": true
+  }
+]

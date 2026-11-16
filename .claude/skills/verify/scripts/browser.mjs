@@ -2,7 +2,8 @@
 // Drives the web UI in a headless Chrome over the DevTools protocol. No npm package:
 // Node.js has fetch and WebSocket, and Chrome is the browser on this machine.
 //
-//   node browser.mjs --base http://127.0.0.1:3210 [--profile <dir>] [--chrome <binary>] <steps.json | ->
+//   node browser.mjs --base http://127.0.0.1:3210 [--out <dir>] [--profile <dir>]
+//                    [--chrome <binary>] <steps.json | ->
 //
 // The steps are a JSON array. Each step is an object with one of these keys:
 //   {"viewport": [1440, 900]}             CSS pixels; add "scale": 2 for a sharper image
@@ -10,7 +11,7 @@
 //   {"goto": "/runs/abc"}                 waits for the load event
 //   {"reload": true}
 //   {"wait": 300}                         milliseconds
-//   {"waitFor": "css selector"}           until it is in the page (add "timeout": ms)
+//   {"waitFor": "css selector"}           until it is on screen (add "timeout": ms)
 //   {"waitText": "Finished"}              until the page text contains it
 //   {"waitGone": "css selector"}
 //   {"click": "css selector"}  {"hover": "css selector"}  {"focus": "css selector"}
@@ -19,11 +20,15 @@
 //   {"type": "text"}                      into the focused element
 //   {"press": "Enter"}                    add "shift": true; Tab, Escape, Space, arrows
 //   {"eval": "document.title"}            prints the value as JSON
-//   {"shot": "path.png"}                  add "selector" to clip to one element, or
-//                                         "clip": [x, y, width, height]
+//                                         $v(selector) is the first match on screen and
+//                                         $$v(selector) all of them, as an array
+//   {"expect": "js expression", "that": "what must hold"}
+//                                         prints PASS or FAIL; a FAIL makes the exit code 1
+//   {"shot": "name.png"}                  into --out; add "selector" to clip to one
+//                                         element, or "clip": [x, y, width, height]
 //   {"console": true}                     prints the errors and warnings so far
-// The process exits 1 when a step fails or when the page logged an error, unless the
-// last step is {"console": "allow"}.
+// The process exits 1 when a step fails, when an expectation fails, or when the page
+// logged an error, unless the last step is {"console": "allow"}.
 
 import { spawn } from "node:child_process";
 import {
@@ -69,6 +74,7 @@ const option = (name) => {
   return at === -1 ? undefined : args.splice(at, 2)[1];
 };
 const base = option("--base") ?? fail("--base <url> is required");
+const outDir = resolve(option("--out") ?? ".");
 const profileArg = option("--profile");
 const chromeArg = option("--chrome");
 const stepsArg = args[0] ?? fail("pass a steps file, or - for stdin");
@@ -197,23 +203,46 @@ async function until(expression, timeout, what) {
   throw new Error(`timed out after ${timeout} ms waiting for ${what}`);
 }
 
-// The first element that matches `selector` and, when `text` is given, contains it.
+// Next.js keeps earlier pages in the document, hidden. These helpers see only what is
+// on screen, and the steps use them instead of document.querySelector.
+const HELPERS = `
+window.$$v = (selector) =>
+  [...document.querySelectorAll(selector)].filter((el) => el.getClientRects().length > 0);
+window.$v = (selector) => window.$$v(selector)[0] ?? null;
+window.$match = (selector, text) =>
+  window.$$v(selector).find((el) => text === null || el.textContent.includes(text)) ?? null;
+`;
+
+// The first visible element that matches `selector` and, when `text` is given, contains
+// it. It waits until React has taken the element over, so a click is not lost on a page
+// that the server has sent and the browser has not hydrated yet.
 async function boxOf(selector, text) {
-  const box = await evaluate(`(() => {
-    const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find(
-      (each) => ${JSON.stringify(text ?? null)} === null ||
-        each.textContent.includes(${JSON.stringify(text ?? "")}),
-    );
-    if (!el) return null;
-    el.scrollIntoView({ block: "center", inline: "center" });
-    const r = el.getBoundingClientRect();
-    return { x: r.x, y: r.y, width: r.width, height: r.height };
-  })()`);
-  if (!box) {
-    throw new Error(
-      `no element matches ${selector}${text ? ` with the text ${text}` : ""}`,
-    );
+  const find = `window.$match(${JSON.stringify(selector)}, ${JSON.stringify(text ?? null)})`;
+  const what = `${selector}${text ? ` with the text ${text}` : ""}`;
+  await until(`${find} !== null`, 15_000, what);
+  await until(
+    `Object.keys(${find} ?? {}).some((key) => key.startsWith("__reactProps"))`,
+    3_000,
+    `React to hydrate ${what}`,
+  ).catch(() => {});
+  // A tab or a sheet that has just opened still moves. The position counts once two
+  // looks in a row give the same one.
+  const look = () =>
+    evaluate(`(() => {
+      const el = ${find};
+      if (!el) return null;
+      el.scrollIntoView({ block: "center", inline: "center" });
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    })()`);
+  let box = await look();
+  for (let i = 0; i < 20; i += 1) {
+    await sleep(60);
+    const next = await look();
+    if (next && box && next.x === box.x && next.y === box.y) return next;
+    box = next;
   }
+  if (!box) throw new Error(`${what} left the page`);
   return box;
 }
 
@@ -225,6 +254,7 @@ async function pointAt(selector, text) {
 }
 
 const media = { scheme: null, reducedMotion: false };
+let failed = 0;
 
 async function run(step) {
   if (step.viewport) {
@@ -258,13 +288,13 @@ async function run(step) {
     await sleep(step.wait);
   } else if (step.waitFor) {
     await until(
-      `document.querySelector(${JSON.stringify(step.waitFor)}) !== null`,
+      `window.$v(${JSON.stringify(step.waitFor)}) !== null`,
       step.timeout ?? 15_000,
       step.waitFor,
     );
   } else if (step.waitGone) {
     await until(
-      `document.querySelector(${JSON.stringify(step.waitGone)}) === null`,
+      `window.$v(${JSON.stringify(step.waitGone)}) === null`,
       step.timeout ?? 15_000,
       `${step.waitGone} to go`,
     );
@@ -286,9 +316,7 @@ async function run(step) {
     await pointAt(step.hover, step.text);
   } else if (step.focus) {
     await boxOf(step.focus);
-    await evaluate(
-      `document.querySelector(${JSON.stringify(step.focus)}).focus()`,
-    );
+    await evaluate(`window.$v(${JSON.stringify(step.focus)}).focus()`);
   } else if (step.type !== undefined) {
     await send("Input.insertText", { text: step.type });
   } else if (step.press) {
@@ -308,6 +336,10 @@ async function run(step) {
     await send("Input.dispatchKeyEvent", { type: "keyUp", ...event });
   } else if (step.eval) {
     console.log(JSON.stringify(await evaluate(step.eval)));
+  } else if (step.expect) {
+    const holds = Boolean(await evaluate(step.expect));
+    console.log(`${holds ? "PASS" : "FAIL"}  ${step.that ?? step.expect}`);
+    if (!holds) failed += 1;
   } else if (step.shot) {
     let clip;
     if (step.selector) clip = { ...(await boxOf(step.selector)), scale: 1 };
@@ -319,9 +351,10 @@ async function run(step) {
       format: "png",
       clip,
     });
-    mkdirSync(dirname(resolve(step.shot)), { recursive: true });
-    writeFileSync(step.shot, Buffer.from(data, "base64"));
-    console.log(`shot ${step.shot}`);
+    const file = resolve(outDir, step.shot);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, Buffer.from(data, "base64"));
+    console.log(`shot ${file}`);
   } else if (step.console) {
     for (const problem of problems)
       console.log(`console ${problem.level}: ${problem.text}`);
@@ -340,11 +373,13 @@ try {
   });
   socket.addEventListener("message", (event) => onMessage(event.data));
   await send("Page.enable");
+  await send("Page.addScriptToEvaluateOnNewDocument", { source: HELPERS });
   await send("Runtime.enable");
   await send("Log.enable");
   for (const step of steps) await run(step);
   const allow = steps.at(-1)?.console === "allow";
   const errors = problems.filter((problem) => problem.level === "error");
+  if (failed > 0) exitCode = 1;
   if (errors.length > 0 && !allow) {
     for (const problem of errors)
       console.error(`console error: ${problem.text}`);

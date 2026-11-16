@@ -33,7 +33,15 @@ export function AppShell({
         >
           {sidebar}
         </aside>
-        <div className="flex min-w-0 flex-1 lg:py-2 lg:pe-2">{children}</div>
+        {/* The skip link lands here. A page keeps no id of its own: Next.js keeps earlier
+            pages in the document, hidden, and an id must stay unique. */}
+        <div
+          id="main"
+          tabIndex={-1}
+          className="flex min-w-0 flex-1 outline-none lg:py-2 lg:pe-2"
+        >
+          {children}
+        </div>
       </div>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent

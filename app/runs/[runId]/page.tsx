@@ -66,7 +66,6 @@ async function Run({ params }: { params: Promise<{ runId: string }> }) {
 function RunFallback() {
   return (
     <main
-      id="main"
       aria-busy="true"
       className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs"
     >

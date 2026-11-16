@@ -1,0 +1,120 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "media": {
+      "scheme": "light"
+    }
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "main canvas"
+  },
+  {
+    "expect": "/^Good (morning|afternoon|evening)$/.test($v('h1').textContent)",
+    "that": "the start screen greets by the local time"
+  },
+  {
+    "expect": "$$v('textarea').length === 1",
+    "that": "the app has one prompt box (U1)"
+  },
+  {
+    "click": "button[aria-label^='Model']"
+  },
+  {
+    "click": "[role=menuitemradio]",
+    "text": "Haiku"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "$v(\"button[aria-label^='Model']\").textContent.includes('Haiku 5.5')",
+    "that": "the prompt box shows the chosen model (M1)"
+  },
+  {
+    "click": "textarea"
+  },
+  {
+    "type": "failures"
+  },
+  {
+    "press": "Enter"
+  },
+  {
+    "waitFor": "section[aria-label='Progress']",
+    "timeout": 30000
+  },
+  {
+    "wait": 700
+  },
+  {
+    "expect": "$v('main header').innerText.includes('Running')",
+    "that": "the run is running right after the start"
+  },
+  {
+    "expect": "$v('main header').innerText.includes('Haiku 5.5')",
+    "that": "the run shows its model (M3)"
+  },
+  {
+    "expect": "$v(\"nav[aria-label='Past runs'] a\").textContent.includes('Running:')",
+    "that": "the history lists the run while it runs"
+  },
+  {
+    "expect": "$$v(\"section[aria-label='Budget'] meter\").length === 4",
+    "that": "the budget shows four meters (U4)"
+  },
+  {
+    "shot": "running.png"
+  },
+  {
+    "waitText": "Finished",
+    "timeout": 60000
+  },
+  {
+    "wait": 500
+  },
+  {
+    "expect": "$$v(\"section[aria-label='Progress'] ol > li\").length === 11",
+    "that": "the Activity list has the 11 actions of the failures scenario (U3)"
+  },
+  {
+    "expect": "$v('article').innerText.includes('LFP cells last about 3,000 cycles')",
+    "that": "the report is on the page"
+  },
+  {
+    "expect": "$$v(\"article a[aria-label^='Citation']\").length >= 1",
+    "that": "the report has a citation chip"
+  },
+  {
+    "expect": "$v(\"nav[aria-label='Past runs'] a\").textContent.includes('Completed:')",
+    "that": "the history shows the run as completed"
+  },
+  {
+    "expect": "$v(\"meter[aria-label='Searches this round']\").value === 3",
+    "that": "the budget counts the 3 searches of the round"
+  },
+  {
+    "expect": "$$v('main textarea').length === 0",
+    "that": "a run has no follow-up box (U2)"
+  },
+  {
+    "shot": "completed.png"
+  },
+  {
+    "reload": true
+  },
+  {
+    "waitText": "Finished"
+  },
+  {
+    "expect": "$$v(\"section[aria-label='Progress'] ol > li\").length === 11",
+    "that": "the stored run shows the same 11 actions after a reload (U9)"
+  },
+  {
+    "console": true
+  }
+]

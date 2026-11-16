@@ -1,0 +1,91 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "media": {
+      "scheme": "light"
+    }
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "nav[aria-label='Past runs'] a"
+  },
+  {
+    "expect": "$$v(\"nav[aria-label='Past runs'] a\").length >= 6",
+    "that": "the history lists every seeded run (U8)"
+  },
+  {
+    "expect": "[...$$v(\"nav[aria-label='Past runs'] a\")].some((a) => a.textContent.includes('Cancelled:'))",
+    "that": "the history lists a cancelled run (U8)"
+  },
+  {
+    "expect": "$v(\"nav[aria-label='Past runs'] h2\").textContent.startsWith('Today')",
+    "that": "the history groups the runs by day"
+  },
+  {
+    "click": "input[type=search]"
+  },
+  {
+    "type": "no quotable"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "$$v(\"nav[aria-label='Past runs'] a\").length === 1",
+    "that": "the filter narrows the history to the matching question"
+  },
+  {
+    "click": "nav[aria-label='Past runs'] a",
+    "text": "offline:no-claims"
+  },
+  {
+    "waitText": "No verified claims"
+  },
+  {
+    "expect": "$v('article').innerText.includes('Searches of the run')",
+    "that": "the report of a run without a verified claim says so and lists the searches (R6)"
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('written by code')",
+    "that": "the Activity list says that code wrote that report"
+  },
+  {
+    "expect": "/\\d{1,2} [A-Z][a-z]{2} \\d{4}, \\d{2}:\\d{2}/.test($v('main').innerText)",
+    "that": "the past run shows its date (U9)"
+  },
+  {
+    "expect": "$v('main').innerText.includes('Sonnet 5.5')",
+    "that": "the past run shows its model (M3)"
+  },
+  {
+    "expect": "[...$$v('main button')].some((b) => b.textContent.includes('Re-run'))",
+    "that": "the past run has a rerun button (U10)"
+  },
+  {
+    "expect": "$$v('main textarea, main input').length === 0",
+    "that": "a past run is read-only and has no follow-up box (U2, U9)"
+  },
+  {
+    "shot": "no-claims.png"
+  },
+  {
+    "goto": "/runs/not-a-run"
+  },
+  {
+    "waitText": "Run not found"
+  },
+  {
+    "expect": "$v('main a[href=\"/\"]') !== null",
+    "that": "an unknown run shows a link home inside the shell"
+  },
+  {
+    "shot": "not-found.png"
+  },
+  {
+    "console": "allow"
+  }
+]

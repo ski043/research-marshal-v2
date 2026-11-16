@@ -638,6 +638,7 @@ export function ActivityList({
   groups: readonly ActivityGroup[];
   running: boolean;
 }) {
+  const listId = useId();
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   // Rows that are there on the first render appear at once. A row that arrives later
   // animates in.
@@ -668,9 +669,9 @@ export function ActivityList({
   return (
     <div className="flex flex-col gap-3">
       {groups.map((group) => (
-        <section key={group.id} aria-labelledby={`${group.id}-heading`}>
+        <section key={group.id} aria-labelledby={`${listId}-${group.id}`}>
           <h3
-            id={`${group.id}-heading`}
+            id={`${listId}-${group.id}`}
             className="sticky top-0 z-20 flex items-center gap-2 bg-background px-2 py-1.5 text-xs font-medium text-muted-foreground"
           >
             {group.round === null ? "Report" : `Round ${group.round}`}

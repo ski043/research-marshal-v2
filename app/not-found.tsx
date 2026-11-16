@@ -8,10 +8,7 @@ export const metadata: Metadata = { title: "Not found" };
 
 export default function NotFound() {
   return (
-    <main
-      id="main"
-      className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs"
-    >
+    <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs">
       <div className="flex h-13 shrink-0 items-center px-3 lg:hidden">
         <SidebarTrigger />
       </div>
