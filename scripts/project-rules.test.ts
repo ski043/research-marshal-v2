@@ -316,6 +316,9 @@ describe("paid commands stay out of the free paths", () => {
   test("an allowed command cannot take a flag that makes it paid or prints a key", () => {
     expect(settings.permissions.deny).toEqual(
       expect.arrayContaining([
+        // `pnpm verify:run --live` re-fetches every cited page through Decodo.
+        "Bash(pnpm verify:run --live*)",
+        "Bash(pnpm verify:run * --live*)",
         // `pnpm test --config verify/vitest.config.mts` runs the paid checks.
         "Bash(pnpm test --config *)",
         "Bash(pnpm test * --config *)",
