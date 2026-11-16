@@ -16,7 +16,7 @@ function fixture(name: string): unknown {
   );
 }
 
-function webAnswering(answer: () => Promise<unknown>) {
+function webAnswering(answer: (...args: unknown[]) => Promise<unknown>) {
   const port: DecodoPort = {
     googleSearch: answer,
     readMarkdown: answer,
@@ -132,7 +132,7 @@ describe("search", () => {
 describe("read", () => {
   it("returns the Markdown of a page", async () => {
     const web = webAnswering(async () => fixture("read.ok.json"));
-    const outcome = await web.read(page);
+    const outcome = await web.read(page, "plain");
     expect(outcome).toEqual({
       status: "ok",
       markdown: expect.stringContaining(
@@ -143,7 +143,7 @@ describe("read", () => {
 
   it("fails a page that answered 404", async () => {
     const web = webAnswering(async () => fixture("read.404.json"));
-    expect(await web.read(page)).toEqual({
+    expect(await web.read(page, "plain")).toEqual({
       status: "failed",
       failure: { kind: "http-status", detail: "status 404" },
     });
@@ -151,15 +151,65 @@ describe("read", () => {
 
   it("fails a page whose content is PDF bytes", async () => {
     const web = webAnswering(async () => fixture("read.pdf.json"));
-    expect(await web.read(page)).toMatchObject({
+    expect(await web.read(page, "plain")).toMatchObject({
       status: "failed",
       failure: { kind: "not-text" },
     });
   });
 
+  it("fails a page with almost no text, such as a JavaScript skeleton", async () => {
+    const web = webAnswering(async () => fixture("read.js-skeleton.json"));
+    expect(await web.read(page, "plain")).toEqual({
+      status: "failed",
+      failure: {
+        kind: "empty",
+        detail: "57 letters and digits of text, fewer than 100",
+      },
+    });
+  });
+
+  it("counts text, not Markdown or HTML syntax", async () => {
+    const markup = `<div><script>${"var x = 1;".repeat(50)}</script></div>\n[a](https://example.org/${"x".repeat(300)})`;
+    const web = webAnswering(async () => ({
+      results: [{ content: markup, status_code: 200 }],
+    }));
+    expect(await web.read(page, "plain")).toMatchObject({
+      failure: {
+        kind: "empty",
+        detail: "1 letters and digits of text, fewer than 100",
+      },
+    });
+  });
+
+  it("fails a page whose content is a base64 PDF", async () => {
+    const web = webAnswering(async () => ({
+      results: [
+        {
+          content: `JVBERi0xLjQNJeLjz9MNCjcyIDAgb2Jq${"A".repeat(200)}`,
+          status_code: 200,
+        },
+      ],
+    }));
+    expect(await web.read(page, "plain")).toMatchObject({
+      status: "failed",
+      failure: { kind: "not-text" },
+    });
+  });
+
+  it("asks Decodo to render the page for a rendered read", async () => {
+    const modes: unknown[] = [];
+    const web = webAnswering(async (_url, mode) => {
+      modes.push(mode);
+      return fixture("read.ok.json");
+    });
+    await web.read(page, "plain");
+    await web.read(page, "rendered");
+    expect(modes).toEqual(["plain", "rendered"]);
+  });
+
   it("fails a page that Decodo could not scrape, with Decodo's message", async () => {
     const web = webAnswering(async () => fixture("read.failed.json"));
-    expect(await web.read(page)).toEqual({
+    expect(await web.read(page, "plain")).toEqual({
       status: "failed",
       failure: {
         kind: "rejected",
@@ -172,7 +222,7 @@ describe("read", () => {
 
   it("fails a response that does not match the wire schema", async () => {
     const web = webAnswering(async () => ({ results: [] }));
-    expect(await web.read(page)).toMatchObject({
+    expect(await web.read(page, "plain")).toMatchObject({
       status: "failed",
       failure: { kind: "bad-response" },
     });
@@ -207,13 +257,13 @@ describe("errors", () => {
       status: "failed",
       failure: { kind },
     });
-    expect(await web.read(page)).toMatchObject({ failure: { kind } });
+    expect(await web.read(page, "plain")).toMatchObject({ failure: { kind } });
     expect(await web.search("x")).toMatchObject({ failure: { kind } });
   });
 
   it("turns a rejected key into a fatal run error", async () => {
     const web = webAnswering(() => Promise.reject(new AuthenticationError()));
     await expect(web.search("x")).rejects.toBeInstanceOf(FatalRunError);
-    await expect(web.read(page)).rejects.toBeInstanceOf(FatalRunError);
+    await expect(web.read(page, "plain")).rejects.toBeInstanceOf(FatalRunError);
   });
 });

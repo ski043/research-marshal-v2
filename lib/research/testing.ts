@@ -152,15 +152,24 @@ export function expectBudgetHeld(events: readonly RunEvent[]): void {
     ).toBeLessThanOrEqual(BUDGET.queriesPerRound);
     expect(
       count("universal"),
-      `reads in round ${round.round}`,
+      `read attempts in round ${round.round}`,
+    ).toBeLessThanOrEqual(BUDGET.readAttemptsPerRound);
+    expect(
+      events.filter((e) => e.type === "page.read" && e.round === round.round)
+        .length,
+      `pages read in round ${round.round}`,
     ).toBeLessThanOrEqual(BUDGET.readsPerRound);
   }
   expect(
     requested.filter((e) => e.endpoint === "map").length,
     "maps",
   ).toBeLessThanOrEqual(BUDGET.mapsPerRun);
-  const reads = requested
-    .filter((e) => e.endpoint === "universal")
-    .map((e) => e.input);
-  expect(new Set(reads).size, "no URL read twice").toBe(reads.length);
+  const reads = requested.filter((e) => e.endpoint === "universal");
+  const plain = reads.filter((e) => !e.rendered).map((e) => e.input);
+  expect(new Set(plain).size, "no URL read twice").toBe(plain.length);
+  const rendered = reads.filter((e) => e.rendered).map((e) => e.input);
+  expect(new Set(rendered).size, "no URL rendered twice").toBe(rendered.length);
+  for (const url of rendered) {
+    expect(plain, "a rendered read retries a plain read").toContain(url);
+  }
 }
