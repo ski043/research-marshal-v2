@@ -312,6 +312,38 @@ describe("model call records (#19)", () => {
     ]);
   });
 
+  it("records an open call as cancelled before any later cancel step runs", async () => {
+    const controller = new AbortController();
+    vi.stubGlobal(
+      "fetch",
+      (_url: unknown, init?: RequestInit) =>
+        new Promise((_, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    );
+    const { calls, record } = recorded();
+    const steps = createModelSteps({
+      apiKey: "test-key",
+      signal: controller.signal,
+      record,
+    });
+    // The pipeline seals the run log in its own abort listener, which it adds
+    // after the model steps exist. A record that comes later is lost.
+    let atSeal: ModelCall[] = [];
+    controller.signal.addEventListener("abort", () => {
+      atSeal = [...calls];
+    });
+    const pending = steps.plan(SAMPLES.plan).catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    controller.abort();
+    await pending;
+
+    expect(atSeal).toMatchObject([{ step: "plan", outcome: "cancelled" }]);
+    expect(calls).toHaveLength(1);
+  });
+
   it("records a failed request with no token count", async () => {
     vi.stubGlobal("fetch", async () =>
       Response.json(
