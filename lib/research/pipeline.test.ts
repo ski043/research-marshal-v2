@@ -815,6 +815,36 @@ describe("citation check (R3, R4, #7)", () => {
     });
   });
 
+  it("ends a rewrite that closes on a bracket, so it does not run into the next sentence", async () => {
+    const judged: string[][] = [];
+    const { body } = await runWith({
+      ...writing(
+        "LFP lasts long [^1]. LFP cells never fail. LFP cells are safe [^2].",
+      ),
+      classifySentences: async ({ sentences }) => {
+        judged.push([...sentences]);
+        return verdicts("fact")({ sentences });
+      },
+      repairSentences: async () => ({
+        repairs: [
+          {
+            sentence: 1,
+            action: "rewrite",
+            claims: [],
+            text: "LFP cells never fail (a vendor claim)",
+          },
+        ],
+      }),
+    });
+    // The uncited rewrite is its own sentence, so the check judges it again
+    // and removes it.
+    expect(judged).toEqual([
+      ["LFP cells never fail."],
+      ["LFP cells never fail (a vendor claim)."],
+    ]);
+    expect(body).toBe("LFP lasts long [^1]. LFP cells are safe [^2].");
+  });
+
   it("treats every sentence as a fact when the classify answer is malformed", async () => {
     const { checked, body } = await runWith({
       ...writing("LFP lasts long [^1]. Guidance varies."),
