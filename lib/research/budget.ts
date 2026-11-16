@@ -4,7 +4,7 @@ import {
   type DecodoEndpoint,
   type PageUrl,
   type PlannedQuery,
-  type ReadRefusal,
+  type ReadSkip,
   RoundNo,
   type SearchOutcome,
   type SiteUrl,
@@ -15,6 +15,7 @@ export const BUDGET = Object.freeze({
   rounds: 3,
   queriesPerRound: 5,
   readsPerRound: 8,
+  readAttemptsPerRound: 16,
   mapsPerRun: 1,
 }) satisfies BudgetLimits;
 
@@ -26,22 +27,28 @@ export type MapOutcome =
   | { status: "ok"; urls: readonly PageUrl[] }
   | { status: "failed"; failure: WebFailure };
 
+export type ReadMode = "plain" | "rendered";
+
 export type WebActions = {
   search(query: string): Promise<SearchOutcome>;
-  read(url: PageUrl): Promise<ReadOutcome>;
+  read(url: PageUrl, mode?: ReadMode): Promise<ReadOutcome>;
   map(site: SiteUrl, limit: number): Promise<MapOutcome>;
-};
-
-export type ReadPlan<T> = {
-  granted: readonly { item: T; outcome: Promise<ReadOutcome> }[];
-  refused: readonly { item: T; reason: ReadRefusal }[];
 };
 
 export type Round = {
   no: RoundNo;
   isLast: boolean;
   searches: readonly { query: PlannedQuery; outcome: Promise<SearchOutcome> }[];
-  read<T extends { url: PageUrl }>(inPriorityOrder: readonly T[]): ReadPlan<T>;
+  /**
+   * Reads the ranked pages in order, in parallel, until the round has read
+   * `readsPerRound` pages, has used `readAttemptsPerRound` attempts, or has no
+   * page left. A failed read starts the next page. `onRead` gets every page
+   * that the round requested, with its final outcome.
+   */
+  read<T extends { url: PageUrl }>(
+    ranked: readonly T[],
+    onRead: (item: T, outcome: ReadOutcome) => Promise<void>,
+  ): Promise<void>;
   map(site: SiteUrl, limit: number): Promise<MapOutcome> | null;
 };
 
@@ -59,7 +66,14 @@ export class FatalRunError extends Error {
   }
 }
 
-type RoundState = { readsLeft: number; closed: boolean };
+type RoundState = {
+  reads: number;
+  readsOpen: number;
+  attempts: number;
+  closed: boolean;
+};
+
+type SkippedRead = { url: PageUrl; reason: ReadSkip };
 
 type Settled = { outcome: "ok" | "failed"; detail: string | null };
 
@@ -151,6 +165,78 @@ export function meterWeb(deps: {
     return Promise.race([settled, abort.promise]).finally(abort.release);
   }
 
+  async function drainReads<T extends { url: PageUrl }>(
+    round: RoundNo,
+    state: RoundState,
+    queue: readonly T[],
+    onRead: (item: T, outcome: ReadOutcome) => Promise<void>,
+  ): Promise<void> {
+    const tasks: Promise<void>[] = [];
+    let next = 0;
+    let stopped = false;
+
+    const hasRoom = () =>
+      state.reads + state.readsOpen < BUDGET.readsPerRound &&
+      state.attempts < BUDGET.readAttemptsPerRound;
+
+    const attempt = (url: PageUrl): Promise<ReadOutcome> => {
+      state.attempts += 1;
+      return call(
+        round,
+        "universal",
+        url,
+        () => web.read(url, "plain"),
+        settledRead,
+      );
+    };
+
+    const readOne = async (item: T): Promise<void> => {
+      requestedUrls.add(item.url);
+      state.readsOpen += 1;
+      let outcome: ReadOutcome;
+      try {
+        outcome = await attempt(item.url);
+      } catch (error) {
+        state.readsOpen -= 1;
+        stopped = true;
+        throw error;
+      }
+      state.readsOpen -= 1;
+      if (outcome.status === "ok") state.reads += 1;
+      fill();
+      try {
+        await onRead(item, outcome);
+      } catch (error) {
+        stopped = true;
+        throw error;
+      }
+    };
+
+    function fill(): void {
+      while (!stopped && hasRoom()) {
+        const item = queue[next];
+        if (item === undefined) return;
+        next += 1;
+        tasks.push(readOne(item));
+      }
+    }
+
+    fill();
+    const errors: unknown[] = [];
+    // A settling read can push the read that replaces it, so the list grows.
+    for (let i = 0; i < tasks.length; i += 1) {
+      await tasks[i]?.catch((error: unknown) => errors.push(error));
+    }
+    if (errors.length > 0) throw errors[0];
+    emit({
+      type: "reads.finished",
+      round,
+      skipped: queue
+        .slice(next)
+        .map((item) => ({ url: item.url, reason: "over-budget" })),
+    });
+  }
+
   return {
     openRound(queries) {
       if (signal.aborted) throw new RunCancelled();
@@ -166,7 +252,9 @@ export function meterWeb(deps: {
         droppedQueries: queries.slice(granted.length),
       });
       const state: RoundState = {
-        readsLeft: BUDGET.readsPerRound,
+        reads: 0,
+        readsOpen: 0,
+        attempts: 0,
         closed: false,
       };
       current = state;
@@ -188,43 +276,26 @@ export function meterWeb(deps: {
             settledSearch,
           ),
         })),
-        read<T extends { url: PageUrl }>(
-          inPriorityOrder: readonly T[],
-        ): ReadPlan<T> {
+        read(ranked, onRead) {
           assertOpen();
-          const chosen: T[] = [];
-          const refused: { item: T; reason: ReadRefusal }[] = [];
-          for (const item of inPriorityOrder) {
-            if (requestedUrls.has(item.url)) {
-              refused.push({ item, reason: "already-read" });
-            } else if (state.readsLeft === 0) {
-              refused.push({ item, reason: "over-budget" });
+          const queue: (typeof ranked)[number][] = [];
+          const skipped: SkippedRead[] = [];
+          const queued = new Set<PageUrl>();
+          for (const item of ranked) {
+            if (requestedUrls.has(item.url) || queued.has(item.url)) {
+              skipped.push({ url: item.url, reason: "already-read" });
             } else {
-              state.readsLeft -= 1;
-              requestedUrls.add(item.url);
-              chosen.push(item);
+              queued.add(item.url);
+              queue.push(item);
             }
           }
           emit({
-            type: "reads.planned",
+            type: "reads.queued",
             round: no,
-            granted: chosen.map((item) => item.url),
-            refused: refused.map((r) => ({
-              url: r.item.url,
-              reason: r.reason,
-            })),
+            queue: queue.map((item) => item.url),
+            skipped,
           });
-          const granted = chosen.map((item) => ({
-            item,
-            outcome: call(
-              no,
-              "universal",
-              item.url,
-              () => web.read(item.url),
-              settledRead,
-            ),
-          }));
-          return { granted, refused };
+          return drainReads(no, state, queue, onRead);
         },
         map(site, limit) {
           assertOpen();

@@ -1,6 +1,10 @@
 import { cancelRun, followRun, loadRun, startRun } from "@/lib/research";
-import { Question, type RunEvent } from "@/lib/research/events";
-import type { RunView } from "@/lib/research/run-view";
+import {
+  Question,
+  type ReadSkip,
+  type RunEvent,
+} from "@/lib/research/events";
+import type { RunView, SkipReason } from "@/lib/research/run-view";
 
 const parsed = Question.safeParse(process.argv.slice(2).join(" "));
 if (!parsed.success) {
@@ -20,12 +24,30 @@ function line(text: string): void {
   console.log(text);
 }
 
+const SKIP_REASON: Record<ReadSkip | SkipReason, string> = {
+  "not-chosen": "not selected",
+  "over-budget": "over the budget",
+  "already-read": "already read",
+  "site-refused": "site refused",
+  "run-ended": "run ended",
+};
+
+function skipCounts(skipped: readonly { reason: ReadSkip }[]): string {
+  const counts = new Map<ReadSkip, number>();
+  for (const { reason } of skipped) {
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([reason, n]) => `, ${n} skipped: ${SKIP_REASON[reason]}`)
+    .join("");
+}
+
 function describeStep(event: RunEvent): string[] {
   switch (event.type) {
     case "run.started": {
       const l = event.limits;
       return [
-        `Run started. Budget: ${l.rounds} rounds, ${l.queriesPerRound} searches and ${l.readsPerRound} page reads per round, ${l.mapsPerRun} map per run.`,
+        `Run started. Budget: ${l.rounds} rounds, ${l.queriesPerRound} searches, ${l.readsPerRound} page reads and ${l.readAttemptsPerRound} read attempts per round, ${l.mapsPerRun} map per run.`,
       ];
     }
     case "round.started":
@@ -76,6 +98,14 @@ function describeStep(event: RunEvent): string[] {
         `  Reads: ${event.granted.length} granted, ${over.length} skipped over the budget, ${event.refused.length - over.length} already read`,
       ];
     }
+    case "reads.queued":
+      return [
+        `  Reads: ${event.queue.length} pages in reading order${skipCounts(event.skipped)}`,
+      ];
+    case "reads.finished":
+      return event.skipped.length > 0
+        ? [`  Reads done${skipCounts(event.skipped)}`]
+        : [];
     case "page.read":
       return [`  Read ${event.url} (${event.chars} chars) "${event.title}"`];
     case "page.failed":

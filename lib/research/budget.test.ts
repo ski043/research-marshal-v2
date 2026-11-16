@@ -103,43 +103,42 @@ describe("meterWeb rounds (B1, B2)", () => {
   });
 });
 
-describe("meterWeb reads (B2, B3)", () => {
-  it("grants 8 of 20 pages and refuses 12 as over budget", async () => {
-    const { meter, calls } = setup();
-    const plan = open(meter).read(pages(1, 20));
-    await Promise.all(plan.granted.map((g) => g.outcome));
+const finished = (events: readonly BudgetEvent[]) =>
+  events.filter((e) => e.type === "reads.finished");
 
-    expect(plan.granted.map((g) => g.item.url)).toEqual(
-      pages(1, 8).map((p) => p.url),
-    );
-    expect(plan.refused).toEqual(
-      pages(9, 12).map((item) => ({ item, reason: "over-budget" })),
-    );
-    expect(calls.read).toHaveLength(8);
+describe("meterWeb reads (B2, B3)", () => {
+  it("reads 8 of 20 pages and skips 12 as over budget", async () => {
+    const { meter, calls, events } = setup();
+    expect(okCount(await readAll(open(meter), pages(1, 20)))).toBe(8);
+    expect(calls.read).toEqual(pages(1, 8).map((p) => p.url));
+    expect(finished(events)).toEqual([
+      {
+        type: "reads.finished",
+        round: 1,
+        skipped: pages(9, 12).map((p) => ({
+          url: p.url,
+          reason: "over-budget",
+        })),
+      },
+    ]);
   });
 
   it("shares the 8 reads between two read calls of one round", async () => {
-    const { meter, calls } = setup();
+    const { meter, calls, events } = setup();
     const round = open(meter);
-    const first = round.read(pages(1, 5));
-    const second = round.read(pages(6, 5));
-
-    expect(first.granted).toHaveLength(5);
-    expect(second.granted).toHaveLength(3);
-    expect(second.refused.map((r) => r.reason)).toEqual([
+    await readAll(round, pages(1, 5));
+    await readAll(round, pages(6, 5));
+    expect(calls.read).toHaveLength(8);
+    expect(finished(events)[1]?.skipped.map((s) => s.reason)).toEqual([
       "over-budget",
       "over-budget",
     ]);
-    await Promise.all(
-      [...first.granted, ...second.granted].map((g) => g.outcome),
-    );
-    expect(calls.read).toHaveLength(8);
   });
 
-  it("gives every round its own 8 reads", () => {
+  it("gives every round its own 8 reads", async () => {
     const { meter } = setup();
-    expect(open(meter).read(pages(1, 10)).granted).toHaveLength(8);
-    expect(open(meter).read(pages(11, 10)).granted).toHaveLength(8);
+    expect(okCount(await readAll(open(meter), pages(1, 10)))).toBe(8);
+    expect(okCount(await readAll(open(meter), pages(11, 10)))).toBe(8);
   });
 
   it("counts pages picked from the map toward the 8 reads", async () => {
@@ -151,58 +150,55 @@ describe("meterWeb reads (B2, B3)", () => {
     const listed = await round.map(site, 100);
     if (listed?.status !== "ok") throw new Error("expected a map");
 
-    const plan = round.read([
+    await readAll(round, [
       ...listed.urls.map((u) => ({ url: u })),
       ...pages(1, 10),
     ]);
-    expect(plan.granted.map((g) => g.item.url)).toEqual([
-      ...mapped,
-      ...pages(1, 5).map((p) => p.url),
-    ]);
-    await Promise.all(plan.granted.map((g) => g.outcome));
-    expect(calls.read).toHaveLength(8);
+    expect(calls.read).toEqual([...mapped, ...pages(1, 5).map((p) => p.url)]);
   });
 
-  it("refuses a URL that the run already asked for, in the same or a later round", async () => {
-    const { meter, calls } = setup();
-    const first = open(meter).read([{ url: url(1) }, { url: url(1) }]);
-    expect(first.refused).toEqual([
-      { item: { url: url(1) }, reason: "already-read" },
+  it("skips a URL that the run already asked for, in the same or a later round", async () => {
+    const { meter, calls, events } = setup();
+    await readAll(open(meter), [{ url: url(1) }, { url: url(1) }]);
+    await readAll(open(meter), [{ url: url(1) }]);
+    expect(
+      events.flatMap((e) => (e.type === "reads.queued" ? [e] : [])),
+    ).toEqual([
+      {
+        type: "reads.queued",
+        round: 1,
+        queue: [url(1)],
+        skipped: [{ url: url(1), reason: "already-read" }],
+      },
+      {
+        type: "reads.queued",
+        round: 2,
+        queue: [],
+        skipped: [{ url: url(1), reason: "already-read" }],
+      },
     ]);
-    const later = open(meter).read([{ url: url(1) }]);
-    expect(later.granted).toHaveLength(0);
-    expect(later.refused).toEqual([
-      { item: { url: url(1) }, reason: "already-read" },
-    ]);
-    await Promise.all(first.granted.map((g) => g.outcome));
     expect(calls.read).toEqual([url(1)]);
   });
 
-  it("refuses a URL again even when its first read failed", async () => {
-    const { meter, calls } = setup({
-      read: async () => ({
-        status: "failed",
-        failure: { kind: "timeout", detail: "slow" },
-      }),
-    });
-    const first = open(meter).read([{ url: url(1) }]);
-    await first.granted[0]?.outcome;
-    expect(open(meter).read([{ url: url(1) }]).refused).toHaveLength(1);
+  it("skips a URL again even when its first read failed", async () => {
+    const { meter, calls } = setup({ read: async () => failed("http-status") });
+    await readAll(open(meter), [{ url: url(1) }]);
+    await readAll(open(meter), [{ url: url(1) }]);
     expect(calls.read).toHaveLength(1);
   });
 
-  it("records the granted and refused reads as reads.planned", () => {
+  it("records the reading order and the skipped reads", async () => {
     const { meter, events } = setup();
-    open(meter).read([...pages(1, 9), { url: url(1) }]);
-    expect(events.find((e) => e.type === "reads.planned")).toEqual({
-      type: "reads.planned",
+    await readAll(open(meter), [...pages(1, 9), { url: url(1) }]);
+    expect(events.find((e) => e.type === "reads.queued")).toEqual({
+      type: "reads.queued",
       round: 1,
-      granted: pages(1, 8).map((p) => p.url),
-      refused: [
-        { url: url(9), reason: "over-budget" },
-        { url: url(1), reason: "already-read" },
-      ],
+      queue: pages(1, 9).map((p) => p.url),
+      skipped: [{ url: url(1), reason: "already-read" }],
     });
+    expect(finished(events)[0]?.skipped).toEqual([
+      { url: url(9), reason: "over-budget" },
+    ]);
   });
 });
 
@@ -372,7 +368,7 @@ describe("meterWeb closed rounds", () => {
     const { meter, calls } = setup();
     const first = open(meter);
     open(meter);
-    expect(() => first.read(pages(1, 1))).toThrow();
+    expect(() => first.read(pages(1, 1), async () => {})).toThrow();
     expect(() => first.map(site, 10)).toThrow();
     expect(calls.read).toHaveLength(0);
     expect(calls.map).toBe(0);
@@ -389,9 +385,9 @@ describe("meterWeb audit", () => {
         }),
     });
     const round = open(meter, 0);
-    const plan = round.read([{ url: url(1) }]);
+    const reading = readAll(round, [{ url: url(1) }]);
     expect(events.slice(1)).toEqual([
-      { type: "reads.planned", round: 1, granted: [url(1)], refused: [] },
+      { type: "reads.queued", round: 1, queue: [url(1)], skipped: [] },
       {
         type: "decodo.requested",
         call: 1,
@@ -402,7 +398,7 @@ describe("meterWeb audit", () => {
     ]);
 
     resolve({ status: "ok", markdown: "hello" });
-    await plan.granted[0]?.outcome;
+    await reading;
     const settled = events.find((e) => e.type === "decodo.settled");
     expect(settled).toMatchObject({
       type: "decodo.settled",
@@ -421,7 +417,7 @@ describe("meterWeb audit", () => {
     });
     const round = open(meter, 2);
     await Promise.all(round.searches.map((s) => s.outcome));
-    await round.read([{ url: url(1) }]).granted[0]?.outcome;
+    await readAll(round, [{ url: url(1) }]);
     await round.map(site, 10);
 
     const requested = events.flatMap((e) =>
@@ -451,8 +447,9 @@ describe("meterWeb audit", () => {
     const { meter, events } = setup({
       read: () => Promise.reject(fatal),
     });
-    const outcome = open(meter, 0).read([{ url: url(1) }]).granted[0]?.outcome;
-    await expect(outcome).rejects.toBe(fatal);
+    await expect(readAll(open(meter, 0), [{ url: url(1) }])).rejects.toBe(
+      fatal,
+    );
     expect(events.find((e) => e.type === "decodo.settled")).toMatchObject({
       call: 1,
       outcome: "failed",
@@ -466,9 +463,9 @@ describe("meterWeb after a cancel", () => {
     const { meter, controller } = setup({
       read: () => new Promise<ReadOutcome>(() => {}),
     });
-    const outcome = open(meter, 0).read([{ url: url(1) }]).granted[0]?.outcome;
+    const reading = readAll(open(meter, 0), [{ url: url(1) }]);
     controller.abort();
-    await expect(outcome).rejects.toBeInstanceOf(RunCancelled);
+    await expect(reading).rejects.toBeInstanceOf(RunCancelled);
   });
 
   it("lets no new call reach the web", async () => {
@@ -476,11 +473,9 @@ describe("meterWeb after a cancel", () => {
     const round = open(meter, 0);
     controller.abort();
 
-    const plan = round.read(pages(1, 3));
-    const results = await Promise.allSettled(
-      plan.granted.map((g) => g.outcome),
+    await expect(readAll(round, pages(1, 3))).rejects.toBeInstanceOf(
+      RunCancelled,
     );
-    expect(results.every((r) => r.status === "rejected")).toBe(true);
     await expect(round.map(site, 10)).rejects.toBeInstanceOf(RunCancelled);
     expect(() => meter.openRound(queries(1))).toThrow(RunCancelled);
     expect(calls.read).toHaveLength(0);

@@ -87,6 +87,8 @@ export const BudgetLimits = z.object({
   rounds: z.int().positive(),
   queriesPerRound: z.int().positive(),
   readsPerRound: z.int().positive(),
+  // A run stored before this limit existed made one attempt per page read.
+  readAttemptsPerRound: z.int().positive().default(8),
   mapsPerRun: z.int().positive(),
 });
 export type BudgetLimits = z.infer<typeof BudgetLimits>;
@@ -94,8 +96,10 @@ export type BudgetLimits = z.infer<typeof BudgetLimits>;
 export const DecodoEndpoint = z.enum(["google_search", "universal", "map"]);
 export type DecodoEndpoint = z.infer<typeof DecodoEndpoint>;
 
-export const ReadRefusal = z.enum(["over-budget", "already-read"]);
-export type ReadRefusal = z.infer<typeof ReadRefusal>;
+export const ReadSkip = z.enum(["over-budget", "already-read", "site-refused"]);
+export type ReadSkip = z.infer<typeof ReadSkip>;
+
+const SkippedRead = z.object({ url: PageUrl, reason: ReadSkip });
 
 export const StoppedBy = z.enum(["answered", "budget", "dead-end", "error"]);
 export type StoppedBy = z.infer<typeof StoppedBy>;
@@ -131,6 +135,7 @@ export const RunEventBody = z.discriminatedUnion("type", [
     round: RoundNo,
     endpoint: DecodoEndpoint,
     input: z.string(),
+    rendered: z.literal(true).optional(),
   }),
   z.object({
     type: z.literal("decodo.settled"),
@@ -158,11 +163,23 @@ export const RunEventBody = z.discriminatedUnion("type", [
     site: SiteUrl,
     outcome: MapEventOutcome,
   }),
+  // Only runs stored before B7 have this event. They requested every granted page.
   z.object({
     type: z.literal("reads.planned"),
     round: RoundNo,
     granted: z.array(PageUrl),
-    refused: z.array(z.object({ url: PageUrl, reason: ReadRefusal })),
+    refused: z.array(SkippedRead),
+  }),
+  z.object({
+    type: z.literal("reads.queued"),
+    round: RoundNo,
+    queue: z.array(PageUrl),
+    skipped: z.array(SkippedRead),
+  }),
+  z.object({
+    type: z.literal("reads.finished"),
+    round: RoundNo,
+    skipped: z.array(SkippedRead),
   }),
   z.object({
     type: z.literal("page.read"),
@@ -232,15 +249,19 @@ const Envelope = z.object({ seq: z.int().positive(), at: z.iso.datetime() });
 export const RunEvent = RunEventBody.and(Envelope);
 export type RunEvent = z.infer<typeof RunEvent>;
 
-export type BudgetEvent = Extract<
+export type EmittableEvent = Exclude<
   RunEventBody,
+  { type: "run.finished" | "reads.planned" }
+>;
+export type BudgetEvent = Extract<
+  EmittableEvent,
   {
     type:
       | "round.started"
       | "decodo.requested"
       | "decodo.settled"
-      | "reads.planned";
+      | "reads.queued"
+      | "reads.finished";
   }
 >;
-export type EmittableEvent = Exclude<RunEventBody, { type: "run.finished" }>;
 export type PipelineEvent = Exclude<EmittableEvent, BudgetEvent>;

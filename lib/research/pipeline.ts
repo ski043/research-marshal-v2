@@ -163,14 +163,9 @@ async function research(
       const fromMap = mapRequest
         ? await mapStep(deps, round, mapRequest.site, mapRequest.need)
         : [];
-      const plan = round.read([
-        ...fromMap.map((url) => ({ url })),
-        ...picked.items,
-      ]);
-      await settleAll(
-        plan.granted.map((grant) =>
-          readAndVerify(deps, round.no, grant.item.url, grant.outcome),
-        ),
+      await round.read(
+        [...fromMap.map((url) => ({ url })), ...picked.items],
+        (item, outcome) => readAndVerify(deps, round.no, item.url, outcome),
       );
     }
 
@@ -239,10 +234,9 @@ async function readAndVerify(
   deps: PipelineDeps,
   round: RoundNo,
   url: PageUrl,
-  pending: Promise<ReadOutcome>,
+  outcome: ReadOutcome,
 ): Promise<void> {
   const { model, log, savePage } = deps;
-  const outcome = await pending;
   if (outcome.status === "failed") {
     log.emit({ type: "page.failed", round, url, failure: outcome.failure });
     return;
