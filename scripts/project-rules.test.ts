@@ -196,42 +196,40 @@ const allowedPart = stackDoc.slice(0, stackDoc.indexOf("## Not in the stack"));
 // Each dependency maps to the words in TECH_STACK.md that name it.
 const STACK_NAMES: Record<string, string> = {
   "@ai-sdk/anthropic": "`@ai-sdk/anthropic`",
+  "@base-ui/react": "`@base-ui/react`",
   "@biomejs/biome": "| Biome |",
   "@decodo/sdk-ts": "`@decodo/sdk-ts`",
   "@prisma/adapter-better-sqlite3": "`@prisma/adapter-better-sqlite3`",
   "@prisma/client": "`@prisma/client`",
+  "@tailwindcss/turbopack": "`@tailwindcss/turbopack`",
   "@types/better-sqlite3": "`@types/better-sqlite3`",
+  "@types/mdast": "`@types/mdast`",
   "@types/node": "| Node.js |",
   "@types/react": "| React |",
   "@types/react-dom": "| React |",
   ai: "AI SDK (`ai`)",
+  "class-variance-authority": "`class-variance-authority`",
+  cn: "`cn`",
   "lucide-react": "| lucide-react |",
+  "mdast-util-from-markdown": "`mdast-util-from-markdown`",
+  "mdast-util-gfm": "`mdast-util-gfm`",
+  "mdast-util-to-markdown": "`mdast-util-to-markdown`",
+  "micromark-extension-gfm": "`micromark-extension-gfm`",
   next: "| Next.js with the App Router |",
   prisma: "`prisma`",
   react: "| React |",
   "react-dom": "| React |",
   shadcn: "shadcn/ui",
   streamdown: "| Streamdown |",
-  tailwindcss: "| Tailwind CSS |",
+  tailwindcss: "| Tailwind CSS with",
+  "tw-animate-css": "`tw-animate-css`",
   typescript: "| TypeScript, strict mode |",
   vitest: "| Vitest |",
   zod: "| Zod |",
 };
 
-// These were in package.json before this rule existed, and TECH_STACK.md does
-// not name them yet. The owner decides whether the stack lists them (audit G5).
-// Do not add to this list: ask the user, then add the package to TECH_STACK.md.
-const NOT_YET_IN_STACK = new Set([
-  "@base-ui/react",
-  "@tailwindcss/turbopack",
-  "class-variance-authority",
-  "cn",
-  "tw-animate-css",
-]);
-
 describe("package.json follows TECH_STACK.md", () => {
   test.each(Object.keys(dependencies))("%s is named by the stack", (name) => {
-    if (NOT_YET_IN_STACK.has(name)) return;
     const words = STACK_NAMES[name];
     expect(
       words,

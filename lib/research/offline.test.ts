@@ -14,9 +14,8 @@ import { createTempDatabase } from "./temp-db";
 import { expectBudgetHeld } from "./testing";
 
 const temp = createTempDatabase();
-const before = process.env.DATABASE_URL;
-process.env.DATABASE_URL = temp.url;
 // The store opens the database on import, so DATABASE_URL must be set first.
+vi.stubEnv("DATABASE_URL", temp.url);
 const research = await import("./index");
 const { db } = await import("@/lib/db");
 const { SCENARIOS, offlinePorts, offlineQuestion } = await import("./offline");
@@ -26,7 +25,6 @@ const { countsOf, formatList, formatShow, timelineOf } = await import(
 
 afterAll(async () => {
   await db.$disconnect();
-  process.env.DATABASE_URL = before;
   temp.remove();
 });
 

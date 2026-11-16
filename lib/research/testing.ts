@@ -8,7 +8,7 @@ import {
   RunId,
   SearchOutcome,
 } from "./events";
-import type { ModelSteps } from "./model-config";
+import { MODEL_CONFIG, type ModelSteps } from "./model-config";
 import type { PipelineDeps } from "./pipeline";
 import { createRunLog } from "./run-log";
 
@@ -230,7 +230,7 @@ function sse(answer: AnthropicAnswer): string {
         id: "msg_test",
         type: "message",
         role: "assistant",
-        model: "claude-sonnet-5-5",
+        model: MODEL_CONFIG.extract.model,
         content: [],
         stop_reason: null,
         usage: { input_tokens: 10, output_tokens: 1 },
@@ -286,7 +286,7 @@ export function fakeAnthropic(
       id: "msg_test",
       type: "message",
       role: "assistant",
-      model: "claude-sonnet-5-5",
+      model: MODEL_CONFIG.extract.model,
       content: [{ type: "text", text: reply.text }],
       stop_reason: reply.stopReason ?? "end_turn",
       stop_sequence: null,

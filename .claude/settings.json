@@ -12,6 +12,8 @@
       "Bash(pnpm doctor:worktree --json)",
       "Bash(node scripts/doctor.mjs)",
       "Bash(node scripts/doctor.mjs --json)",
+      "Bash(pnpm runs *)",
+      "Bash(pnpm research:offline *)",
       "Bash(pnpm db:migrate)",
       "Bash(pnpm db:generate)",
       "Bash(git status)",
