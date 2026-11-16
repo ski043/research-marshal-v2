@@ -125,6 +125,9 @@ export function meterWeb(deps: {
   let mapsUsed = 0;
   let callNo = 0;
   const requestedUrls = new Set<PageUrl>();
+  // Hosts where Decodo refused a page as unsupported. It refuses the whole site.
+  const refusedHosts = new Set<string>();
+  const isRefused = (url: PageUrl) => refusedHosts.has(new URL(url).hostname);
   let current: RoundState | null = null;
 
   function call<T>(
@@ -172,6 +175,7 @@ export function meterWeb(deps: {
     onRead: (item: T, outcome: ReadOutcome) => Promise<void>,
   ): Promise<void> {
     const tasks: Promise<void>[] = [];
+    const skipped: SkippedRead[] = [];
     let next = 0;
     let stopped = false;
 
@@ -203,6 +207,12 @@ export function meterWeb(deps: {
       }
       state.readsOpen -= 1;
       if (outcome.status === "ok") state.reads += 1;
+      if (
+        outcome.status === "failed" &&
+        outcome.failure.kind === "unsupported"
+      ) {
+        refusedHosts.add(new URL(item.url).hostname);
+      }
       fill();
       try {
         await onRead(item, outcome);
@@ -217,7 +227,11 @@ export function meterWeb(deps: {
         const item = queue[next];
         if (item === undefined) return;
         next += 1;
-        tasks.push(readOne(item));
+        if (isRefused(item.url)) {
+          skipped.push({ url: item.url, reason: "site-refused" });
+        } else {
+          tasks.push(readOne(item));
+        }
       }
     }
 
@@ -228,13 +242,13 @@ export function meterWeb(deps: {
       await tasks[i]?.catch((error: unknown) => errors.push(error));
     }
     if (errors.length > 0) throw errors[0];
-    emit({
-      type: "reads.finished",
-      round,
-      skipped: queue
-        .slice(next)
-        .map((item) => ({ url: item.url, reason: "over-budget" })),
-    });
+    for (const item of queue.slice(next)) {
+      skipped.push({
+        url: item.url,
+        reason: isRefused(item.url) ? "site-refused" : "over-budget",
+      });
+    }
+    emit({ type: "reads.finished", round, skipped });
   }
 
   return {
@@ -284,6 +298,8 @@ export function meterWeb(deps: {
           for (const item of ranked) {
             if (requestedUrls.has(item.url) || queued.has(item.url)) {
               skipped.push({ url: item.url, reason: "already-read" });
+            } else if (isRefused(item.url)) {
+              skipped.push({ url: item.url, reason: "site-refused" });
             } else {
               queued.add(item.url);
               queue.push(item);
