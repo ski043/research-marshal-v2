@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import { problemsOf } from "../../scripts/report-render-check";
 import { FatalRunError, type ReadOutcome } from "./budget";
 import {
   type BudgetEvent,
@@ -169,6 +170,113 @@ describe("runPipeline", () => {
     expect(view.pages["https://example.org/good/2"]?.state.kind).toBe("failed");
     expect(view.pages["https://example.org/good/3"]?.state.kind).toBe("read");
     expect(view.verified).toHaveLength(1);
+    expectBudgetHeld(run.events);
+  });
+
+  it("reads 8 pages in a round where 5 of the first 8 reads fail (B7)", async () => {
+    const results = (query: string) =>
+      Array.from({ length: 20 }, (_, i) => ({
+        position: i + 1,
+        title: `${query} ${i + 1}`,
+        url: PageUrl.parse(`https://site-${i + 1}.org/${slug(query)}`),
+        snippet: "",
+      }));
+    const run = testRun({
+      model: {
+        plan: async () => [{ subQuestion: "a", query: "many" }],
+        select: async ({ candidates }) => ({
+          picks: candidates.map((c) => c.number),
+          map: null,
+        }),
+      },
+      web: {
+        search: async (query) => ({ status: "ok", results: results(query) }),
+        read: async (url) =>
+          /site-[1-5]\./.test(url)
+            ? {
+                status: "failed",
+                failure: { kind: "rejected", detail: "not scraped" },
+              }
+            : { status: "ok", markdown: PAGE_TEXT },
+      },
+    });
+    await runPipeline(run.deps);
+
+    const inRound1 = run.events.filter((e) => "round" in e && e.round === 1);
+    expect(inRound1.filter((e) => e.type === "page.read")).toHaveLength(8);
+    expect(inRound1.filter((e) => e.type === "page.failed")).toHaveLength(5);
+    expect(run.calls.read).toBe(13);
+    expectBudgetHeld(run.events);
+  });
+
+  it("gives every page that the run found one state: read, failed, or skipped with its reason (F1)", async () => {
+    const run = testRun({
+      model: {
+        plan: async () => [{ subQuestion: "a", query: "first" }],
+        select: async ({ candidates }) => ({
+          picks: candidates.slice(0, 12).map((c) => c.number),
+          map: null,
+        }),
+        checkGaps: async () => ({
+          answered: false,
+          missing: ["more"],
+          queries: [{ subQuestion: "b", query: "second" }],
+        }),
+      },
+      web: {
+        search: async (query) => ({
+          status: "ok",
+          results: Array.from({ length: 14 }, (_, i) => ({
+            position: i + 1,
+            title: `${query} ${i}`,
+            url: PageUrl.parse(
+              i % 8 === 0
+                ? `https://refused.gov/${query}/${i}`
+                : `https://site.org/${query}/${i}`,
+            ),
+            snippet: "",
+          })),
+        }),
+        read: async (url) =>
+          url.startsWith("https://refused.gov/")
+            ? {
+                status: "failed",
+                failure: {
+                  kind: "unsupported",
+                  detail: "Url is not supported.",
+                },
+              }
+            : { status: "ok", markdown: PAGE_TEXT },
+      },
+    });
+    await runPipeline(run.deps);
+
+    const found = new Set(
+      run.events.flatMap((e) =>
+        e.type === "search.finished" && e.outcome.status === "ok"
+          ? e.outcome.results.map((r) => r.url)
+          : [],
+      ),
+    );
+    const view = run.view();
+    expect(Object.keys(view.pages).sort()).toEqual([...found].sort());
+    const states = Object.values(view.pages).map((p) =>
+      p.state.kind === "skipped" ? `skipped:${p.state.reason}` : p.state.kind,
+    );
+    expect(new Set(states)).toEqual(
+      new Set([
+        "read",
+        "failed",
+        "skipped:site-refused",
+        "skipped:over-budget",
+        "skipped:not-chosen",
+      ]),
+    );
+    expect(
+      run
+        .view()
+        .decodoCalls.filter((c) => c.input.startsWith("https://refused.gov/")),
+    ).toHaveLength(1);
     expectBudgetHeld(run.events);
   });
 
@@ -390,5 +498,99 @@ describe("runPipeline", () => {
     expectTypeOf<
       Extract<Emittable, BudgetEvent["type"] | "run.finished">
     >().toBeNever();
+  });
+});
+
+describe("report deltas (U3, #6)", () => {
+  const deltasOf = (events: readonly RunEvent[]) =>
+    events.flatMap((e) => (e.type === "report.delta" ? [e.text] : []));
+  const bodyOf = (events: readonly RunEvent[]) => {
+    const finished = events.find((e) => e.type === "report.finished");
+    if (finished?.type !== "report.finished") throw new Error("no report");
+    return finished.markdown.split("\n\n## Sources")[0];
+  };
+  const writing = (chunks: readonly string[]) => ({
+    writeReport: async function* () {
+      yield* chunks;
+    },
+  });
+  const inPieces = (text: string, size: number) =>
+    Array.from({ length: Math.ceil(text.length / size) }, (_, i) =>
+      text.slice(i * size, (i + 1) * size),
+    );
+
+  it("stores no image, HTML or link, even when a construct spans two chunks", async () => {
+    const run = testRun({
+      model: writing([
+        "# Answer\n\nSee ![x](https://evil.ex",
+        "ample/s.png) and [a](https:",
+        "//evil.example/l) [^1].\n",
+        '\n<img src="https://evil.example/d.png"> <https://evil.',
+        "example/c>\n\n- One [^2]\n- Two ![y][r]\n\n[r]: https://evil.exam",
+        "ple/r.png\n\nEnd [^9] www.evil.example.",
+      ]),
+    });
+    await runPipeline(run.deps);
+
+    const deltas = deltasOf(run.events);
+    expect(deltas.length).toBeGreaterThan(1);
+    for (const text of [...deltas, deltas.join("")]) {
+      expect(problemsOf(text, [])).toEqual([]);
+      expect(text).not.toMatch(/(?<!\\)(?:\]\(|!\[|<[a-z])|\[\^9\]/i);
+    }
+  });
+
+  it.each([
+    [
+      "a mixed draft",
+      "# Answer\n\nLFP lasts **long** [^1] and see [this](https://evil.example).\n\n## Detail\n\n- First [^2]\n- Second [^1, ^2]\n\n<b>End</b> [^2] [^7].",
+    ],
+    [
+      "a paragraph that runs into a list",
+      "Guidance varies:\n- One [^1]\n- Two [^2]\n\n## Next\nMore [^1].",
+    ],
+    [
+      "a list item that the cleanup drops",
+      '- One [^1]\n- <img src="https://evil.example/x.png">\n\nEnd [^1].',
+    ],
+  ])(
+    "streams the same text as the final report without its source list for %s",
+    async (_, draft) => {
+      const run = testRun({ model: writing(inPieces(draft, 7)) });
+      await runPipeline(run.deps);
+
+      expect(deltasOf(run.events).join("").trimEnd()).toBe(bodyOf(run.events));
+    },
+  );
+
+  it("shows a finished paragraph before the model ends the report", async () => {
+    const seen: unknown[] = [];
+    const run = testRun({
+      model: {
+        writeReport: async function* () {
+          yield "First [^1].\n\n";
+          seen.push(run.view().report);
+          yield "Second [^1].";
+        },
+      },
+    });
+    await runPipeline(run.deps);
+
+    expect(seen).toEqual([{ kind: "draft", markdown: "First [^1].\n\n" }]);
+    expect(deltasOf(run.events)).toEqual(["First [^1].\n\n", "Second [^1].\n"]);
+  });
+
+  it("does not stream a source section that the model wrote", async () => {
+    const run = testRun({
+      model: writing([
+        "Answer [^1].\n\n## Sources\n\n- [Fake](https://fake.example) [^1]\n",
+      ]),
+    });
+    await runPipeline(run.deps);
+
+    const live = deltasOf(run.events).join("");
+    expect(live).not.toContain("Sources");
+    expect(live).not.toContain("fake.example");
+    expect(live.trimEnd()).toBe(bodyOf(run.events));
   });
 });

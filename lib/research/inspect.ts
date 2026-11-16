@@ -135,7 +135,7 @@ function endOf(view: RunView): string {
   return "cancelled";
 }
 
-function budgetLines(view: RunView): string[] {
+function budgetLines(view: RunView, events: readonly RunEvent[]): string[] {
   const limits = view.budget.limits;
   const of = (used: number, limit: number | undefined) =>
     `${used} / ${limit ?? "?"}`;
@@ -144,8 +144,11 @@ function budgetLines(view: RunView): string[] {
     const calls = view.decodoCalls.filter((c) => c.round === round.no);
     const count = (endpoint: DecodoEndpoint) =>
       calls.filter((c) => c.endpoint === endpoint).length;
+    const read = events.filter(
+      (e) => e.type === "page.read" && e.round === round.no,
+    ).length;
     lines.push(
-      `  round ${round.no}  ${of(count("google_search"), limits?.queriesPerRound)} searches, ${of(count("universal"), limits?.readsPerRound)} page reads`,
+      `  round ${round.no}  ${of(count("google_search"), limits?.queriesPerRound)} searches, ${of(read, limits?.readsPerRound)} pages read, ${of(count("universal"), limits?.readAttemptsPerRound)} read attempts`,
     );
   }
   lines.push(`  maps     ${of(view.budget.maps, limits?.mapsPerRun)} per run`);
@@ -337,6 +340,8 @@ export function timelineOf(events: readonly RunEvent[]): Phase[] {
       case "map.finished":
         return `${r}map`;
       case "reads.planned":
+      case "reads.queued":
+      case "reads.finished":
       case "page.read":
       case "page.failed":
       case "page.extracted":
@@ -432,7 +437,7 @@ export function formatShow(
   lines.push(
     "",
     "Budget (used / limit)",
-    ...budgetLines(view),
+    ...budgetLines(view, events),
     "",
     `Searches: ${c.searches} (${c.emptySearches} without results, ${c.failedSearches} failed)`,
     ...searchLines(view),
