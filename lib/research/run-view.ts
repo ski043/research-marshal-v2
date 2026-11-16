@@ -1,5 +1,6 @@
 import {
   type BudgetLimits,
+  type CitationCheck,
   ClaimNumber,
   type DecodoEndpoint,
   domainOf,
@@ -117,6 +118,7 @@ export type RunView = {
   verified: readonly VerifiedClaim[];
   dropped: readonly DroppedClaim[];
   report: ReportView | null;
+  citationCheck: CitationCheck | null;
   budget: BudgetUsage;
   decodoCalls: readonly DecodoCall[];
 };
@@ -134,6 +136,7 @@ export function createView(runId: RunId, question: Question): RunView {
     verified: [],
     dropped: [],
     report: null,
+    citationCheck: null,
     budget: {
       limits: null,
       rounds: 0,
@@ -476,6 +479,14 @@ function reduce(view: RunView, event: RunEvent): RunView {
             event.text,
         },
       };
+
+    case "report.checked": {
+      const { uncited, repairs, rewritten, removed, modelCalls } = event;
+      return {
+        ...view,
+        citationCheck: { uncited, repairs, rewritten, removed, modelCalls },
+      };
+    }
 
     case "report.finished":
       return {
