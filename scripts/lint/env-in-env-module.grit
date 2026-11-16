@@ -1,0 +1,16 @@
+// TECH_STACK.md: one module parses the environment variables. noProcessEnv
+// catches process.env; this catches `const { env } = process`.
+language js
+
+or {
+  `{ $props } = process`,
+  `{ $props } = globalThis.process`
+} where {
+  $props <: contains `env`,
+  not $filename <: or {
+    r".*/lib/env\.ts",
+    r".*\.config\.m?ts",
+    r".*/scripts/[^/]+"
+  },
+  register_diagnostic(span=$props, message="Read environment variables only in lib/env.ts.", severity="error")
+}

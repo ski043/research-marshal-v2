@@ -1,3 +1,4 @@
 export async function register() {
-  await import("@/lib/env");
+  const { ENV_NAMES, readEnv } = await import("@/lib/env");
+  readEnv(ENV_NAMES);
 }

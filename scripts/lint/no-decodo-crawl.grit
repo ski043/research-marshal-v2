@@ -1,0 +1,23 @@
+// W3: the app never crawls a whole site. The Decodo SDK names every crawl
+// method with "crawl" (crawl, startCrawl, getCrawlStatus, listCrawlPages,
+// getCrawlResults, cancelCrawl), so any member with that word is a violation.
+language js
+
+or {
+  `$object.$member` where {
+    $member <: r"(?i).*crawl.*",
+    register_diagnostic(span=$member, message="W3: never call a Decodo crawl method. Use search, scrape or map.", severity="error")
+  },
+  `$object[$key]` where {
+    $key <: r"(?i)[\"'`].*crawl.*[\"'`]",
+    register_diagnostic(span=$key, message="W3: never call a Decodo crawl method. Use search, scrape or map.", severity="error")
+  },
+  JsObjectBindingPatternShorthandProperty() as $binding where {
+    $binding <: r"(?i).*crawl.*",
+    register_diagnostic(span=$binding, message="W3: never call a Decodo crawl method. Use search, scrape or map.", severity="error")
+  },
+  JsObjectBindingPatternProperty(member=$member) where {
+    $member <: r"(?i).*crawl.*",
+    register_diagnostic(span=$member, message="W3: never call a Decodo crawl method. Use search, scrape or map.", severity="error")
+  }
+}

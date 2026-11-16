@@ -22,6 +22,63 @@ Research Marshal answers one research question with a cited Markdown report. Eve
 - If you need a dependency that the tech stack does not list, ask the user. Do not add it yourself.
 - Change the tech stack only when the user asks you to.
 
+## Setup
+
+- In a fresh worktree, run `pnpm bootstrap` before anything else. It creates `.env.local`, installs the dependencies, generates the Prisma client, and migrates the database. It ends with `READY` or `NOT READY`.
+- When something looks wrong, run `pnpm doctor:worktree`. Each failed check prints the command that fixes it.
+- The API keys come from `~/.config/research-marshal/env`. If bootstrap says a key is missing, ask the user to add it to that file. Do not ask for the key in the chat.
+- Never print, copy, or commit the contents of `.env.local`, `.env`, or the durable env file. Refer to variables by name only.
+- In Claude Code, a SessionStart hook (`scripts/session-start.mjs`) runs the doctor checks at the start of each session. It needs no `node_modules`. When the worktree is not ready, the hook runs the bootstrap and tells you what is still missing. The project settings in `.claude/settings.json` deny reads of the env files.
+
+## Commands
+
+| Command | What it proves | Paid requests |
+| --- | --- | --- |
+| `pnpm check` | Lint, the types, and the unit tests pass. CI runs it on every pull request. | No |
+| `pnpm bootstrap` | The worktree is set up and ready. | No |
+| `pnpm doctor:worktree` | The worktree is ready. It changes no file. | No |
+| `pnpm doctor:worktree --live` | Both API keys work. | Yes: one Decodo scrape |
+| `pnpm lint` | Lint and formatting pass. | No |
+| `pnpm test` | The unit tests pass. | No |
+| `pnpm typecheck` | The types check. | No |
+| `pnpm build` | The production build succeeds. | No |
+| `pnpm verify:stack` | The app reaches Anthropic, Decodo, and SQLite. | Yes |
+| `pnpm research "question"` | One full research run works end to end. | Yes |
+
+- Run `pnpm check` before each commit.
+- To run one test file, pass its path: `pnpm test lib/research/budget.test.ts`.
+- To run tests by name, use `pnpm test -t "part of the test name"`.
+- Run a paid command only when the task needs it.
+- pnpm installs missing dependencies before it runs any script. For a check that changes no file at all, run `node scripts/doctor.mjs`.
+- `pnpm dev` and `pnpm start` listen on `127.0.0.1` only. Pass `-p <port>` to pick a port.
+- To read the database, run `sqlite3 -readonly -safe dev.db`. Without `-safe`, a dot command such as `.shell` can still change files.
+
+## Rules that the checks enforce
+
+`pnpm check` fails when code breaks one of these rules. Do not weaken a rule to make a check pass. Ask the user.
+
+- No import of a package from the "Not in the stack" table of the tech stack.
+- No call of a Decodo crawl method (W3).
+- No model ID outside `lib/research/model-config.ts`.
+- No `process.env` outside `lib/env.ts`, the config files, and `scripts/`.
+- No route on the Edge runtime.
+- Every package in `package.json` is one that the tech stack names.
+
+The rules live in `biome.json`, `scripts/lint/`, and `scripts/project-rules.test.ts`.
+
+## Done means
+
+- `pnpm check` passes.
+- The change is proven on the real thing: run the command, the page, or the script that the change affects, and read the actual result.
+- The evidence is kept: the command and its output go into the PR under Verification.
+- A paid command runs only when the task needs it.
+
+## Conventions
+
+- Commits use Conventional Commits with a scope, for example `fix(research): ...`, `feat(research): ...`, or `chore(ci): ...`. The body says why.
+- Branches are named `t3/<slug>`.
+- A PR body has the sections Why, What changed, Scope, Tradeoffs, Blast Radius, and Verification. Leave out Tradeoffs when the change made no real choice.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

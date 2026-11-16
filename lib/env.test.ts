@@ -1,80 +1,91 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { ENV_NAMES, readEnv } from "@/lib/env";
 
-const NAMES = [
-  "ANTHROPIC_API_KEY",
-  "DECODO_AUTH_TOKEN",
-  "DATABASE_URL",
-] as const;
-
-function stubAll(values: Record<(typeof NAMES)[number], string | undefined>) {
-  for (const name of NAMES) {
+function stubAll(
+  values: Record<(typeof ENV_NAMES)[number], string | undefined>,
+) {
+  for (const name of ENV_NAMES) {
     vi.stubEnv(name, values[name]);
   }
 }
 
-async function importEnv() {
-  const module = await import("@/lib/env");
-  return module.env;
+function errorOf(read: () => unknown): Error {
+  try {
+    read();
+  } catch (thrown) {
+    if (thrown instanceof Error) return thrown;
+  }
+  return expect.unreachable("readEnv must throw");
 }
 
-beforeEach(() => {
-  vi.resetModules();
-});
-
-describe("lib/env", () => {
-  it("exports every variable when all three are set", async () => {
+describe("readEnv", () => {
+  it("returns every variable when all three are set", () => {
     stubAll({
       ANTHROPIC_API_KEY: "anthropic-key",
       DECODO_AUTH_TOKEN: "decodo-key",
       DATABASE_URL: "file:./test.db",
     });
 
-    await expect(importEnv()).resolves.toEqual({
+    expect(readEnv(ENV_NAMES)).toEqual({
       ANTHROPIC_API_KEY: "anthropic-key",
       DECODO_AUTH_TOKEN: "decodo-key",
       DATABASE_URL: "file:./test.db",
     });
   });
 
-  it("names the one missing variable and no other", async () => {
+  it("names the one missing variable and no other", () => {
     stubAll({
       ANTHROPIC_API_KEY: undefined,
       DECODO_AUTH_TOKEN: "decodo-key",
       DATABASE_URL: "file:./test.db",
     });
 
-    const error = await importEnv().then(
-      () => expect.unreachable("import must throw"),
-      (thrown: unknown) => thrown,
-    );
-    expect(error).toBeInstanceOf(Error);
-    const message = (error as Error).message;
+    const { message } = errorOf(() => readEnv(ENV_NAMES));
     expect(message).toContain("ANTHROPIC_API_KEY");
     expect(message).not.toContain("DECODO_AUTH_TOKEN");
     expect(message).not.toContain("DATABASE_URL");
   });
 
-  it("treats an empty value as missing", async () => {
+  it("treats an empty value as missing", () => {
     stubAll({
       ANTHROPIC_API_KEY: "anthropic-key",
       DECODO_AUTH_TOKEN: "",
       DATABASE_URL: "file:./test.db",
     });
 
-    await expect(importEnv()).rejects.toThrow("DECODO_AUTH_TOKEN");
+    expect(() => readEnv(ENV_NAMES)).toThrow("DECODO_AUTH_TOKEN");
   });
 
-  it("names every missing variable at once", async () => {
+  it("names the command that fixes a missing variable", () => {
+    stubAll({
+      ANTHROPIC_API_KEY: undefined,
+      DECODO_AUTH_TOKEN: "decodo-key",
+      DATABASE_URL: "file:./test.db",
+    });
+
+    expect(() => readEnv(ENV_NAMES)).toThrow("Run `pnpm bootstrap`");
+  });
+
+  it("names every missing variable at once", () => {
     stubAll({
       ANTHROPIC_API_KEY: undefined,
       DECODO_AUTH_TOKEN: "",
       DATABASE_URL: undefined,
     });
 
-    const error = await importEnv().catch((thrown: unknown) => thrown);
-    expect(error).toBeInstanceOf(Error);
-    for (const name of NAMES) {
-      expect((error as Error).message).toContain(name);
-    }
+    const { message } = errorOf(() => readEnv(ENV_NAMES));
+    for (const name of ENV_NAMES) expect(message).toContain(name);
+  });
+
+  it("reads only the variables it is asked for", () => {
+    stubAll({
+      ANTHROPIC_API_KEY: undefined,
+      DECODO_AUTH_TOKEN: undefined,
+      DATABASE_URL: "file:./test.db",
+    });
+
+    expect(readEnv(["DATABASE_URL"])).toEqual({
+      DATABASE_URL: "file:./test.db",
+    });
   });
 });

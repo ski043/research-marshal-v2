@@ -27,7 +27,12 @@ const site = SiteUrl.parse("https://example.org");
 
 function setup(web: Partial<WebActions> = {}) {
   const events: BudgetEvent[] = [];
-  const calls = { search: [] as string[], read: [] as string[], map: 0 };
+  const calls = {
+    search: [] as string[],
+    read: [] as string[],
+    rendered: [] as string[],
+    map: 0,
+  };
   const controller = new AbortController();
   let clock = 0;
   const fake: WebActions = {
@@ -35,9 +40,12 @@ function setup(web: Partial<WebActions> = {}) {
       calls.search.push(query);
       return web.search ? web.search(query) : { status: "ok", results: [] };
     },
-    read: async (page) => {
+    read: async (page, mode) => {
       calls.read.push(page);
-      return web.read ? web.read(page) : { status: "ok", markdown: "text" };
+      if (mode === "rendered") calls.rendered.push(page);
+      return web.read
+        ? web.read(page, mode)
+        : { status: "ok", markdown: "text" };
     },
     map: async (target, limit) => {
       calls.map += 1;
@@ -95,43 +103,42 @@ describe("meterWeb rounds (B1, B2)", () => {
   });
 });
 
-describe("meterWeb reads (B2, B3)", () => {
-  it("grants 8 of 20 pages and refuses 12 as over budget", async () => {
-    const { meter, calls } = setup();
-    const plan = open(meter).read(pages(1, 20));
-    await Promise.all(plan.granted.map((g) => g.outcome));
+const finished = (events: readonly BudgetEvent[]) =>
+  events.filter((e) => e.type === "reads.finished");
 
-    expect(plan.granted.map((g) => g.item.url)).toEqual(
-      pages(1, 8).map((p) => p.url),
-    );
-    expect(plan.refused).toEqual(
-      pages(9, 12).map((item) => ({ item, reason: "over-budget" })),
-    );
-    expect(calls.read).toHaveLength(8);
+describe("meterWeb reads (B2, B3)", () => {
+  it("reads 8 of 20 pages and skips 12 as over budget", async () => {
+    const { meter, calls, events } = setup();
+    expect(okCount(await readAll(open(meter), pages(1, 20)))).toBe(8);
+    expect(calls.read).toEqual(pages(1, 8).map((p) => p.url));
+    expect(finished(events)).toEqual([
+      {
+        type: "reads.finished",
+        round: 1,
+        skipped: pages(9, 12).map((p) => ({
+          url: p.url,
+          reason: "over-budget",
+        })),
+      },
+    ]);
   });
 
   it("shares the 8 reads between two read calls of one round", async () => {
-    const { meter, calls } = setup();
+    const { meter, calls, events } = setup();
     const round = open(meter);
-    const first = round.read(pages(1, 5));
-    const second = round.read(pages(6, 5));
-
-    expect(first.granted).toHaveLength(5);
-    expect(second.granted).toHaveLength(3);
-    expect(second.refused.map((r) => r.reason)).toEqual([
+    await readAll(round, pages(1, 5));
+    await readAll(round, pages(6, 5));
+    expect(calls.read).toHaveLength(8);
+    expect(finished(events)[1]?.skipped.map((s) => s.reason)).toEqual([
       "over-budget",
       "over-budget",
     ]);
-    await Promise.all(
-      [...first.granted, ...second.granted].map((g) => g.outcome),
-    );
-    expect(calls.read).toHaveLength(8);
   });
 
-  it("gives every round its own 8 reads", () => {
+  it("gives every round its own 8 reads", async () => {
     const { meter } = setup();
-    expect(open(meter).read(pages(1, 10)).granted).toHaveLength(8);
-    expect(open(meter).read(pages(11, 10)).granted).toHaveLength(8);
+    expect(okCount(await readAll(open(meter), pages(1, 10)))).toBe(8);
+    expect(okCount(await readAll(open(meter), pages(11, 10)))).toBe(8);
   });
 
   it("counts pages picked from the map toward the 8 reads", async () => {
@@ -143,58 +150,216 @@ describe("meterWeb reads (B2, B3)", () => {
     const listed = await round.map(site, 100);
     if (listed?.status !== "ok") throw new Error("expected a map");
 
-    const plan = round.read([
+    await readAll(round, [
       ...listed.urls.map((u) => ({ url: u })),
       ...pages(1, 10),
     ]);
-    expect(plan.granted.map((g) => g.item.url)).toEqual([
-      ...mapped,
-      ...pages(1, 5).map((p) => p.url),
-    ]);
-    await Promise.all(plan.granted.map((g) => g.outcome));
-    expect(calls.read).toHaveLength(8);
+    expect(calls.read).toEqual([...mapped, ...pages(1, 5).map((p) => p.url)]);
   });
 
-  it("refuses a URL that the run already asked for, in the same or a later round", async () => {
-    const { meter, calls } = setup();
-    const first = open(meter).read([{ url: url(1) }, { url: url(1) }]);
-    expect(first.refused).toEqual([
-      { item: { url: url(1) }, reason: "already-read" },
+  it("skips a URL that the run already asked for, in the same or a later round", async () => {
+    const { meter, calls, events } = setup();
+    await readAll(open(meter), [{ url: url(1) }, { url: url(1) }]);
+    await readAll(open(meter), [{ url: url(1) }]);
+    expect(
+      events.flatMap((e) => (e.type === "reads.queued" ? [e] : [])),
+    ).toEqual([
+      {
+        type: "reads.queued",
+        round: 1,
+        queue: [url(1)],
+        skipped: [{ url: url(1), reason: "already-read" }],
+      },
+      {
+        type: "reads.queued",
+        round: 2,
+        queue: [],
+        skipped: [{ url: url(1), reason: "already-read" }],
+      },
     ]);
-    const later = open(meter).read([{ url: url(1) }]);
-    expect(later.granted).toHaveLength(0);
-    expect(later.refused).toEqual([
-      { item: { url: url(1) }, reason: "already-read" },
-    ]);
-    await Promise.all(first.granted.map((g) => g.outcome));
     expect(calls.read).toEqual([url(1)]);
   });
 
-  it("refuses a URL again even when its first read failed", async () => {
-    const { meter, calls } = setup({
-      read: async () => ({
-        status: "failed",
-        failure: { kind: "timeout", detail: "slow" },
-      }),
-    });
-    const first = open(meter).read([{ url: url(1) }]);
-    await first.granted[0]?.outcome;
-    expect(open(meter).read([{ url: url(1) }]).refused).toHaveLength(1);
+  it("skips a URL again even when its first read failed", async () => {
+    const { meter, calls } = setup({ read: async () => failed("http-status") });
+    await readAll(open(meter), [{ url: url(1) }]);
+    await readAll(open(meter), [{ url: url(1) }]);
     expect(calls.read).toHaveLength(1);
   });
 
-  it("records the granted and refused reads as reads.planned", () => {
+  it("records the reading order and the skipped reads", async () => {
     const { meter, events } = setup();
-    open(meter).read([...pages(1, 9), { url: url(1) }]);
-    expect(events.find((e) => e.type === "reads.planned")).toEqual({
-      type: "reads.planned",
+    await readAll(open(meter), [...pages(1, 9), { url: url(1) }]);
+    expect(events.find((e) => e.type === "reads.queued")).toEqual({
+      type: "reads.queued",
       round: 1,
-      granted: pages(1, 8).map((p) => p.url),
-      refused: [
-        { url: url(9), reason: "over-budget" },
-        { url: url(1), reason: "already-read" },
-      ],
+      queue: pages(1, 9).map((p) => p.url),
+      skipped: [{ url: url(1), reason: "already-read" }],
     });
+    expect(finished(events)[0]?.skipped).toEqual([
+      { url: url(9), reason: "over-budget" },
+    ]);
+  });
+});
+
+const failed = (
+  kind: "http-status" | "unsupported" | "empty",
+): ReadOutcome => ({
+  status: "failed",
+  failure: { kind, detail: kind },
+});
+
+async function readAll(
+  round: ReturnType<typeof open>,
+  items: readonly { url: PageUrl }[],
+) {
+  const outcomes = new Map<string, ReadOutcome>();
+  await round.read(items, async (item, outcome) => {
+    outcomes.set(item.url, outcome);
+  });
+  return outcomes;
+}
+
+const okCount = (outcomes: Map<string, ReadOutcome>) =>
+  [...outcomes.values()].filter((o) => o.status === "ok").length;
+
+describe("meterWeb read attempts (B2, B7)", () => {
+  it("replaces a failed read with the next page until 8 pages are read", async () => {
+    const failing = new Set(pages(1, 5).map((p) => p.url));
+    const { meter, calls, events } = setup({
+      read: async (page) =>
+        failing.has(page)
+          ? failed("http-status")
+          : { status: "ok", markdown: "text" },
+    });
+    const outcomes = await readAll(open(meter), pages(1, 20));
+
+    expect(okCount(outcomes)).toBe(8);
+    expect(calls.read).toEqual(pages(1, 13).map((p) => p.url));
+    expect(events.find((e) => e.type === "reads.finished")).toEqual({
+      type: "reads.finished",
+      round: 1,
+      skipped: pages(14, 7).map((p) => ({ url: p.url, reason: "over-budget" })),
+    });
+  });
+
+  it("handles a page that fails while an earlier page is still open", async () => {
+    const { meter } = setup();
+    const round = open(meter);
+    const [first, second] = pages(1, 2);
+    const failure = new Error("provider error");
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      await expect(
+        round.read([first, second].filter(Boolean), async (item) => {
+          if (item.url !== first?.url) throw failure;
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        }),
+      ).rejects.toBe(failure);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+    expect(unhandled).toEqual([]);
+  });
+
+  it("stops at 16 attempts when every read fails", async () => {
+    const { meter, calls } = setup({ read: async () => failed("http-status") });
+    const outcomes = await readAll(open(meter), pages(1, 30));
+    expect(calls.read).toHaveLength(BUDGET.readAttemptsPerRound);
+    expect(okCount(outcomes)).toBe(0);
+  });
+
+  it("starts 8 reads at once and never more than 8 successful reads", async () => {
+    const { meter, calls } = setup();
+    const round = open(meter);
+    const pending = readAll(round, pages(1, 20));
+    expect(calls.read).toHaveLength(8);
+    expect(okCount(await pending)).toBe(8);
+    expect(calls.read).toHaveLength(8);
+  });
+
+  it("ends the reads when no page is left", async () => {
+    const { meter, calls, events } = setup({
+      read: async () => failed("http-status"),
+    });
+    await readAll(open(meter), pages(1, 3));
+    expect(calls.read).toHaveLength(3);
+    expect(events.find((e) => e.type === "reads.finished")).toEqual({
+      type: "reads.finished",
+      round: 1,
+      skipped: [],
+    });
+  });
+
+  it("makes no request for another page of a site that refused a page", async () => {
+    const refused = (n: number) => PageUrl.parse(`https://refused.org/${n}`);
+    const { meter, calls, events } = setup({
+      read: async (page) =>
+        page.startsWith("https://refused.org/")
+          ? failed("unsupported")
+          : { status: "ok", markdown: "text" },
+    });
+    const first = await readAll(open(meter), [
+      { url: refused(1) },
+      ...pages(1, 7),
+      { url: refused(2) },
+      ...pages(8, 3),
+    ]);
+    expect(okCount(first)).toBe(8);
+    expect(calls.read).not.toContain(refused(2));
+    expect(events.find((e) => e.type === "reads.finished")).toMatchObject({
+      skipped: expect.arrayContaining([
+        { url: refused(2), reason: "site-refused" },
+      ]),
+    });
+
+    await readAll(open(meter), [{ url: refused(3) }, ...pages(20, 1)]);
+    expect(calls.read).not.toContain(refused(3));
+    expect(events.findLast((e) => e.type === "reads.queued")).toEqual({
+      type: "reads.queued",
+      round: 2,
+      queue: [url(20)],
+      skipped: [{ url: refused(3), reason: "site-refused" }],
+    });
+  });
+
+  it("retries an empty page once with rendering, and the retry is an attempt", async () => {
+    const { meter, calls, events } = setup({
+      read: async (_page, mode) =>
+        mode === "rendered"
+          ? { status: "ok", markdown: "text" }
+          : failed("empty"),
+    });
+    const outcomes = await readAll(open(meter), pages(1, 1));
+
+    expect(outcomes.get(url(1))).toEqual({ status: "ok", markdown: "text" });
+    expect(calls.read).toEqual([url(1), url(1)]);
+    expect(calls.rendered).toEqual([url(1)]);
+    expect(
+      events
+        .filter((e) => e.type === "decodo.requested")
+        .filter((e) => e.endpoint === "universal")
+        .map((e) => e.rendered),
+    ).toEqual([undefined, true]);
+  });
+
+  it("fails an empty page that rendering does not fix", async () => {
+    const { meter, calls } = setup({ read: async () => failed("empty") });
+    const outcomes = await readAll(open(meter), pages(1, 1));
+    expect(outcomes.get(url(1))).toMatchObject({
+      status: "failed",
+      failure: { kind: "empty" },
+    });
+    expect(calls.read).toHaveLength(2);
+  });
+
+  it("counts rendered retries toward the 16 attempts", async () => {
+    const { meter, calls } = setup({ read: async () => failed("empty") });
+    await readAll(open(meter), pages(1, 30));
+    expect(calls.read).toHaveLength(BUDGET.readAttemptsPerRound);
   });
 });
 
@@ -226,7 +391,7 @@ describe("meterWeb closed rounds", () => {
     const { meter, calls } = setup();
     const first = open(meter);
     open(meter);
-    expect(() => first.read(pages(1, 1))).toThrow();
+    expect(() => first.read(pages(1, 1), async () => {})).toThrow();
     expect(() => first.map(site, 10)).toThrow();
     expect(calls.read).toHaveLength(0);
     expect(calls.map).toBe(0);
@@ -243,9 +408,9 @@ describe("meterWeb audit", () => {
         }),
     });
     const round = open(meter, 0);
-    const plan = round.read([{ url: url(1) }]);
+    const reading = readAll(round, [{ url: url(1) }]);
     expect(events.slice(1)).toEqual([
-      { type: "reads.planned", round: 1, granted: [url(1)], refused: [] },
+      { type: "reads.queued", round: 1, queue: [url(1)], skipped: [] },
       {
         type: "decodo.requested",
         call: 1,
@@ -256,7 +421,7 @@ describe("meterWeb audit", () => {
     ]);
 
     resolve({ status: "ok", markdown: "hello" });
-    await plan.granted[0]?.outcome;
+    await reading;
     const settled = events.find((e) => e.type === "decodo.settled");
     expect(settled).toMatchObject({
       type: "decodo.settled",
@@ -275,7 +440,7 @@ describe("meterWeb audit", () => {
     });
     const round = open(meter, 2);
     await Promise.all(round.searches.map((s) => s.outcome));
-    await round.read([{ url: url(1) }]).granted[0]?.outcome;
+    await readAll(round, [{ url: url(1) }]);
     await round.map(site, 10);
 
     const requested = events.flatMap((e) =>
@@ -305,8 +470,9 @@ describe("meterWeb audit", () => {
     const { meter, events } = setup({
       read: () => Promise.reject(fatal),
     });
-    const outcome = open(meter, 0).read([{ url: url(1) }]).granted[0]?.outcome;
-    await expect(outcome).rejects.toBe(fatal);
+    await expect(readAll(open(meter, 0), [{ url: url(1) }])).rejects.toBe(
+      fatal,
+    );
     expect(events.find((e) => e.type === "decodo.settled")).toMatchObject({
       call: 1,
       outcome: "failed",
@@ -320,9 +486,9 @@ describe("meterWeb after a cancel", () => {
     const { meter, controller } = setup({
       read: () => new Promise<ReadOutcome>(() => {}),
     });
-    const outcome = open(meter, 0).read([{ url: url(1) }]).granted[0]?.outcome;
+    const reading = readAll(open(meter, 0), [{ url: url(1) }]);
     controller.abort();
-    await expect(outcome).rejects.toBeInstanceOf(RunCancelled);
+    await expect(reading).rejects.toBeInstanceOf(RunCancelled);
   });
 
   it("lets no new call reach the web", async () => {
@@ -330,11 +496,9 @@ describe("meterWeb after a cancel", () => {
     const round = open(meter, 0);
     controller.abort();
 
-    const plan = round.read(pages(1, 3));
-    const results = await Promise.allSettled(
-      plan.granted.map((g) => g.outcome),
+    await expect(readAll(round, pages(1, 3))).rejects.toBeInstanceOf(
+      RunCancelled,
     );
-    expect(results.every((r) => r.status === "rejected")).toBe(true);
     await expect(round.map(site, 10)).rejects.toBeInstanceOf(RunCancelled);
     expect(() => meter.openRound(queries(1))).toThrow(RunCancelled);
     expect(calls.read).toHaveLength(0);
@@ -348,6 +512,7 @@ it("holds the PRD limits", () => {
     rounds: 3,
     queriesPerRound: 5,
     readsPerRound: 8,
+    readAttemptsPerRound: 16,
     mapsPerRun: 1,
   });
 });

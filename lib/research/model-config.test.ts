@@ -23,3 +23,14 @@ it("gives the citation check steps their own output limit", () => {
   expect(MODEL_CONFIG.classifySentences.maxOutputTokens).toBeGreaterThan(0);
   expect(MODEL_CONFIG.repairSentences.maxOutputTokens).toBeGreaterThan(0);
 });
+
+it("limits the output of every model step", () => {
+  for (const [step, config] of Object.entries(MODEL_CONFIG)) {
+    expect(config.maxOutputTokens, step).toBeGreaterThanOrEqual(2_000);
+    expect(config.maxOutputTokens, step).toBeLessThanOrEqual(16_000);
+  }
+  // A report of two pages is about 1,500 tokens of text, before any thinking.
+  expect(MODEL_CONFIG.writeReport.maxOutputTokens).toBeGreaterThanOrEqual(
+    8_000,
+  );
+});

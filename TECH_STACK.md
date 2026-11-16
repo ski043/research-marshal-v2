@@ -1,6 +1,6 @@
 # Research Marshal tech stack
 
-Status: draft 1, 2026-11-15.
+Status: draft 2, 2026-11-16.
 
 This document defines the technologies that Research Marshal uses. [PRD.md](PRD.md) defines what the product does. Requirement IDs such as W2 and V1 refer to the PRD.
 
@@ -23,9 +23,10 @@ Version 1 runs locally for one user. It has no accounts and no hosted service. T
 | Language | TypeScript, strict mode | 7.0 | All app code. |
 | Framework | Next.js with the App Router | 16.4 | Pages, Server Actions, and the route handler that streams a run. |
 | UI library | React | 19.3 | All components. |
-| Styling | Tailwind CSS | 4.3 | All styles. |
+| Styling | Tailwind CSS with `@tailwindcss/turbopack` | 4.3 | All styles. |
 | Components | shadcn/ui with the default `base-nova` style | CLI 4.23 | The prompt box (U1), the citation popover (U6), the source lists (S3), and the history (U8). |
 | Icons | lucide-react | 1.x | The default icon library of shadcn/ui. |
+| Component support | `@base-ui/react`, `class-variance-authority`, `cn`, `tw-animate-css` | | The packages that the shadcn/ui components import. The shadcn CLI adds them. |
 | Report rendering | Streamdown | 2.7 | Renders the report (R1) and turns each citation into a popover with a link (U6, U7). |
 | Report cleanup | `mdast-util-from-markdown`, `micromark-extension-gfm`, `mdast-util-gfm`, and `mdast-util-to-markdown`, with `@types/mdast` | 2.1.0, 3.0.0, 3.1.0, 2.2.3, and 4.0.4 | Parses the model draft with the parser that Streamdown uses, keeps only the constructs that a report can contain, and writes the draft back as Markdown (R7, V4). |
 | Validation | Zod | 4.6 | Parses the question, the environment variables, and the model output. |
@@ -41,7 +42,8 @@ Version 1 runs locally for one user. It has no accounts and no hosted service. T
 
 - Use the App Router. The `app` directory is at the repository root. The project has no `src` directory.
 - Use the import alias `@/*` for the repository root.
-- Set `cacheComponents: true` in `next.config.ts`.
+- Set `cacheComponents: true` and `partialPrefetching: true` in `next.config.ts`. The Next.js caching guide enables the two options together.
+- `next.config.ts` has one Turbopack rule. It sends every CSS file through the `@tailwindcss/turbopack` loader.
 - Use the Node.js runtime for every route. Prisma and SQLite do not run on the Edge runtime.
 - Read data in Server Components. Change data in Server Actions.
 
@@ -66,11 +68,12 @@ The app calls Decodo through `client.webScrapingApi` of the Decodo TypeScript SD
 
 | Web action (W2) | SDK method |
 | --- | --- |
-| Search the web | `search({ query })` |
+| Search the web | `scrape({ target: Target.GoogleSearch, query, parse: true })` |
 | Read one page | `scrape({ target: Target.Universal, url, markdown: true })` |
 | Map one site | `map({ url, limit })` |
 
-- Create the client with `apiKey`. The `search` method and the `map` method reject a basic auth token.
+- Search uses the Google Search target of `scrape`. Do not use the `search` method. In 14 real calls it returned Google redirect links for half to three quarters of the results, and `scrape` rejects those links.
+- Create the client with `apiKey`. The `map` method rejects a basic auth token.
 - Set `timeoutMs` on the client. The default is 180 seconds.
 - The SDK does not retry. It throws `AuthenticationError`, `RateLimitError`, `ValidationError`, `TimeoutError`, or `DecodoError`. The run records each error as a failed page or a failed search (F1, F2).
 - The SDK types every response, but most response fields are optional. Check each field that the app needs.
@@ -106,6 +109,11 @@ The app calls Decodo through `client.webScrapingApi` of the Decodo TypeScript SD
 - Allow the build scripts of `better-sqlite3`, `prisma`, and `@prisma/engines` under `allowBuilds` in `pnpm-workspace.yaml`. pnpm blocks them by default.
 - Git ignores the database file.
 
+## Scripts
+
+- `pnpm research` runs `scripts/research.ts` on Node.js without a build step. Node.js removes the types. `scripts/register.mjs` is a resolve hook that adds what Node.js lacks: the `@/` alias and imports without a file extension.
+- The `verify` directory holds checks that make real paid requests. `pnpm verify:stack` runs them with its own Vitest configuration. `pnpm test` never runs them.
+
 ## Forms
 
 The app has one form, the prompt box (U1). The form is a native `<form>` with a Server Action. Zod parses the question in the action.
@@ -123,6 +131,28 @@ Write unit tests for logic that has no network access. The V1 comparison and the
 | `DATABASE_URL` | The path of the SQLite file, for example `file:./dev.db`. |
 
 One module parses the environment variables with Zod when the app starts.
+
+The two API keys live in one durable file outside the repository, `~/.config/research-marshal/env`. `RESEARCH_MARSHAL_ENV` can name a different file. `pnpm bootstrap` copies the keys into `.env.local` (mode 600), adds `DATABASE_URL`, installs the dependencies, and migrates the database.
+
+## Checks and CI
+
+`pnpm check` is the one free quality gate. It runs Biome with `--error-on-warnings`, the type check (`scripts/tsconfig.json` adds `scripts/*.mjs`), and the unit tests. It never sends a paid request.
+
+Code enforces the rules of this document:
+
+- Biome `noRestrictedImports` forbids each package of the "Not in the stack" table.
+- Biome `noProcessEnv` and a GritQL plugin keep `process.env` in `lib/env.ts`, the config files, and `scripts/`.
+- GritQL plugins in `scripts/lint/` forbid the Decodo crawl methods, a model ID outside `lib/research/model-config.ts`, and the Edge runtime.
+- `scripts/project-rules.test.ts` proves that each rule fires. It also fails when `package.json` has a package that this document does not name.
+
+The workflow `.github/workflows/check.yml` runs on each pull request and on each push to `main`. It needs no secret. It scans the git history for secrets, installs with a frozen lockfile, and runs `pnpm check`, `pnpm build`, and `pnpm audit --prod --audit-level=high`.
+
+| Tool | Version | Purpose |
+| --- | --- | --- |
+| gitleaks | 8.30.1 | The secret scan in CI. CI downloads the release binary and checks its SHA-256. It is not an npm dependency. |
+| `actions/checkout`, `actions/setup-node`, `pnpm/action-setup` | 7.0.1, 7.1.0, 6.1.1 | Set up the CI job. The workflow pins each action to a commit SHA. |
+
+`.claude/settings.json` holds the project settings for Claude Code. It allows the free routine commands, denies reads of the env files, and runs `scripts/session-start.mjs` at the start of each session. The script runs the bootstrap when the worktree is not ready.
 
 ## Not in the stack
 

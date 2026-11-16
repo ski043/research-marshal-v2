@@ -1,12 +1,47 @@
-import { cancelRun, followRun, loadRun, startRun } from "@/lib/research";
-import { Question, type RunEvent } from "@/lib/research/events";
-import type { RunView } from "@/lib/research/run-view";
+import {
+  cancelRun,
+  followRun,
+  loadRun,
+  type RunPorts,
+  startRun,
+} from "@/lib/research";
+import { Question, type ReadSkip, type RunEvent } from "@/lib/research/events";
+import type { RunView, SkipReason } from "@/lib/research/run-view";
+import {
+  EXIT,
+  exitCodeOf,
+  parseResearchArgs,
+  summaryLine,
+  USAGE,
+} from "./research-args";
 
-const parsed = Question.safeParse(process.argv.slice(2).join(" "));
-if (!parsed.success) {
-  console.error('Usage: pnpm research "your research question"');
-  process.exit(2);
+function usage(error: string): never {
+  console.error(`${error}\n\n${USAGE}`);
+  process.exit(EXIT.usage);
 }
+
+const cli = parseResearchArgs(process.argv.slice(2));
+if (!cli.ok) usage(cli.error);
+let questionText = cli.args.question;
+let ports: RunPorts | undefined;
+if (cli.args.offline) {
+  // Imported only here so a live run never loads the fakes.
+  const offline = await import("@/lib/research/offline");
+  const scenario = offline.SCENARIOS.get(cli.args.offline.scenario);
+  if (!scenario) {
+    usage(
+      `Unknown scenario "${cli.args.offline.scenario}". Scenarios:\n${[
+        ...offline.SCENARIOS.values(),
+      ]
+        .map((s) => `  ${s.name.padEnd(10)} ${s.promise}`)
+        .join("\n")}`,
+    );
+  }
+  ports = offline.offlinePorts(scenario, cli.args.offline.paceMs);
+  questionText ||= offline.offlineQuestion(scenario);
+}
+const parsed = Question.safeParse(questionText);
+if (!parsed.success) usage("The question must have 1 to 2000 characters.");
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 const startedAt = performance.now();
@@ -21,12 +56,30 @@ function line(text: string): void {
   console.log(text);
 }
 
+const SKIP_REASON: Record<ReadSkip | SkipReason, string> = {
+  "not-chosen": "not selected",
+  "over-budget": "over the budget",
+  "already-read": "already read",
+  "site-refused": "site refused",
+  "run-ended": "run ended",
+};
+
+function skipCounts(skipped: readonly { reason: ReadSkip }[]): string {
+  const counts = new Map<ReadSkip, number>();
+  for (const { reason } of skipped) {
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([reason, n]) => `, ${n} skipped: ${SKIP_REASON[reason]}`)
+    .join("");
+}
+
 function describeStep(event: RunEvent): string[] {
   switch (event.type) {
     case "run.started": {
       const l = event.limits;
       return [
-        `Run started. Budget: ${l.rounds} rounds, ${l.queriesPerRound} searches and ${l.readsPerRound} page reads per round, ${l.mapsPerRun} map per run.`,
+        `Run started. Budget: ${l.rounds} rounds, ${l.queriesPerRound} searches, ${l.readsPerRound} page reads and ${l.readAttemptsPerRound} read attempts per round, ${l.mapsPerRun} map per run.`,
       ];
     }
     case "round.started":
@@ -37,7 +90,9 @@ function describeStep(event: RunEvent): string[] {
         ),
       ];
     case "decodo.requested":
-      return [`  Decodo #${event.call} ${event.endpoint} ${event.input}`];
+      return [
+        `  Decodo #${event.call} ${event.endpoint}${event.rendered ? " (rendered)" : ""} ${event.input}`,
+      ];
     case "decodo.settled":
     case "report.delta":
       return [];
@@ -77,6 +132,14 @@ function describeStep(event: RunEvent): string[] {
         `  Reads: ${event.granted.length} granted, ${over.length} skipped over the budget, ${event.refused.length - over.length} already read`,
       ];
     }
+    case "reads.queued":
+      return [
+        `  Reads: ${event.queue.length} pages in reading order${skipCounts(event.skipped)}`,
+      ];
+    case "reads.finished":
+      return event.skipped.length > 0
+        ? [`  Reads done${skipCounts(event.skipped)}`]
+        : [];
     case "page.read":
       return [`  Read ${event.url} (${event.chars} chars) "${event.title}"`];
     case "page.failed":
@@ -135,6 +198,37 @@ function printStep(event: RunEvent): void {
   for (const text of describeStep(event)) line(text);
 }
 
+function printGroups(
+  title: string,
+  entries: readonly { url: string; group: string }[],
+): void {
+  const groups = Map.groupBy(entries, (entry) => entry.group);
+  for (const [group, members] of groups) {
+    console.log(`${title}, ${group}: ${members.length}`);
+    for (const { url } of members) console.log(`  ${url}`);
+  }
+}
+
+function printPages(view: RunView): void {
+  const pages = Object.values(view.pages);
+  const read = pages.filter((p) => p.state.kind === "read").length;
+  const failed = pages.flatMap((p) =>
+    p.state.kind === "failed"
+      ? [{ url: p.url, group: p.state.failure.kind }]
+      : [],
+  );
+  const skipped = pages.flatMap((p) =>
+    p.state.kind === "skipped"
+      ? [{ url: p.url, group: SKIP_REASON[p.state.reason] }]
+      : [],
+  );
+  console.log(
+    `\nPages: ${pages.length} found, ${read} read, ${failed.length} failed, ${skipped.length} skipped.`,
+  );
+  printGroups("Failed", failed);
+  printGroups("Skipped", skipped);
+}
+
 function printSummary(view: RunView): void {
   console.log("\n===== REPORT =====");
   console.log(
@@ -149,7 +243,7 @@ function printSummary(view: RunView): void {
     view.decodoCalls.map((c) => ({
       call: c.call,
       round: c.round,
-      endpoint: c.endpoint,
+      endpoint: c.rendered ? `${c.endpoint} (rendered)` : c.endpoint,
       input: c.input,
       outcome: c.outcome,
       detail: c.detail,
@@ -165,6 +259,7 @@ function printSummary(view: RunView): void {
     console.log(`  Page: ${claim.url}`);
   }
 
+  printPages(view);
   const check = view.citationCheck;
   if (check) {
     const count = (verdict: string) =>
@@ -186,15 +281,21 @@ function printSummary(view: RunView): void {
   }
 
   const { budget } = view;
-  const reads = view.decodoCalls.filter(
-    (c) => c.endpoint === "universal",
-  ).length;
+  const attempts = view.decodoCalls.filter((c) => c.endpoint === "universal");
+  const reads = attempts.filter((c) => c.outcome === "ok");
   const searches = view.decodoCalls.filter(
     (c) => c.endpoint === "google_search",
   ).length;
   console.log(
-    `\nBudget used: ${budget.rounds} of ${budget.limits?.rounds ?? "?"} rounds, ${searches} searches, ${reads} page reads, ${budget.maps} of ${budget.limits?.mapsPerRun ?? "?"} maps.`,
+    `\nBudget used: ${budget.rounds} of ${budget.limits?.rounds ?? "?"} rounds, ${searches} searches, ${reads.length} page reads in ${attempts.length} read attempts, ${budget.maps} of ${budget.limits?.mapsPerRun ?? "?"} maps.`,
   );
+  for (const round of view.rounds) {
+    const inRound = (calls: typeof attempts) =>
+      calls.filter((c) => c.round === round.no).length;
+    console.log(
+      `  Round ${round.no}: ${inRound(reads)} of ${budget.limits?.readsPerRound ?? "?"} page reads in ${inRound(attempts)} of ${budget.limits?.readAttemptsPerRound ?? "?"} attempts`,
+    );
+  }
   console.log(
     `Verified claims: ${view.verified.length}. Dropped claims: ${view.dropped.length}.`,
   );
@@ -210,7 +311,7 @@ function printSummary(view: RunView): void {
   console.log(`Wall time: ${seconds(performance.now() - startedAt)}`);
 }
 
-const run = await startRun(parsed.data);
+const run = await startRun(parsed.data, ports);
 console.log(`Run ${run.runId}: ${parsed.data}`);
 
 let interrupts = 0;
@@ -235,4 +336,11 @@ try {
 }
 const view = await loadRun(run.runId);
 if (view) printSummary(view);
-process.exit(view?.status === "completed" ? 0 : 1);
+const exitCode = exitCodeOf(view?.status ?? null);
+console.log(
+  `Run ${run.runId}: ${view?.status ?? "not stored"}, exit code ${exitCode}`,
+);
+if (cli.args.json) {
+  console.log(summaryLine(run.runId, view, performance.now() - startedAt));
+}
+process.exit(exitCode);

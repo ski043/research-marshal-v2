@@ -7,20 +7,24 @@ const envSchema = z.object({
 });
 
 export type Env = z.infer<typeof envSchema>;
+export type EnvName = keyof Env;
 
-function parseEnv(): Env {
-  const result = envSchema.safeParse({
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-    DECODO_AUTH_TOKEN: process.env.DECODO_AUTH_TOKEN,
-    DATABASE_URL: process.env.DATABASE_URL,
-  });
-  if (!result.success) {
-    const missing = result.error.issues.map((issue) => issue.path.join("."));
+export const ENV_NAMES = Object.keys(envSchema.shape) as readonly EnvName[];
+
+export function readEnv<const K extends EnvName>(
+  names: readonly K[],
+): Pick<Env, K> {
+  const values = Object.fromEntries(
+    names.map((name) => [name, process.env[name]]),
+  );
+  const missing = names.filter(
+    (name) => !envSchema.shape[name].safeParse(values[name]).success,
+  );
+  if (missing.length > 0) {
     throw new Error(
-      `Missing or empty environment variables: ${missing.join(", ")}`,
+      `Missing or empty environment variables: ${missing.join(", ")}. ` +
+        "Run `pnpm bootstrap` to create .env.local, then `pnpm doctor:worktree` to see what is still missing.",
     );
   }
-  return result.data;
+  return values as Pick<Env, K>;
 }
-
-export const env = parseEnv();
