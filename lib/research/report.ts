@@ -686,7 +686,7 @@ function rewriteOf(
   });
   // Without its period a rewrite would run into the next sentence.
   const ended = (value: string) =>
-    /[.!?…"'”’)]$/.test(value.replace(PROTECTED, "").trimEnd());
+    /[.!?…]["'”’)\]]*$/.test(value.replace(PROTECTED, "").trimEnd());
   if (plain !== "" && ended(original) && !ended(plain)) plain += ".";
   return { text: plain, claims, unknown: removed };
 }
