@@ -279,7 +279,7 @@ describe("finalizeReport draft cleanup (#6)", () => {
     const result = finalizeReport(draft, verified);
     expect(problemsOf(result.markdown, ["https://www.a.org/page"])).toEqual([]);
     const body = result.markdown.split("\n\n## Sources")[0];
-    expect(body).not.toMatch(/\]\(|!\[|<[a-z]/i);
+    expect(body).not.toMatch(/(?<!\\)(?:\]\(|!\[|<[a-z])/i);
   });
 
   it.each(drafts)("is idempotent on %s", (_, draft) => {
@@ -314,7 +314,7 @@ describe("finalizeReport draft cleanup (#6)", () => {
       result.markdown.split("\n\n## Sources")[0] ?? "",
       "static",
     );
-    expect(textOf(html)).toBe(
+    expect(textOf(html).replaceAll("\u2060", "")).toBe(
       "Fact [^1]. <img src=x> costs 5 < 6 and see https://bare.example/y",
     );
   });
@@ -362,5 +362,29 @@ describe("noClaimsReport (R6)", () => {
       '- Round 1: "rayleigh", failed (timeout: 150 s)',
     );
     expect(markdown).not.toMatch(/\[\^\d+\]/);
+  });
+
+  it("writes searches, the question and the error as plain text", () => {
+    const base = view();
+    const hostileView: RunView = {
+      ...base,
+      question: Question.parse("Why <img src=x> [^1]?"),
+      error: { step: "extract", message: "![x](https://evil.example/e.png)" },
+      rounds: base.rounds.map((round) => ({
+        ...round,
+        searches: [
+          {
+            query: query("![q](https://evil.example/q.png)\n\n# Heading"),
+            outcome: { status: "ok", results: [] },
+          },
+        ],
+      })),
+    };
+    const markdown = noClaimsReport(hostileView);
+    expect(problemsOf(markdown, [])).toEqual([]);
+    expect(markdown).not.toMatch(/\[\^\d+\]/);
+    expect(textOf(renderReport(markdown, "static"))).toContain(
+      '"![q](https\u2060://evil.example/q.png) # Heading", no results',
+    );
   });
 });

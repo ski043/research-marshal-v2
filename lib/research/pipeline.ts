@@ -18,7 +18,7 @@ import {
 import { MalformedAnswer, type ModelSteps } from "./model-config";
 import { numberItems, pickByNumber } from "./numbered";
 import { QuotablePage } from "./quote-check";
-import { finalizeReport, noClaimsReport } from "./report";
+import { finalizeReport, liveReport, noClaimsReport } from "./report";
 import {
   candidatesOf,
   lastGap,
@@ -33,7 +33,6 @@ export const LIMITS = Object.freeze({
   claimsPerPage: 8,
   mapLinks: 100,
   mapPicks: 3,
-  reportDeltaChars: 80,
 });
 
 export type PipelineLog = {
@@ -334,7 +333,7 @@ async function report(deps: PipelineDeps, stoppedBy: StoppedBy): Promise<void> {
   }
 
   let draft = "";
-  let buffer = "";
+  const live = liveReport(verified);
   for await (const chunk of model.writeReport({
     question: log.view.question,
     stoppedBy,
@@ -343,13 +342,11 @@ async function report(deps: PipelineDeps, stoppedBy: StoppedBy): Promise<void> {
   })) {
     if (signal.aborted) throw new RunCancelled();
     draft += chunk;
-    buffer += chunk;
-    if (buffer.length >= LIMITS.reportDeltaChars) {
-      log.emit({ type: "report.delta", text: buffer });
-      buffer = "";
-    }
+    const text = live.push(chunk);
+    if (text !== "") log.emit({ type: "report.delta", text });
   }
-  if (buffer !== "") log.emit({ type: "report.delta", text: buffer });
+  const rest = live.end();
+  if (rest !== "") log.emit({ type: "report.delta", text: rest });
   const final = finalizeReport(draft, verified);
   log.emit({
     type: "report.finished",

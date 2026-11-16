@@ -429,18 +429,32 @@ describe("report deltas (U3, #6)", () => {
     expect(deltas.length).toBeGreaterThan(1);
     for (const text of [...deltas, deltas.join("")]) {
       expect(problemsOf(text, [])).toEqual([]);
-      expect(text).not.toMatch(/\]\(|!\[|<[a-z]|\[\^9\]/i);
+      expect(text).not.toMatch(/(?<!\\)(?:\]\(|!\[|<[a-z])|\[\^9\]/i);
     }
   });
 
-  it("streams the same text as the final report without its source list", async () => {
-    const draft =
-      "# Answer\n\nLFP lasts **long** [^1] and see [this](https://evil.example).\n\n## Detail\n\n- First [^2]\n- Second [^1, ^2]\n\n<b>End</b> [^2] [^7].";
-    const run = testRun({ model: writing(inPieces(draft, 7)) });
-    await runPipeline(run.deps);
+  it.each([
+    [
+      "a mixed draft",
+      "# Answer\n\nLFP lasts **long** [^1] and see [this](https://evil.example).\n\n## Detail\n\n- First [^2]\n- Second [^1, ^2]\n\n<b>End</b> [^2] [^7].",
+    ],
+    [
+      "a paragraph that runs into a list",
+      "Guidance varies:\n- One [^1]\n- Two [^2]\n\n## Next\nMore [^1].",
+    ],
+    [
+      "a list item that the cleanup drops",
+      '- One [^1]\n- <img src="https://evil.example/x.png">\n\nEnd [^1].',
+    ],
+  ])(
+    "streams the same text as the final report without its source list for %s",
+    async (_, draft) => {
+      const run = testRun({ model: writing(inPieces(draft, 7)) });
+      await runPipeline(run.deps);
 
-    expect(deltasOf(run.events).join("").trimEnd()).toBe(bodyOf(run.events));
-  });
+      expect(deltasOf(run.events).join("").trimEnd()).toBe(bodyOf(run.events));
+    },
+  );
 
   it("shows a finished paragraph before the model ends the report", async () => {
     const seen: unknown[] = [];
