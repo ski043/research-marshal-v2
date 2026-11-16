@@ -41,6 +41,18 @@ describe("finalizeReport", () => {
     expect(result.cited).toEqual([2]);
   });
 
+  it("drops a footnote definition with its continuation lines", () => {
+    const result = finalizeReport(
+      "Answer [^1].\n\n[^9]: An unverified explanation.\n    More of the same note.\n\n[^1]: A note for a known claim.\n\nThe end [^2].",
+      verified,
+    );
+    expect(result.markdown).not.toContain("unverified explanation");
+    expect(result.markdown).not.toContain("More of the same note");
+    expect(result.markdown).not.toContain("A note for a known claim");
+    expect(result.markdown).toContain("Answer [^1].");
+    expect(result.markdown).toContain("The end [^2].");
+  });
+
   it("expands group forms to one citation each", () => {
     const result = finalizeReport("Both [^1, ^2] and [^3,1].", verified);
     expect(result.markdown).toContain("Both [^1][^2] and [^3][^1].");
