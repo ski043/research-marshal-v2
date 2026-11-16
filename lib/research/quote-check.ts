@@ -21,19 +21,24 @@ const REFERENCE_MARK =
 const NOTE = String.raw`[*_]*(?:\^?\d{1,3}(?:[,\u2013-]\d{1,3})*|[a-z]|note \d{1,3})[*_]*`;
 const NOTE_TEXT = String.raw`\[(?:${NOTE}|\\\[${NOTE}\\\])\]`;
 const LINK_TITLE = String.raw`(?:\s+(?:"[^"]*"|'[^']*'))?`;
-// A link to another address with a fragment is a note only when it is glued to
-// the word before it, as in `effects[14](/articles/x#ref-CR14)`. After a space
-// it is part of the sentence, as in `Fig. [4](/articles/x#Fig4)`.
+// A note link touches the word before it, as in `fell.[43](#R43)` or
+// `effects[14](/articles/x#ref-CR14)`. After a space the linked text is part
+// of the sentence, as in `Fig. [4](#Fig4)`.
 const NOTE_LINK = new RegExp(
-  String.raw`\s*${NOTE_TEXT}\(#[^()\s]*${LINK_TITLE}\)|(?<=\S)${NOTE_TEXT}\([^()\s#]+#[^()\s]*${LINK_TITLE}\)`,
+  String.raw`(?<=\S)${NOTE_TEXT}\([^()\s#]*#[^()\s]*${LINK_TITLE}\)`,
   "g",
 );
-const COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
+// Comment syntax inside a code block or a code span is page text.
+const CODE_OR_COMMENT =
+  /(^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]*\2[^\n]*$|(?![\s\S]))|`[^`\n]+`)|<!--[\s\S]*?(?:-->|(?![\s\S]))/gm;
 const HTML_BLOCK =
   /<\/?(?:p|div|li|ul|ol|h[1-6]|table|thead|tbody|tr|td|th|blockquote|dd|dt)\b[^<>]*>/gi;
 const BLANK_LINE = /^[ \t]*(?:>[ \t]*)*$/;
 const HEADING_LINE = /^[ \t]*(?:>[ \t]*)*#{1,6}(?:[ \t]|$)/;
 const TABLE_ROW = /^[ \t]*(?:>[ \t]*)*\|/;
+const TABLE_SEPARATOR =
+  /^[ \t]*(?:>[ \t]*)*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*$/;
+const CELL_BREAK = /(?<!\\)\|/;
 const BULLET_ITEM = /^[ \t]*(?:>[ \t]*)*[-*+][ \t]+/;
 const NUMBERED_ITEM = /^[ \t]*(?:>[ \t]*)*(\d{1,9})[.)][ \t]+/;
 const LINE_PREFIX =
@@ -90,7 +95,10 @@ const htmlToText = (text: string) =>
       (entity) => ENTITIES[entity] ?? entity,
     );
 
-const dropComments = (text: string) => text.replace(COMMENT, "");
+const dropComments = (text: string) =>
+  text.replace(CODE_OR_COMMENT, (match, code?: string) =>
+    code === undefined ? "" : match,
+  );
 
 // A mark glued to the next word, as in `risk.[43](#R43)Drinking`, still
 // separates the two words.
@@ -127,7 +135,6 @@ const unifyTypography = (text: string) =>
 const collapseSpaces = (text: string) => text.replace(/ {2,}/g, " ").trim();
 
 const CANONICAL_STEPS = [
-  dropComments,
   foldLetterForms,
   htmlToText,
   dropNoteLinks,
@@ -144,7 +151,19 @@ export function canonical(text: string): string {
   return CANONICAL_STEPS.reduce((out, step) => step(out), text);
 }
 
-const cellsOf = (row: string) => row.split(/(?<!\\)\|/);
+const cellsOf = (row: string) => row.split(CELL_BREAK);
+
+// A table can leave out its outer pipes. Its separator row marks the header
+// row above it and the rows below it.
+function tableRowsOf(lines: readonly string[]): Set<number> {
+  const rows = new Set<number>();
+  for (const [i, line] of lines.entries()) {
+    if (!TABLE_SEPARATOR.test(line)) continue;
+    if (CELL_BREAK.test(lines[i - 1] ?? "")) rows.add(i - 1);
+    for (let k = i + 1; CELL_BREAK.test(lines[k] ?? ""); k += 1) rows.add(k);
+  }
+  return rows;
+}
 
 // A quote must sit inside one block: a paragraph, a heading, a list item or a
 // table cell.
@@ -157,14 +176,15 @@ function blocksOf(markdown: string): string[] {
     lines = [];
     inItem = false;
   };
-  const text = dropComments(markdown).replace(HTML_BLOCK, "\n\n");
-  for (const line of text.split("\n")) {
+  const all = dropComments(markdown).replace(HTML_BLOCK, "\n\n").split("\n");
+  const tableRows = tableRowsOf(all);
+  for (const [i, line] of all.entries()) {
     if (BLANK_LINE.test(line) || RULE_LINE.test(line)) {
       close();
     } else if (HEADING_LINE.test(line)) {
       close();
       blocks.push(line);
-    } else if (TABLE_ROW.test(line)) {
+    } else if (TABLE_ROW.test(line) || tableRows.has(i)) {
       close();
       blocks.push(...cellsOf(line));
     } else {

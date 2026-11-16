@@ -485,8 +485,7 @@ describe("canonical", () => {
       "globally.[3](#bib3)In the EU, it rose.[4](#bib4) Almost half",
       "globally. In the EU, it rose. Almost half",
     ],
-    ["The vaccine is <!-- not --> safe.", "The vaccine is safe."],
-  ])("drops footnote links and comments: %s", (text, expected) => {
+  ])("drops footnote links: %s", (text, expected) => {
     expect(canonical(text)).toBe(expected);
   });
 
