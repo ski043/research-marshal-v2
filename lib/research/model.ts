@@ -1,7 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { generateText, NoObjectGeneratedError, Output, streamText } from "ai";
 import { z } from "zod";
-import { FatalRunError, RunCancelled } from "./budget";
+import { BUDGET, FatalRunError, RunCancelled } from "./budget";
 import { type PlannedQuery, SourceLabel } from "./events";
 import {
   MalformedAnswer,
@@ -20,7 +20,9 @@ const PlanSchema = z.object({ queries: z.array(QuerySchema) });
 const SelectSchema = z.object({
   picks: z
     .array(z.number())
-    .describe("Result numbers worth reading, the most useful first."),
+    .describe(
+      `Up to ${BUDGET.readAttemptsPerRound} result numbers worth reading, the most useful first.`,
+    ),
   map: z
     .object({
       result: z
@@ -81,7 +83,7 @@ const SELECT = `You choose which search results are worth reading for a research
 Each result has a number. Answer with result numbers only, the most useful first.
 Prefer pages that likely state facts that answer the sub-questions: papers, official pages, reference works, and reputable news or organizations.
 Skip results that are videos, shops, login pages, or PDF files.
-Choose at most 8 results.`;
+Rank at most ${BUDGET.readAttemptsPerRound} results. The app reads them in your order until it has read ${BUDGET.readsPerRound} pages, and a page that it cannot read is replaced by the next one. So rank more than ${BUDGET.readsPerRound} results when more are worth reading.`;
 
 const SELECT_MAP = `If the answer needs one specific page of one site and no result is that page, set "map" to the number of a result from that site and describe the page you need in "need". The site's page list is then shown to you. Otherwise set "map" to null.`;
 

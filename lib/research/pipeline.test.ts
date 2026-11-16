@@ -172,6 +172,113 @@ describe("runPipeline", () => {
     expectBudgetHeld(run.events);
   });
 
+  it("reads 8 pages in a round where 5 of the first 8 reads fail (B7)", async () => {
+    const results = (query: string) =>
+      Array.from({ length: 20 }, (_, i) => ({
+        position: i + 1,
+        title: `${query} ${i + 1}`,
+        url: PageUrl.parse(`https://site-${i + 1}.org/${slug(query)}`),
+        snippet: "",
+      }));
+    const run = testRun({
+      model: {
+        plan: async () => [{ subQuestion: "a", query: "many" }],
+        select: async ({ candidates }) => ({
+          picks: candidates.map((c) => c.number),
+          map: null,
+        }),
+      },
+      web: {
+        search: async (query) => ({ status: "ok", results: results(query) }),
+        read: async (url) =>
+          /site-[1-5]\./.test(url)
+            ? {
+                status: "failed",
+                failure: { kind: "rejected", detail: "not scraped" },
+              }
+            : { status: "ok", markdown: PAGE_TEXT },
+      },
+    });
+    await runPipeline(run.deps);
+
+    const inRound1 = run.events.filter((e) => "round" in e && e.round === 1);
+    expect(inRound1.filter((e) => e.type === "page.read")).toHaveLength(8);
+    expect(inRound1.filter((e) => e.type === "page.failed")).toHaveLength(5);
+    expect(run.calls.read).toBe(13);
+    expectBudgetHeld(run.events);
+  });
+
+  it("gives every page that the run found one state: read, failed, or skipped with its reason (F1)", async () => {
+    const run = testRun({
+      model: {
+        plan: async () => [{ subQuestion: "a", query: "first" }],
+        select: async ({ candidates }) => ({
+          picks: candidates.slice(0, 12).map((c) => c.number),
+          map: null,
+        }),
+        checkGaps: async () => ({
+          answered: false,
+          missing: ["more"],
+          queries: [{ subQuestion: "b", query: "second" }],
+        }),
+      },
+      web: {
+        search: async (query) => ({
+          status: "ok",
+          results: Array.from({ length: 14 }, (_, i) => ({
+            position: i + 1,
+            title: `${query} ${i}`,
+            url: PageUrl.parse(
+              i % 8 === 0
+                ? `https://refused.gov/${query}/${i}`
+                : `https://site.org/${query}/${i}`,
+            ),
+            snippet: "",
+          })),
+        }),
+        read: async (url) =>
+          url.startsWith("https://refused.gov/")
+            ? {
+                status: "failed",
+                failure: {
+                  kind: "unsupported",
+                  detail: "Url is not supported.",
+                },
+              }
+            : { status: "ok", markdown: PAGE_TEXT },
+      },
+    });
+    await runPipeline(run.deps);
+
+    const found = new Set(
+      run.events.flatMap((e) =>
+        e.type === "search.finished" && e.outcome.status === "ok"
+          ? e.outcome.results.map((r) => r.url)
+          : [],
+      ),
+    );
+    const view = run.view();
+    expect(Object.keys(view.pages).sort()).toEqual([...found].sort());
+    const states = Object.values(view.pages).map((p) =>
+      p.state.kind === "skipped" ? `skipped:${p.state.reason}` : p.state.kind,
+    );
+    expect(new Set(states)).toEqual(
+      new Set([
+        "read",
+        "failed",
+        "skipped:site-refused",
+        "skipped:over-budget",
+        "skipped:not-chosen",
+      ]),
+    );
+    expect(
+      run
+        .view()
+        .decodoCalls.filter((c) => c.input.startsWith("https://refused.gov/")),
+    ).toHaveLength(1);
+    expectBudgetHeld(run.events);
+  });
+
   it("drops a changed quote on V1 without a support check, and an unsupported claim on V2 (F3)", async () => {
     const run = testRun({
       model: {
