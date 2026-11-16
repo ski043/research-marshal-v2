@@ -167,5 +167,5 @@ Run `history`, `citation`, `failures`, and `budget` before the two flows that st
 - A fake model records no `model.called` event. The Activity list then shows the time between two events as the duration of a model step. A live run shows the measured time.
 - Next.js keeps up to 3 earlier pages in the document, hidden. `document.querySelector` can return an element of a hidden page. In a step, use `$v(selector)` for the first match on screen and `$$v(selector)` for all of them.
 - One checkout runs one `next dev`. A second one stops with `Another next dev server is already running`. Use `ui.sh --prod` beside a running dev server, or stop the dev server first.
-- The server checks the two API keys when it starts, also on fakes. A missing key stops the server before any page loads.
+- On fakes the server starts without the two API keys. It needs only `DATABASE_URL`. The helper `ui.sh` still runs the doctor first, and the doctor wants both keys.
 - A run whose row says `running` and that no server process owns stays `running`. The Cancel button then answers that the run cannot be cancelled here. That is the stored state, not a defect of the UI.

@@ -22,10 +22,11 @@ import { createTempDatabase } from "./temp-db";
 import { expectBudgetHeld } from "./testing";
 
 const temp = createTempDatabase();
-// The store opens the database on import, so DATABASE_URL must be set first.
 vi.stubEnv("DATABASE_URL", temp.url);
 const research = await import("./index");
-const { db } = await import("@/lib/db");
+const { getDb } = await import("@/lib/db");
+// The client reads DATABASE_URL on first use, and the stub ends before the first test.
+const db = getDb();
 const { SCENARIOS, offlinePorts, offlineQuestion } = await import("./offline");
 const {
   countsOf,
@@ -154,7 +155,9 @@ describe("offline scenarios on the real store", () => {
       expect(record.summary.finishedAt).not.toBeNull();
       expect(record.events.at(-1)?.type).toBe("run.finished");
       expect(
-        await db.pageText.count({ where: { runId: record.summary.runId } }),
+        await db.pageText.count({
+          where: { runId: record.summary.runId },
+        }),
       ).toBe(countsOf(record.view).pagesRead);
       PROMISES[name]?.(record);
     });

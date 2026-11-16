@@ -201,8 +201,8 @@ describe("Decodo through the research adapter", () => {
 
 describe("SQLite through Prisma", () => {
   it("runs a raw query on the database file", async () => {
-    const { db } = await import("@/lib/db");
-    const rows = await db.$queryRaw<
+    const { getDb } = await import("@/lib/db");
+    const rows = await getDb().$queryRaw<
       { version: string }[]
     >`SELECT sqlite_version() AS version`;
 
@@ -211,6 +211,6 @@ describe("SQLite through Prisma", () => {
     );
     const file = path.resolve(env.DATABASE_URL.replace(/^file:/, ""));
     expect(existsSync(file), `the database file exists at ${file}`).toBe(true);
-    await db.$disconnect();
+    await getDb().$disconnect();
   });
 });

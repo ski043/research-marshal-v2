@@ -1,5 +1,5 @@
 import type { RunStatus } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import {
   ModelChoice,
   type PageUrl,
@@ -63,22 +63,22 @@ function summaryOf(row: {
 export function openStore(): Store {
   return {
     async createRun({ question, model }) {
-      const run = await db.run.create({ data: { question, model } });
+      const run = await getDb().run.create({ data: { question, model } });
       return RunId.parse(run.id);
     },
 
     async appendEvent(runId, event) {
       const { seq, at, ...body } = event;
-      const insert = db.runEvent.create({
+      const insert = getDb().runEvent.create({
         data: { runId, seq, at: new Date(at), data: body },
       });
       if (event.type !== "run.finished") {
         await insert;
         return;
       }
-      await db.$transaction([
+      await getDb().$transaction([
         insert,
-        db.run.update({
+        getDb().run.update({
           where: { id: runId },
           data: {
             status: STATUS_OF_END[event.end.status],
@@ -89,7 +89,7 @@ export function openStore(): Store {
     },
 
     async readEvents(runId, afterSeq) {
-      const rows = await db.runEvent.findMany({
+      const rows = await getDb().runEvent.findMany({
         where: { runId, seq: { gt: afterSeq } },
         orderBy: { seq: "asc" },
       });
@@ -103,16 +103,18 @@ export function openStore(): Store {
     },
 
     async savePageText(runId, url, markdown) {
-      await db.pageText.create({ data: { runId, url, markdown } });
+      await getDb().pageText.create({ data: { runId, url, markdown } });
     },
 
     async readRun(runId) {
-      const row = await db.run.findUnique({ where: { id: runId } });
+      const row = await getDb().run.findUnique({ where: { id: runId } });
       return row ? summaryOf(row) : null;
     },
 
     async listRuns() {
-      const rows = await db.run.findMany({ orderBy: { createdAt: "desc" } });
+      const rows = await getDb().run.findMany({
+        orderBy: { createdAt: "desc" },
+      });
       return rows.map(summaryOf);
     },
   };
