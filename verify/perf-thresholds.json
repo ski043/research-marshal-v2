@@ -1,6 +1,10 @@
 {
   "run": {
-    "wallMsByRounds": { "1": 180000, "2": 180000, "3": 270000 },
+    "wallMsByRounds": {
+      "1": 180000,
+      "2": 180000,
+      "3": 270000
+    },
     "readParallelismMin": 1.8,
     "readParallelismMinPages": 4,
     "modelStepMsMax": {
@@ -9,5 +13,20 @@
       "gapCheck": 10000,
       "report": 15000
     }
+  },
+  "bundle": {
+    "marginPercent": 1,
+    "routes": {
+      "/": 458728,
+      "/_not-found": 458728
+    }
+  },
+  "pipelineShape": {
+    "delayMs": 100,
+    "queries": 4,
+    "pages": 8,
+    "claimsPerPage": 3,
+    "samples": 5,
+    "wallDelaysMax": 9
   }
 }
