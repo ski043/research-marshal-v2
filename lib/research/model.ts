@@ -1,8 +1,23 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { generateText, NoObjectGeneratedError, Output, streamText } from "ai";
+import {
+  type FinishReason,
+  generateText,
+  type LanguageModelUsage,
+  NoObjectGeneratedError,
+  Output,
+  streamText,
+} from "ai";
 import { z } from "zod";
 import { BUDGET, FatalRunError, RunCancelled } from "./budget";
-import { type PlannedQuery, SentenceVerdict, SourceLabel } from "./events";
+import {
+  type ModelCall,
+  type ModelCallOutcome,
+  type ModelStep,
+  type ModelTokens,
+  type PlannedQuery,
+  SentenceVerdict,
+  SourceLabel,
+} from "./events";
 import {
   MalformedAnswer,
   MODEL_CONFIG,
@@ -222,19 +237,61 @@ function messageOf(error: unknown): string {
 
 const MAX_OPEN_MODEL_CALLS = 6;
 
-function semaphore(limit: number) {
+type CallEnd = {
+  outcome: ModelCallOutcome;
+  usage?: LanguageModelUsage | undefined;
+};
+
+function tokensOf(usage: LanguageModelUsage | undefined): ModelTokens {
+  return {
+    input: usage?.inputTokens ?? null,
+    output: usage?.outputTokens ?? null,
+    reasoning: usage?.outputTokenDetails?.reasoningTokens ?? null,
+    cacheRead: usage?.inputTokenDetails?.cacheReadTokens ?? null,
+    cacheWrite: usage?.inputTokenDetails?.cacheWriteTokens ?? null,
+  };
+}
+
+// Every model call holds a slot from its start to its end, so the slots both limit the
+// open calls and record each call. A step cannot call the model without one.
+function modelSlots(deps: {
+  limit: number;
+  now: () => number;
+  record: (call: ModelCall) => void;
+}) {
   let open = 0;
   const waiting: (() => void)[] = [];
-  return async <T>(task: () => Promise<T>): Promise<T> => {
-    if (open >= limit) await new Promise<void>((r) => waiting.push(r));
-    open += 1;
-    try {
-      return await task();
-    } finally {
-      open -= 1;
-      waiting.shift()?.();
-    }
+  const release = () => {
+    const next = waiting.shift();
+    if (next) next();
+    else open -= 1;
   };
+  return async (step: ModelStep): Promise<(end: CallEnd) => void> => {
+    const requested = deps.now();
+    if (open < deps.limit) open += 1;
+    else await new Promise<void>((resolve) => waiting.push(resolve));
+    const started = deps.now();
+    let closed = false;
+    return (end) => {
+      if (closed) return;
+      closed = true;
+      release();
+      deps.record({
+        type: "model.called",
+        step,
+        outcome: end.outcome,
+        queuedMs: Math.round(started - requested),
+        durationMs: Math.round(deps.now() - started),
+        tokens: tokensOf(end.usage),
+      });
+    };
+  };
+}
+
+function finishOf(reason: FinishReason): ModelCallOutcome {
+  if (reason === "length") return "truncated";
+  if (reason === "content-filter" || reason === "error") return "failed";
+  return "ok";
 }
 
 const bullets = (items: readonly string[]) =>
@@ -327,9 +384,30 @@ function hitLimit(step: keyof ModelSteps): string {
 export function createModelSteps(deps: {
   apiKey: string;
   signal: AbortSignal;
+  record: (call: ModelCall) => void;
+  now?: () => number;
 }): ModelSteps {
   const anthropic = createAnthropic({ apiKey: deps.apiKey });
-  const limit = semaphore(MAX_OPEN_MODEL_CALLS);
+  const slot = modelSlots({
+    limit: MAX_OPEN_MODEL_CALLS,
+    now: deps.now ?? (() => performance.now()),
+    record: deps.record,
+  });
+
+  const endOf = (error: unknown): CallEnd => {
+    const answered = NoObjectGeneratedError.isInstance(error);
+    if (deps.signal.aborted) {
+      return {
+        outcome: "cancelled",
+        usage: answered ? error.usage : undefined,
+      };
+    }
+    if (!answered) return { outcome: "failed" };
+    return {
+      outcome: error.finishReason === "length" ? "truncated" : "failed",
+      usage: error.usage,
+    };
+  };
 
   async function structured<K extends keyof ModelSteps, T>(
     step: K,
@@ -338,23 +416,24 @@ export function createModelSteps(deps: {
   ): Promise<T> {
     const config = MODEL_CONFIG[step];
     const { instructions, prompt } = PROMPTS[step](input);
+    const close = await slot(step);
     try {
-      const result = await limit(() =>
-        generateText({
-          model: anthropic(config.model),
-          providerOptions: { anthropic: { effort: config.effort } },
-          maxOutputTokens: config.maxOutputTokens,
-          abortSignal: deps.signal,
-          output: Output.object({ schema }),
-          instructions,
-          prompt,
-        }),
-      );
+      const result = await generateText({
+        model: anthropic(config.model),
+        providerOptions: { anthropic: { effort: config.effort } },
+        maxOutputTokens: config.maxOutputTokens,
+        abortSignal: deps.signal,
+        output: Output.object({ schema }),
+        instructions,
+        prompt,
+      });
+      close({ outcome: finishOf(result.finishReason), usage: result.usage });
       if (result.finishReason === "content-filter") {
         throw new FatalRunError(step, "the model refused the request");
       }
       return result.output;
     } catch (error) {
+      close(endOf(error));
       if (deps.signal.aborted) throw new RunCancelled();
       if (error instanceof FatalRunError) throw error;
       const truncated =
@@ -422,6 +501,9 @@ export function createModelSteps(deps: {
 
     async *writeReport(brief) {
       const config = MODEL_CONFIG.writeReport;
+      const close = await slot("writeReport");
+      // What a stream records when it ends without a finish part.
+      let end: CallEnd = { outcome: "failed" };
       const result = streamText({
         model: anthropic(config.model),
         providerOptions: { anthropic: { effort: config.effort } },
@@ -435,6 +517,10 @@ export function createModelSteps(deps: {
           else if (part.type === "error") throw part.error;
           else if (part.type === "abort") throw new RunCancelled();
           else if (part.type === "finish") {
+            end = {
+              outcome: finishOf(part.finishReason),
+              usage: part.totalUsage,
+            };
             if (part.finishReason === "content-filter") {
               throw new FatalRunError(
                 "writeReport",
@@ -450,6 +536,8 @@ export function createModelSteps(deps: {
         if (deps.signal.aborted) throw new RunCancelled();
         if (error instanceof FatalRunError) throw error;
         throw new FatalRunError("writeReport", messageOf(error));
+      } finally {
+        close(deps.signal.aborted ? { ...end, outcome: "cancelled" } : end);
       }
     },
   };
