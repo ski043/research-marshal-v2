@@ -64,7 +64,8 @@ export function parseReport(markdown: string): ParsedReport {
     sources.push({
       line,
       title: (m[1] ?? "").replace(/\\(.)/g, "$1").trim(),
-      url: m[2] ?? "",
+      // The app escapes a parenthesis in a link destination.
+      url: (m[2] ?? "").replace(/\\([!-/:-@[-`{-~])/g, "$1"),
       domain: (m[3] ?? "").trim(),
       label: (m[4] ?? "").trim(),
       marks: numbersIn(m[5] ?? ""),
