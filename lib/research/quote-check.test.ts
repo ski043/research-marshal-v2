@@ -247,6 +247,42 @@ const rows: Row[] = [
     NOT_ON_PAGE,
   ],
   [
+    "a linked one-letter word",
+    "Choose [a](#option-a) candidate.",
+    "Choose candidate.",
+    NOT_ON_PAGE,
+  ],
+  [
+    "a linked table number after a space",
+    "The rates are in Table [2](#tbl2) below.",
+    "The rates are in Table 2 below.",
+    FOUND,
+  ],
+  [
+    "two cells of a table without outer pipes",
+    "Drug | Verdict\n--- | ---\nAspirin | Safe",
+    "Aspirin Safe",
+    NOT_ON_PAGE,
+  ],
+  [
+    "one cell of a table without outer pipes",
+    "Drug | Verdict\n--- | ---\nAspirin | Safe for most adults",
+    "Safe for most adults",
+    FOUND,
+  ],
+  [
+    "a sentence after a code block that shows an open comment",
+    "```html\n<!-- example\n```\n\nThe treatment reduced symptoms.",
+    "The treatment reduced symptoms.",
+    FOUND,
+  ],
+  [
+    "a sentence after inline code that shows an open comment",
+    "Write `<!--` to open a comment.\n\nThe treatment reduced symptoms.",
+    "The treatment reduced symptoms.",
+    FOUND,
+  ],
+  [
     "a footnote link of two notes glued to the next sentence",
     "Risk rose with heavy drinking.[5,10](#bib5)No study showed a benefit.",
     "No study showed a benefit.",
