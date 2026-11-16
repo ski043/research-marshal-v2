@@ -91,7 +91,7 @@ Name the feature ID from the map and the evidence folder in your report.
 
 ## Cleanup
 
-The helpers delete their scratch database when they exit. They start no process that outlives them. `cancel-run.sh` signals only the `node` process of the run that it started. A helper that receives SIGINT or SIGTERM interrupts its own run first, and `prove.sh` still exports the stopped run.
+The helpers delete their scratch database when they exit. They start no process that outlives them. `cancel-run.sh` signals only the `node` process of the run that it started. To stop a helper from outside, send it SIGTERM. It interrupts its own run first, and `prove.sh` still exports the stopped run. Ctrl-C in a terminal reaches the run directly.
 
 - Never stop a process by name. Stop only a PID that you started.
 - Never delete `.verify/`. It holds the evidence of every proof.

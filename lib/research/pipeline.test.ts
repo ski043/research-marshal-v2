@@ -844,6 +844,7 @@ describe("citation check (R3, R4, #7)", () => {
       "A study by John F. Kennedy School found gains [^1].",
     ],
     ["a number abbreviation", "Model No. 5 lasts long [^1]."],
+    ["an initial that opens the sentence", "J. Smith found gains [^1]."],
   ])("keeps %s inside one sentence", async (_, draft) => {
     const { run } = await runWith(writing(draft));
     expect(run.calls.classifySentences).toBe(0);

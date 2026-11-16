@@ -39,8 +39,11 @@ cd "$root" || exit 1
 evidence=$(new_evidence_dir "$root" "$slug") || exit 1
 db="$evidence/run.db"
 trap 'rm -f "$db" "$db-journal" "$db-wal" "$db-shm"' EXIT
-# A signal to this helper does not reach the run. Stop the run, then leave.
-trap 'interrupt_runs; wait; exit 130' INT TERM
+# SIGTERM to this helper does not reach the run, so pass it on as an
+# interrupt. Ctrl-C in a terminal reaches the run by itself, and a second
+# interrupt would make the run quit before it stores its cancel.
+trap 'interrupt_runs; wait; exit 130' TERM
+trap 'wait; exit 130' INT
 
 export DATABASE_URL="file:$db"
 pnpm -s db:migrate >"$evidence/migrate.log" 2>&1 || {

@@ -49,9 +49,12 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
-# A signal to this helper does not reach the run. Pass it on, then go on to
-# the export, so the evidence of the stopped run is kept.
-trap interrupt_runs INT TERM
+# SIGTERM to this helper does not reach the run, so pass it on as an
+# interrupt. Ctrl-C in a terminal reaches the run by itself, and a second
+# interrupt would make the run quit before it stores its cancel. Either way
+# the helper goes on to the export, so the evidence of the stopped run is kept.
+trap interrupt_runs TERM
+trap : INT
 
 if ! node scripts/doctor.mjs --json >"$evidence/doctor.json" 2>"$evidence/doctor.err"; then
   node scripts/doctor.mjs

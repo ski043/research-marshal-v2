@@ -63,7 +63,7 @@ function goesOn(before: string, next: string): boolean {
   return (
     ABBREVIATION.test(before) ||
     (NUMBER_ABBREVIATION.test(before) && /^\s*\d/.test(next)) ||
-    (INITIAL.test(before) && before.trim().length > 2)
+    INITIAL.test(before)
   );
 }
 const PROTECTED = /\uE000(\d+)\uE001/g;
