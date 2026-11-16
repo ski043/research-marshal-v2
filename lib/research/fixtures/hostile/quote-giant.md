@@ -1,0 +1,5 @@
+# LFP battery lifespan
+
+LFP cells last about 3,000 cycles in a typical home storage system, when the depth of discharge stays near 80 percent, when the cell temperature stays between 15 and 30 degrees Celsius, when the charge rate stays below half the rated capacity per hour, when the battery management system balances the cells after every charge, when the installer follows the torque values for every busbar, when the inverter firmware limits the float voltage, when the owner avoids storing the pack at a full charge for months, when the enclosure keeps out dust, water, and direct sunlight, when the wiring uses the cable sizes that the manual names, when the fuses match the continuous current of the pack, when the cells come from one production batch, when the pack never charges below the freezing point, when the monitoring software reports every cell voltage, when the warranty terms are registered within thirty days, and when the system receives a yearly inspection by a trained technician, which this page recommends for every owner who wants the full rated life.
+
+Heat shortens the life of LFP cells.
