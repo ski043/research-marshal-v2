@@ -49,7 +49,23 @@ const LIST_ITEM_START = /^(?:[-*+]|\d{1,9}[.)])[ \t]/;
 const SENTENCES = new Intl.Segmenter("en", { granularity: "sentence" });
 // Intl.Segmenter ends a sentence after these words when a capital follows.
 const ABBREVIATION =
-  /(?:^|[\s(])(?:e\.g|i\.e|cf|vs|approx|ca|Dr|Mr|Mrs|Ms|Prof|St|Fig|Figs|Eq|No|Nos|Vol|pp|al|[A-Z])\.$/;
+  /(?:^|[\s(])(?:e\.g|i\.e|cf|vs|approx|ca|Dr|Mr|Mrs|Ms|Prof|St|Fig|Figs|Eq|Vol|pp|al)\.$/;
+// `No. 5` goes on, but `No.` alone is an answer.
+const NUMBER_ABBREVIATION = /(?:^|[\s(])Nos?\.$/;
+// An initial stands at the start, after a name, after another initial, or
+// after a word that introduces a name, as in `John F. Kennedy` and
+// `by J. Smith`. After any other lowercase word, as in `vitamin D.`, the
+// capital ends the sentence.
+const INITIAL =
+  /(?:^|\(|[,;]\s|\b(?:by|and|of|from|with|to|see|per)\s|\p{Lu}[\p{L}'’-]*\s|\p{Lu}\.\s?)\p{Lu}\.$/u;
+
+function goesOn(before: string, next: string): boolean {
+  return (
+    ABBREVIATION.test(before) ||
+    (NUMBER_ABBREVIATION.test(before) && /^\s*\d/.test(next)) ||
+    (INITIAL.test(before) && before.trim().length > 2)
+  );
+}
 const PROTECTED = /\uE000(\d+)\uE001/g;
 const LEADING_MARKS = /^\s*(?:\uE000\d+\uE001\s*)+/;
 const ONLY_MARKS = /^\s*(?:\uE000\d+\uE001\s*)*$/;
@@ -251,7 +267,7 @@ function sentenceSpans(text: string): Span[] {
     const end = index + segment.length;
     if (
       last &&
-      (ABBREVIATION.test(text.slice(last.start, last.end).trimEnd()) ||
+      (goesOn(text.slice(last.start, last.end).trimEnd(), segment) ||
         /^\s*[a-z]/.test(segment) ||
         ONLY_MARKS.test(segment))
     ) {
@@ -299,6 +315,14 @@ type Located = {
 
 function locate(children: readonly BlockContent[]): Located[] {
   const first = children.find((block) => block.type !== "heading");
+  // The direct answer can be the first item of a list.
+  const opening = new Set(
+    first?.type === "list"
+      ? paragraphsIn(first.children[0]?.children ?? [])
+      : first?.type === "paragraph"
+        ? [first]
+        : [],
+  );
   return paragraphsIn(children).flatMap((paragraph) => {
     const flat = flatText(paragraph.children);
     return sentenceSpans(flat).map((span) => {
@@ -309,7 +333,7 @@ function locate(children: readonly BlockContent[]): Located[] {
         span,
         text: raw.replace(PROTECTED, "[^$1]").trim(),
         citations: [...raw.matchAll(PROTECTED)].map((m) => Number(m[1])),
-        opening: paragraph === first,
+        opening: opening.has(paragraph),
       };
     });
   });
