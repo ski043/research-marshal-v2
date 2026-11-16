@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import { problemsOf } from "../../scripts/report-render-check";
 import { FatalRunError, type ReadOutcome } from "./budget";
 import {
   type BudgetEvent,
@@ -390,5 +391,85 @@ describe("runPipeline", () => {
     expectTypeOf<
       Extract<Emittable, BudgetEvent["type"] | "run.finished">
     >().toBeNever();
+  });
+});
+
+describe("report deltas (U3, #6)", () => {
+  const deltasOf = (events: readonly RunEvent[]) =>
+    events.flatMap((e) => (e.type === "report.delta" ? [e.text] : []));
+  const bodyOf = (events: readonly RunEvent[]) => {
+    const finished = events.find((e) => e.type === "report.finished");
+    if (finished?.type !== "report.finished") throw new Error("no report");
+    return finished.markdown.split("\n\n## Sources")[0];
+  };
+  const writing = (chunks: readonly string[]) => ({
+    writeReport: async function* () {
+      yield* chunks;
+    },
+  });
+  const inPieces = (text: string, size: number) =>
+    Array.from({ length: Math.ceil(text.length / size) }, (_, i) =>
+      text.slice(i * size, (i + 1) * size),
+    );
+
+  it("stores no image, HTML or link, even when a construct spans two chunks", async () => {
+    const run = testRun({
+      model: writing([
+        "# Answer\n\nSee ![x](https://evil.ex",
+        "ample/s.png) and [a](https:",
+        "//evil.example/l) [^1].\n",
+        '\n<img src="https://evil.example/d.png"> <https://evil.',
+        "example/c>\n\n- One [^2]\n- Two ![y][r]\n\n[r]: https://evil.exam",
+        "ple/r.png\n\nEnd [^9] www.evil.example.",
+      ]),
+    });
+    await runPipeline(run.deps);
+
+    const deltas = deltasOf(run.events);
+    expect(deltas.length).toBeGreaterThan(1);
+    for (const text of [...deltas, deltas.join("")]) {
+      expect(problemsOf(text, [])).toEqual([]);
+      expect(text).not.toMatch(/\]\(|!\[|<[a-z]|\[\^9\]/i);
+    }
+  });
+
+  it("streams the same text as the final report without its source list", async () => {
+    const draft =
+      "# Answer\n\nLFP lasts **long** [^1] and see [this](https://evil.example).\n\n## Detail\n\n- First [^2]\n- Second [^1, ^2]\n\n<b>End</b> [^2] [^7].";
+    const run = testRun({ model: writing(inPieces(draft, 7)) });
+    await runPipeline(run.deps);
+
+    expect(deltasOf(run.events).join("").trimEnd()).toBe(bodyOf(run.events));
+  });
+
+  it("shows a finished paragraph before the model ends the report", async () => {
+    const seen: unknown[] = [];
+    const run = testRun({
+      model: {
+        writeReport: async function* () {
+          yield "First [^1].\n\n";
+          seen.push(run.view().report);
+          yield "Second [^1].";
+        },
+      },
+    });
+    await runPipeline(run.deps);
+
+    expect(seen).toEqual([{ kind: "draft", markdown: "First [^1].\n\n" }]);
+    expect(deltasOf(run.events)).toEqual(["First [^1].\n\n", "Second [^1].\n"]);
+  });
+
+  it("does not stream a source section that the model wrote", async () => {
+    const run = testRun({
+      model: writing([
+        "Answer [^1].\n\n## Sources\n\n- [Fake](https://fake.example) [^1]\n",
+      ]),
+    });
+    await runPipeline(run.deps);
+
+    const live = deltasOf(run.events).join("");
+    expect(live).not.toContain("Sources");
+    expect(live).not.toContain("fake.example");
+    expect(live.trimEnd()).toBe(bodyOf(run.events));
   });
 });
