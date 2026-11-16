@@ -183,6 +183,7 @@ export function meterWeb(deps: {
     onRead: (item: T, outcome: ReadOutcome) => Promise<void>,
   ): Promise<void> {
     const tasks: Promise<void>[] = [];
+    const errors: unknown[] = [];
     const skipped: SkippedRead[] = [];
     let next = 0;
     let stopped = false;
@@ -261,17 +262,21 @@ export function meterWeb(deps: {
         if (isRefused(item.url)) {
           skipped.push({ url: item.url, reason: "site-refused" });
         } else {
-          tasks.push(readOne(item));
+          // Every task gets its handler at once. A page can fail while an
+          // earlier page is still open, and Node ends the process on a
+          // rejection that nothing handles.
+          tasks.push(
+            readOne(item).catch((error: unknown) => {
+              errors.push(error);
+            }),
+          );
         }
       }
     }
 
     fill();
-    const errors: unknown[] = [];
     // A settling read can push the read that replaces it, so the list grows.
-    for (let i = 0; i < tasks.length; i += 1) {
-      await tasks[i]?.catch((error: unknown) => errors.push(error));
-    }
+    for (let i = 0; i < tasks.length; i += 1) await tasks[i];
     if (errors.length > 0) throw errors[0];
     for (const item of queue.slice(next)) {
       skipped.push({
