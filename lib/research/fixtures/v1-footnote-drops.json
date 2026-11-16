@@ -1,0 +1,44 @@
+[
+  {
+    "name": "ahajournals: the quote ends before a glued footnote link",
+    "url": "https://www.ahajournals.org/doi/10.1161/CIR.0000000000001341",
+    "page": "This analysis revealed no statistically significant associations within the included MR studies.[43](#R43) These authors concluded that “data pooled from cohort and case-control studies showed weak association between average levels of alcohol consumption (≤50 g/day) and reduced CAD risk relative to no alcohol intake, while data pooled from MR studies showed no association between genetically predicted alcohol consumption and CAD risk.”[43](#R43)Drinking patterns, in particular binge and heavy episodic drinking, may modify the relationship between alcohol consumption and CAD risk. For example, moderate drinkers (<30 g/day) without a history of heavy drinking occasions had a pooled relative risk for CAD incidence of 0.64 (95% CI, 0.53–0.71) compared with lifetime abstainers.",
+    "quote": "These authors concluded that “data pooled from cohort and case-control studies showed weak association between average levels of alcohol consumption (≤50 g/day) and reduced CAD risk relative to no alcohol intake, while data pooled from MR studies showed no association between genetically predicted alcohol consumption and CAD risk.”"
+  },
+  {
+    "name": "ahajournals: the quote starts after a glued footnote link and holds one",
+    "url": "https://www.ahajournals.org/doi/10.1161/CIR.0000000000001341",
+    "page": "However, the consumption of ≥3 drinks has shown a biphasic effect on BP in which levels are decreased up to 12 hours after consumption and increased for 12 to 24 hours after consumption (systolic BP \\[SBP\\] increase, 3.7 mm Hg \\[95% CI, 2.3–5.1\\]).[37](#R37)A meta-analysis of 36 RCTs evaluating different levels of alcohol use in short- to medium-term crossover and parallel-group designs (2865 participants with and without hypertension) showed that consumption of <2 drinks/day compared with no alcohol use was not associated with a significant change in BP.[38](#R38) However, drinking ≥3 drinks/day resulted in significantly higher (increasing with higher alcohol consumption) SBP and diastolic BP (DBP) compared with no or less drinking. In participants who consumed ≥6 drinks/day and reduced their intake on average by ≈50%, strong reductions in SBP and DBP were observed (mean SBP and DBP differences, −5.5 mm Hg \\[95% CI, −6.70 to −4.30\\] and −3.97 mm Hg \\[95% CI, −4.70 to −3.25\\], respectively). These observational findings demonstrate the benefit of abstinence or a significant reduction in alcohol intake on increased BP.",
+    "quote": "A meta-analysis of 36 RCTs evaluating different levels of alcohol use in short- to medium-term crossover and parallel-group designs (2865 participants with and without hypertension) showed that consumption of <2 drinks/day compared with no alcohol use was not associated with a significant change in BP.[38](#R38) However, drinking ≥3 drinks/day resulted in significantly higher (increasing with higher alcohol consumption) SBP and diastolic BP (DBP) compared with no or less drinking."
+  },
+  {
+    "name": "thelancet: the quote starts after a glued footnote link",
+    "url": "https://www.thelancet.com/journals/lanpub/article/PIIS2468-2667(22)00317-6/fulltext",
+    "page": "Disadvantaged and vulnerable populations have increased rates of alcohol-related death and hospitalisation.[1](#bib1)Alcohol, as classified by the International Agency for Research on Cancer, is a toxic, psychoactive, and dependence-producing substance and a Group 1 carcinogen that is causally linked to seven types of cancer, including oesophagus, liver, colorectal, and breast cancers.[2](#bib2) Alcohol consumptions is associated with 740 000 new cancer cases each year globally.",
+    "quote": "Alcohol, as classified by the International Agency for Research on Cancer, is a toxic, psychoactive, and dependence-producing substance and a Group 1 carcinogen that is causally linked to seven types of cancer, including oesophagus, liver, colorectal, and breast cancers."
+  },
+  {
+    "name": "thelancet: the quote ends with a footnote link",
+    "url": "https://www.thelancet.com/journals/lanpub/article/PIIS2468-2667(22)00317-6/fulltext",
+    "page": "Alcohol consumptions is associated with 740 000 new cancer cases each year globally.[3](#bib3)In the EU, light to moderate alcohol consumption (<20 g of pure alcohol per day, which is equivalent to consumption of approximately <1·5 L of wine \\[12% alcohol by volume; ABV\\], <3·5 L of beer \\[5% ABV\\], or <450 mL of spirits \\[40% ABV\\] per week) was associated with almost 23 000 new cancer cases in 2017, accounting for 13·3% of all alcohol-attributable cancers and for 2·3% of all cases of the seven alcohol-related cancer types.[4](#bib4) Almost half of these cancers (approximately 11 000 cases) were female breast cancers. Also, more than a third of the cancer cases attributed to light to moderate drinking (approximately 8500 cases) were associated with a light drinking level (<10 g per day).[4](#bib4)Increasing levels of alcohol use are associated with increasing levels of risk of illness and mortality,[5,6](#bib5) leading to the question of whether a safe level of alcohol consumption that is associated with zero risk of health consequences can be defined.",
+    "quote": "In the EU, light to moderate alcohol consumption (<20 g of pure alcohol per day, which is equivalent to consumption of approximately <1·5 L of wine \\[12% alcohol by volume; ABV\\], <3·5 L of beer \\[5% ABV\\], or <450 mL of spirits \\[40% ABV\\] per week) was associated with almost 23 000 new cancer cases in 2017, accounting for 13·3% of all alcohol-attributable cancers and for 2·3% of all cases of the seven alcohol-related cancer types.[4](#bib4)"
+  },
+  {
+    "name": "thelancet: the quote ends with a footnote link of two notes",
+    "url": "https://www.thelancet.com/journals/lanpub/article/PIIS2468-2667(22)00317-6/fulltext",
+    "page": "Some studies show the existence of such effects on certain types of cardiovascular diseases in middle-aged and older people.[9](#bib9) However, several reviews also found that the protective effects of moderate consumption disappear with heavy episodic drinking, which increases the risk of any cardiovascular diseases.[5,10](#bib5)No studies have shown that the potential existence of a protective effect for cardiovascular diseases or type 2 diabetes also reduces the risk of cancer for an individual consumer. Evidence does not indicate the existence of a particular threshold at which the carcinogenic effects of alcohol start to manifest in the human body.",
+    "quote": "However, several reviews also found that the protective effects of moderate consumption disappear with heavy episodic drinking, which increases the risk of any cardiovascular diseases.[5,10](#bib5)"
+  },
+  {
+    "name": "thelancet: the quote starts after a glued footnote link of two notes",
+    "url": "https://www.thelancet.com/journals/lanpub/article/PIIS2468-2667(22)00317-6/fulltext",
+    "page": "However, several reviews also found that the protective effects of moderate consumption disappear with heavy episodic drinking, which increases the risk of any cardiovascular diseases.[5,10](#bib5)No studies have shown that the potential existence of a protective effect for cardiovascular diseases or type 2 diabetes also reduces the risk of cancer for an individual consumer. Evidence does not indicate the existence of a particular threshold at which the carcinogenic effects of alcohol start to manifest in the human body. As such, no safe amount of alcohol consumption for cancers and health can be established.",
+    "quote": "No studies have shown that the potential existence of a protective effect for cardiovascular diseases or type 2 diabetes also reduces the risk of cancer for an individual consumer."
+  },
+  {
+    "name": "bmcr: the quote ends before a bare note digit",
+    "url": "https://bmcr.brynmawr.edu/2019/2019.10.21/",
+    "page": "Whether scholarship makes it into the text, is tucked away in the notes or omitted, seems to depend on whether it fits the book’s thesis. Harper engages almost exclusively with scholarship that allows him to implicate dramatic environmental change into the course of late antiquity.1\n\nA few examples. The Antonine Plague is hotly debated.",
+    "quote": "Harper engages almost exclusively with scholarship that allows him to implicate dramatic environmental change into the course of late antiquity."
+  }
+]
