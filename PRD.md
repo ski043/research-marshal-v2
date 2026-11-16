@@ -68,6 +68,7 @@ Version 1 succeeds when all six criteria hold.
 - **B4.** The run stops before the third round when the verified claims answer the question.
 - **B5.** When the budget ends, the app writes the report with the verified claims that it has.
 - **B6.** The limits are fixed. The user cannot change them.
+- **B7.** A page that the app could not read is not a page read. Only a page that the app read counts toward the 8 page reads of a round. When a read fails, the run reads the next selected page. A round has at most 16 read attempts. When the web data service refuses one page of a site as unsupported, the run tries no other page of that site. The run shows those pages as skipped, with the reason.
 
 ### Visible failures
 
