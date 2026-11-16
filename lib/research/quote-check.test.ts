@@ -247,6 +247,18 @@ const rows: Row[] = [
     NOT_ON_PAGE,
   ],
   [
+    "a note link of two notes that the quote keeps as a mark",
+    "The effect is small[5,10](#bib5) in adults.",
+    "The effect is small[5,10] in adults.",
+    FOUND,
+  ],
+  [
+    "a mark of a range of notes on the page",
+    "The effect is small [5\u201310] in adults.",
+    "The effect is small in adults.",
+    FOUND,
+  ],
+  [
     "a linked one-letter word",
     "Choose [a](#option-a) candidate.",
     "Choose candidate.",
