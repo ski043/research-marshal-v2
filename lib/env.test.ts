@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ENV_NAMES, readEnv, readFakesPace } from "@/lib/env";
+import { ENV_NAMES, readEnv, readFakesPace, requireStartEnv } from "@/lib/env";
 
 function stubAll(
   values: Record<(typeof ENV_NAMES)[number], string | undefined>,
@@ -112,5 +112,39 @@ describe("readFakesPace", () => {
 
   it("is not a required variable", () => {
     expect(ENV_NAMES).not.toContain("RESEARCH_MARSHAL_FAKES");
+  });
+});
+
+describe("requireStartEnv", () => {
+  const noKeys = {
+    ANTHROPIC_API_KEY: undefined,
+    DECODO_AUTH_TOKEN: undefined,
+    DATABASE_URL: "file:./test.db",
+  };
+
+  it("needs both API keys for live runs", () => {
+    stubAll(noKeys);
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", undefined);
+
+    const { message } = errorOf(() => requireStartEnv());
+
+    expect(message).toContain("ANTHROPIC_API_KEY, DECODO_AUTH_TOKEN");
+  });
+
+  it("needs no API key on the fakes", () => {
+    stubAll(noKeys);
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", "0");
+
+    expect(() => requireStartEnv()).not.toThrow();
+  });
+
+  it("needs the database on the fakes too", () => {
+    stubAll({ ...noKeys, DATABASE_URL: undefined });
+    vi.stubEnv("RESEARCH_MARSHAL_FAKES", "0");
+
+    const { message } = errorOf(() => requireStartEnv());
+
+    expect(message).toContain("DATABASE_URL");
+    expect(message).not.toContain("ANTHROPIC_API_KEY");
   });
 });

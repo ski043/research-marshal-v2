@@ -49,3 +49,8 @@ export function readFakesPace(): number | null {
   }
   return parsed.data;
 }
+
+/** Fails unless the app can start: the database always, both API keys unless runs are on the fakes. */
+export function requireStartEnv(): void {
+  readEnv(readFakesPace() === null ? ENV_NAMES : ["DATABASE_URL"]);
+}
