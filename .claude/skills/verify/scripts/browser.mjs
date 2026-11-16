@@ -17,6 +17,7 @@
 //   {"click": "css selector"}  {"hover": "css selector"}  {"focus": "css selector"}
 //                                         click and hover take "text": the first match
 //                                         that contains it
+//   {"drag": "css selector", "by": [dx, dy]}
 //   {"type": "text"}                      into the focused element
 //   {"press": "Enter"}                    add "shift": true; Tab, Escape, Space, arrows
 //   {"eval": "document.title"}            prints the value as JSON
@@ -311,6 +312,31 @@ async function run(step) {
     await send("Input.dispatchMouseEvent", {
       type: "mouseReleased",
       ...button,
+    });
+  } else if (step.drag) {
+    const from = await pointAt(step.drag, step.text);
+    const [dx, dy] = step.by;
+    const to = { x: from.x + dx, y: from.y + dy };
+    const held = { button: "left", buttons: 1 };
+    await send("Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      clickCount: 1,
+      ...held,
+      ...from,
+    });
+    for (let i = 1; i <= 5; i += 1) {
+      await send("Input.dispatchMouseEvent", {
+        type: "mouseMoved",
+        ...held,
+        x: from.x + (dx * i) / 5,
+        y: from.y + (dy * i) / 5,
+      });
+    }
+    await send("Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      clickCount: 1,
+      button: "left",
+      ...to,
     });
   } else if (step.hover) {
     await pointAt(step.hover, step.text);

@@ -39,6 +39,7 @@ import { useStored } from "@/lib/ui/storage";
 import { PANEL_KEY } from "@/lib/ui/theme";
 import { useFollow } from "@/lib/ui/use-follow";
 import { useLiveRun } from "@/lib/ui/use-live-run";
+import { useMediaQuery } from "@/lib/ui/use-media-query";
 import { cn } from "@/lib/utils";
 
 const NO_ERROR: StartState = { error: null };
@@ -167,18 +168,21 @@ export function RunScreen({
 
   const [stored, store] = useStored(PANEL_KEY);
   const panel = readPanel(stored);
+  // From 1024px up the panel is docked beside the run. Below that it is a sheet.
+  const docked = useMediaQuery(DOCKED, true);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const panelShown = docked ? panel.open : sheetOpen;
   const savePanel = (next: Panel) => {
     showPanel(next);
     store(JSON.stringify(next));
   };
   const togglePanel = () => {
-    if (matchMedia(DOCKED).matches) savePanel({ ...panel, open: !panel.open });
+    if (docked) savePanel({ ...panel, open: !panel.open });
     else setSheetOpen(true);
   };
   const closePanel = () => {
     setSheetOpen(false);
-    if (matchMedia(DOCKED).matches) savePanel({ ...panel, open: false });
+    if (docked) savePanel({ ...panel, open: false });
   };
 
   const drag = useRef<{ x: number; width: number } | null>(null);
@@ -284,9 +288,9 @@ export function RunScreen({
             size="icon-sm"
             title="Progress panel"
             aria-label={
-              panel.open ? "Hide the progress panel" : "Show the progress panel"
+              panelShown ? "Hide the progress panel" : "Show the progress panel"
             }
-            aria-expanded={panel.open}
+            aria-expanded={panelShown}
             onClick={togglePanel}
           >
             <PanelRightIcon />
@@ -475,7 +479,7 @@ export function RunScreen({
         </section>
       </div>
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet open={sheetOpen && !docked} onOpenChange={setSheetOpen}>
         <SheetContent
           side="right"
           showCloseButton={false}
