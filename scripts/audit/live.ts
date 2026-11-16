@@ -38,10 +38,24 @@ export const decodoCli: Fetcher = async (url, file) => {
     }
     return { ok: true, markdown: first.content, statusCode, ms: ms() };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { ok: false, error: message.split("\n")[0] ?? message, ms: ms() };
+    return { ok: false, error: failureOf(error), ms: ms() };
   }
 };
+
+// The CLI names the reason on stderr; the error message only repeats the command.
+export function failureOf(error: unknown): string {
+  const { stderr, killed, message } = error as {
+    stderr?: string;
+    killed?: boolean;
+    message?: string;
+  };
+  if (killed) return "timed out after 150 s";
+  const lines = (stderr ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+  return lines.at(-1) ?? message?.split("\n")[0] ?? String(error);
+}
 
 export type LiveOutcome =
   | "same-text"
