@@ -152,6 +152,37 @@ function printStep(event: RunEvent): void {
   for (const text of describeStep(event)) line(text);
 }
 
+function printGroups(
+  title: string,
+  entries: readonly { url: string; group: string }[],
+): void {
+  const groups = Map.groupBy(entries, (entry) => entry.group);
+  for (const [group, members] of groups) {
+    console.log(`${title}, ${group}: ${members.length}`);
+    for (const { url } of members) console.log(`  ${url}`);
+  }
+}
+
+function printPages(view: RunView): void {
+  const pages = Object.values(view.pages);
+  const read = pages.filter((p) => p.state.kind === "read").length;
+  const failed = pages.flatMap((p) =>
+    p.state.kind === "failed"
+      ? [{ url: p.url, group: p.state.failure.kind }]
+      : [],
+  );
+  const skipped = pages.flatMap((p) =>
+    p.state.kind === "skipped"
+      ? [{ url: p.url, group: SKIP_REASON[p.state.reason] }]
+      : [],
+  );
+  console.log(
+    `\nPages: ${pages.length} found, ${read} read, ${failed.length} failed, ${skipped.length} skipped.`,
+  );
+  printGroups("Failed", failed);
+  printGroups("Skipped", skipped);
+}
+
 function printSummary(view: RunView): void {
   console.log("\n===== REPORT =====");
   console.log(
@@ -182,16 +213,24 @@ function printSummary(view: RunView): void {
     console.log(`  Page: ${claim.url}`);
   }
 
+  printPages(view);
+
   const { budget } = view;
-  const reads = view.decodoCalls.filter(
-    (c) => c.endpoint === "universal",
-  ).length;
+  const attempts = view.decodoCalls.filter((c) => c.endpoint === "universal");
+  const reads = attempts.filter((c) => c.outcome === "ok");
   const searches = view.decodoCalls.filter(
     (c) => c.endpoint === "google_search",
   ).length;
   console.log(
-    `\nBudget used: ${budget.rounds} of ${budget.limits?.rounds ?? "?"} rounds, ${searches} searches, ${reads} page reads, ${budget.maps} of ${budget.limits?.mapsPerRun ?? "?"} maps.`,
+    `\nBudget used: ${budget.rounds} of ${budget.limits?.rounds ?? "?"} rounds, ${searches} searches, ${reads.length} page reads in ${attempts.length} read attempts, ${budget.maps} of ${budget.limits?.mapsPerRun ?? "?"} maps.`,
   );
+  for (const round of view.rounds) {
+    const inRound = (calls: typeof attempts) =>
+      calls.filter((c) => c.round === round.no).length;
+    console.log(
+      `  Round ${round.no}: ${inRound(reads)} of ${budget.limits?.readsPerRound ?? "?"} page reads in ${inRound(attempts)} of ${budget.limits?.readAttemptsPerRound ?? "?"} attempts`,
+    );
+  }
   console.log(
     `Verified claims: ${view.verified.length}. Dropped claims: ${view.dropped.length}.`,
   );
