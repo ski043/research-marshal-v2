@@ -14,7 +14,7 @@
     "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p scripts",
     "test": "vitest run",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
-    "verify:stack": "vitest run --config verify/vitest.config.mts",
+    "verify:stack": "RESEARCH_MARSHAL_PAID=1 vitest run --config verify/vitest.config.mts",
     "verify:run": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/verify-run.ts",
     "perf:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/perf-check.ts",
     "postinstall": "prisma generate",

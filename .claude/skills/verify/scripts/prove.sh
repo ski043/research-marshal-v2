@@ -10,7 +10,7 @@ Usage:
   prove.sh <slug> live "<question>"                  paid, real Decodo and Anthropic calls
 
 Scenarios: completed, failures, dropped, budget, no-claims.
-Evidence goes to .verify/<slug>-<UTC time>/.
+Evidence goes to .verify/<slug>-<UTC time>-<random>/.
 USAGE
   exit 2
 }
@@ -33,8 +33,9 @@ esac
 
 root=$(git rev-parse --show-toplevel) || exit 1
 cd "$root" || exit 1
-evidence="$root/.verify/$slug-$(date -u +%Y%m%dT%H%M%SZ)"
-mkdir -p "$evidence"
+# shellcheck source=lib.sh
+. "$root/.claude/skills/verify/scripts/lib.sh"
+evidence=$(new_evidence_dir "$root" "$slug") || exit 1
 db="$evidence/run.db"
 
 # The scratch database goes only after the audit has read it. Without an audit it is
@@ -48,6 +49,12 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+# SIGTERM to this helper does not reach the run, so pass it on as an
+# interrupt. Ctrl-C in a terminal reaches the run by itself, and a second
+# interrupt would make the run quit before it stores its cancel. Either way
+# the helper goes on to the export, so the evidence of the stopped run is kept.
+trap interrupt_runs TERM
+trap : INT
 
 if ! node scripts/doctor.mjs --json >"$evidence/doctor.json" 2>"$evidence/doctor.err"; then
   node scripts/doctor.mjs
@@ -68,8 +75,18 @@ fi
   echo "started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } >"$evidence/drive.txt"
 
-"${drive[@]}" 2>&1 | tee "$evidence/terminal.log"
-drive_exit=${PIPESTATUS[0]}
+(
+  "${drive[@]}" 2>&1 | tee "$evidence/terminal.log"
+  exit "${PIPESTATUS[0]}"
+) &
+drive_pid=$!
+wait "$drive_pid"
+drive_exit=$?
+# A trapped signal ends the wait early. The run then needs a moment to stop.
+if [ "$drive_exit" -gt 128 ] && kill -0 "$drive_pid" 2>/dev/null; then
+  wait "$drive_pid"
+  drive_exit=$?
+fi
 echo "exit code: $drive_exit" >>"$evidence/drive.txt"
 
 run_id=$(grep -o '"runId":"[^"]*"' "$evidence/terminal.log" | tail -1 | cut -d'"' -f4)

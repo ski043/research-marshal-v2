@@ -283,6 +283,24 @@ const rows: Row[] = [
     FOUND,
   ],
   [
+    "a quote that ends on a bracket where the page glues the next sentence on",
+    "Risk fell (in most trials).These results held for years.",
+    "Risk fell (in most trials).",
+    FOUND,
+  ],
+  [
+    "a quote that ends before a glued sentence that starts with A",
+    "Risk fell sharply.A trial confirmed it.",
+    "Risk fell sharply.",
+    FOUND,
+  ],
+  [
+    "a quote that starts with A where the page glues it to the sentence before",
+    "Risk fell sharply.A trial confirmed it.",
+    "A trial confirmed it.",
+    FOUND,
+  ],
+  [
     "a quote that ends inside a dotted name in capitals",
     "The framework is ASP.NET Core.",
     "The framework is ASP.",
