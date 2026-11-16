@@ -177,6 +177,7 @@ describe("runChecks", () => {
     write(".env.local", "DATABASE_URL=file:./dev.db\n");
     chmodSync(path.join(root, ".env.local"), 0o600);
     write(".env", "DECODO_AUTH_TOKEN=d\n");
+    chmodSync(path.join(root, ".env"), 0o600);
     const ctx = context({ shellEnv: { ANTHROPIC_API_KEY: "a" } });
 
     const report = await runChecks(ctx);
@@ -190,9 +191,33 @@ describe("runChecks", () => {
   it("fails a .env.local that others can read", async () => {
     chmodSync(path.join(root, ".env.local"), 0o644);
 
-    expect((await statusOf("env-local-mode")).result).toMatchObject({
+    expect((await statusOf("env-file-modes")).result).toMatchObject({
       status: "fail",
       fix: "chmod 600 .env.local",
+    });
+  });
+
+  it("passes a worktree that keeps every variable in .env", async () => {
+    rmSync(path.join(root, ".env.local"));
+    write(
+      ".env",
+      "ANTHROPIC_API_KEY=a\nDECODO_AUTH_TOKEN=d\nDATABASE_URL=file:./dev.db\n",
+    );
+    chmodSync(path.join(root, ".env"), 0o600);
+
+    const report = await runChecks(context());
+
+    expect(report.results.filter((r) => r.status === "fail")).toEqual([]);
+    expect(report.ready).toBe(true);
+  });
+
+  it("fails a .env that others can read", async () => {
+    write(".env", "DECODO_AUTH_TOKEN=d\n");
+    chmodSync(path.join(root, ".env"), 0o644);
+
+    expect((await statusOf("env-file-modes")).result).toMatchObject({
+      status: "fail",
+      fix: "chmod 600 .env",
     });
   });
 
@@ -276,12 +301,12 @@ describe("formatHuman", () => {
 
     expect(lines).toHaveLength(1 + CHECKS.length + 1 + 1);
     expect(lines).toContainEqual(
-      expect.stringMatching(/FAIL {2}\.env\.local mode/),
+      expect.stringMatching(/FAIL {2}Env file modes/),
     );
     expect(lines).toContainEqual(
       expect.stringMatching(/fix: chmod 600 \.env\.local$/),
     );
-    expect(lines.at(-1)).toBe("NOT READY: .env.local mode.");
+    expect(lines.at(-1)).toBe("NOT READY: Env file modes.");
   });
 
   it("ends with READY when nothing failed", async () => {
