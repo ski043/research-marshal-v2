@@ -258,9 +258,21 @@ function modelSlots(deps: {
   limit: number;
   now: () => number;
   record: (call: ModelCall) => void;
+  signal: AbortSignal;
 }) {
   let open = 0;
   const waiting: (() => void)[] = [];
+  const openCalls = new Set<(end: CallEnd) => void>();
+  // The pipeline seals the run log in its own abort listener, and a sealed log
+  // drops what comes later. This listener exists first, so it runs first and
+  // records every open call before the seal.
+  deps.signal.addEventListener(
+    "abort",
+    () => {
+      for (const close of [...openCalls]) close({ outcome: "cancelled" });
+    },
+    { once: true },
+  );
   const release = () => {
     const next = waiting.shift();
     if (next) next();
@@ -272,9 +284,10 @@ function modelSlots(deps: {
     else await new Promise<void>((resolve) => waiting.push(resolve));
     const started = deps.now();
     let closed = false;
-    return (end) => {
+    const close = (end: CallEnd) => {
       if (closed) return;
       closed = true;
+      openCalls.delete(close);
       release();
       deps.record({
         type: "model.called",
@@ -285,6 +298,8 @@ function modelSlots(deps: {
         tokens: tokensOf(end.usage),
       });
     };
+    openCalls.add(close);
+    return close;
   };
 }
 
@@ -392,6 +407,7 @@ export function createModelSteps(deps: {
     limit: MAX_OPEN_MODEL_CALLS,
     now: deps.now ?? (() => performance.now()),
     record: deps.record,
+    signal: deps.signal,
   });
 
   const endOf = (error: unknown): CallEnd => {
