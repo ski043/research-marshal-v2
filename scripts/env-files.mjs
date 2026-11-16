@@ -51,7 +51,7 @@ function formatValue(value) {
  * file keeps its value, even an empty one.
  *
  * @param {string | null} existingText the current `.env.local`, or null when it does not exist
- * @param {Record<string, string> | null} durable the durable file, or null when it does not exist
+ * @param {Record<string, string | undefined> | null} durable the durable file, or null when it does not exist
  * @returns {{ text: string, added: string[], missing: string[], empty: string[] }}
  *   `missing`: names neither file provides. `empty`: names `.env.local` holds with an empty value.
  */
