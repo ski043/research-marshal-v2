@@ -295,3 +295,41 @@ describe("git keeps secrets and data out", () => {
     expect(git("check-ignore", "-q", "--no-index", file).status).toBe(0);
   });
 });
+
+describe("paid commands stay out of the free paths", () => {
+  const PAID = /pnpm research|verify:stack|--live|scripts\/research\.ts/;
+  const settings = JSON.parse(read(".claude/settings.json"));
+
+  test("pnpm check runs no paid command", () => {
+    expect(packageJson.scripts.check).not.toMatch(PAID);
+  });
+
+  test("the Claude Code allow list holds no paid command", () => {
+    const allow: string[] = settings.permissions.allow;
+    expect(allow.filter((rule) => PAID.test(rule))).toEqual([]);
+    // A wildcard after these commands would also allow the paid forms.
+    for (const rule of allow) {
+      expect(rule).not.toMatch(/^Bash\((pnpm|pnpm doctor:worktree|node) \*\)$/);
+    }
+  });
+
+  test("Claude Code cannot read the env files or the durable key file", () => {
+    expect(settings.permissions.deny).toEqual(
+      expect.arrayContaining([
+        "Read(/.env)",
+        "Read(/.env.local)",
+        "Read(~/.config/research-marshal/env)",
+      ]),
+    );
+  });
+
+  test("the SessionStart hook runs the committed script with node", () => {
+    const [hook] = settings.hooks.SessionStart[0].hooks;
+    expect(hook).toMatchObject({
+      type: "command",
+      command: "node",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: Claude Code expands this placeholder, not JavaScript.
+      args: ["${CLAUDE_PROJECT_DIR}/scripts/session-start.mjs"],
+    });
+  });
+});
