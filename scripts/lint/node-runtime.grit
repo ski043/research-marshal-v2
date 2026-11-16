@@ -1,0 +1,8 @@
+// TECH_STACK.md: every route uses the Node.js runtime. Prisma and SQLite do
+// not run on the Edge runtime.
+language js
+
+`export const runtime = $value` where {
+  $value <: not `"nodejs"`,
+  register_diagnostic(span=$value, message="Use the Node.js runtime for every route. Remove the runtime export.", severity="error")
+}
