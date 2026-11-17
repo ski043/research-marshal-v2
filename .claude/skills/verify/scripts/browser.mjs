@@ -12,7 +12,7 @@
 //   {"reload": true}
 //   {"wait": 300}                         milliseconds
 //   {"waitFor": "css selector"}           until it is on screen (add "timeout": ms)
-//   {"waitText": "Finished"}              until the page text contains it
+//   {"waitText": "Run not found"}         until the page text contains it
 //   {"waitGone": "css selector"}
 //   {"click": "css selector"}  {"hover": "css selector"}  {"focus": "css selector"}
 //                                         click and hover take "text": the first match

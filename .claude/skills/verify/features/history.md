@@ -20,7 +20,7 @@ Every run is stored when it happens, including a cancelled run. The user can lis
 - Run `pnpm runs show <id>` or `pnpm runs show latest`.
 - Run `pnpm runs show <id> --json` or `pnpm runs show <id> --report`.
 - In the web UI, press a run in the sidebar. Under 1024px width, open the sidebar with the menu button first.
-- In the web UI, press Re-run in the header of a run that has ended.
+- In the web UI, press Re-run under the question of a completed run, or in the notice of a cancelled or a failed run.
 
 ## Driving it with the proof helpers
 
