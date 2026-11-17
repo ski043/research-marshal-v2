@@ -48,6 +48,7 @@ Research Marshal answers one research question with a cited Markdown report. Eve
 | `pnpm runs list`, `pnpm runs show <id\|latest>` | What a stored run holds: budget, searches, pages, claims, report. | No |
 | `pnpm verify:run <id\|latest>` | A stored run kept the PRD rules. The check uses its own code. | No (`--live` is paid) |
 | `pnpm perf:check` | The bundle size and the parallel shape of the pipeline are inside their limits. | No |
+| `pnpm design:tokens [--check]` | The token tables of the `design-system` skill match `app/globals.css`. | No |
 
 - Run `pnpm check` before each commit.
 - To run one test file, pass its path: `pnpm test lib/research/budget.test.ts`.
@@ -76,6 +77,12 @@ The rules live in `biome.json`, `scripts/lint/`, and `scripts/project-rules.test
 - The change is proven on the real thing: run the command, the page, or the script that the change affects, and read the actual result. For a change to the pipeline, the report, the budget, the CLI, or the stored run, use the `verify` skill (`.claude/skills/verify/SKILL.md`). Its helpers drive a run and audit it in one command.
 - The evidence is kept: the command and its output go into the PR under Verification. The `verify` skill writes it to `.verify/`.
 - A paid command runs only when the task needs it.
+
+## Design system
+
+- Before you change a colour, a font size, a component style, the icon, the wordmark or the ASCII art, use the `design-system` skill (`.claude/skills/design-system/SKILL.md`).
+- The page `/designsystem` shows the same system to people. Both read `app/globals.css` through `lib/ui/design-system.ts`.
+- After a change to a token, run `pnpm design:tokens` and commit `references/tokens.md`. `pnpm check` fails while that file is stale.
 
 ## Conventions
 
