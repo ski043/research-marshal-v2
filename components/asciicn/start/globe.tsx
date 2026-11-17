@@ -1,12 +1,14 @@
 "use client";
 
+import { useRef } from "react";
 import {
   AsciiGlobe,
   type GlobeArc,
+  type GlobeFrame,
   type GlobeMarker,
   type LatLon,
 } from "@/components/asciicn/ascii-globe";
-import { useWide } from "@/components/asciicn/start/use-wide";
+import { useRoomy } from "@/components/asciicn/start/use-wide";
 
 const PLACES = {
   sanFrancisco: [37.8, -122.4],
@@ -38,28 +40,46 @@ const ARCS: readonly GlobeArc[] = [
   { from: PLACES.reykjavik, to: PLACES.newYork },
 ];
 
+// The text column is 42rem wide. Beside it a large globe shows one sunlit limb at the
+// right edge; the limb stops short of the text.
+const beside = (width: number, height: number): GlobeFrame => {
+  const flank = (width - 672) / 2;
+  const radius = flank * 1.6;
+  return { cx: width + radius - flank - 24, cy: height * 0.54, radius };
+};
+// Without room beside the text the globe rises from the bottom edge, under the chips.
+const below = (width: number, height: number): GlobeFrame => ({
+  cx: width / 2,
+  cy: height * 0.6 + width * 0.95,
+  radius: width * 0.95,
+});
+
 export function GlobeGround() {
-  const wide = useWide();
+  const ground = useRef<HTMLDivElement>(null);
+  const wide = useRoomy(ground);
   return (
-    <AsciiGlobe
-      draggable={false}
-      className="absolute inset-x-0 bottom-0 h-[44%]"
-      charset="dots"
-      square
-      cell={7}
-      grade={{ brightness: -0.07 }}
-      fps={15}
-      speed={2}
-      tilt={-14}
-      light={285}
-      ocean={0.36}
-      dither="bayer4"
-      color="--primary-ink"
-      oceanColor="--primary"
-      accent="orange"
-      markers={MARKERS}
-      arcs={ARCS}
-      frame={{ radius: wide ? 0.56 : 0.95, top: 44 }}
-    />
+    <div ref={ground} className="absolute inset-0">
+      <AsciiGlobe
+        draggable={false}
+        className="absolute inset-0"
+        charset="dots"
+        square
+        cell={7}
+        grade={{ brightness: -0.07 }}
+        fps={15}
+        speed={2}
+        tilt={wide ? 12 : -14}
+        light={wide ? 300 : 285}
+        ocean={0.5}
+        dither="bayer4"
+        glint={false}
+        color="blue"
+        oceanColor="--primary"
+        accent="orange"
+        markers={MARKERS}
+        arcs={ARCS}
+        frame={wide ? beside : below}
+      />
+    </div>
   );
 }

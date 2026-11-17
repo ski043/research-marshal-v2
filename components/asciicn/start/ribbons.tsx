@@ -2,6 +2,7 @@
 
 import { useMemo, useRef } from "react";
 import { useStartBoxes } from "@/components/asciicn/start/use-boxes";
+import { useRoomy } from "@/components/asciicn/start/use-wide";
 import { luma, useAsciiColors } from "@/lib/ascii";
 import {
   SEED_GLSL,
@@ -60,6 +61,8 @@ function Band({
   const { params, inner } = BANDS[side];
   const canvas = useRef<HTMLDivElement>(null);
   const { column } = useStartBoxes(canvas);
+  // Without room beside the text the bands come back sooner.
+  const fade = useRoomy(canvas) ? 170 : 50;
   const paper = useAsciiColors(canvas, PAPER)?.[0];
   const onLight = paper
     ? luma(paper[0] * 255, paper[1] * 255, paper[2] * 255) > 0.5
@@ -76,7 +79,7 @@ function Band({
       colorField={SEED_GLSL.ribbons.colorField}
       uniforms={{
         ...seed,
-        ribbonsCalm: [column[2] > 0 ? 1 : 0, -8 / CELL, 170 / CELL],
+        ribbonsCalm: [column[2] > 0 ? 1 : 0, -8 / CELL, fade / CELL],
         ribbonsCalmBox: [...column],
         ribbonsInner: inner,
       }}

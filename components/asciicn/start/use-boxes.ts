@@ -10,10 +10,12 @@ export type StartBoxes = {
   greeting: UvBox;
   /** The block of the greeting, the prompt box, the note and the chips. */
   column: UvBox;
+  /** The free height above the greeting, in CSS pixels. */
+  headroom: number;
 };
 
 const NONE: UvBox = [0, 0, 0, 0];
-const EMPTY: StartBoxes = { greeting: NONE, column: NONE };
+const EMPTY: StartBoxes = { greeting: NONE, column: NONE, headroom: 0 };
 
 const same = (a: UvBox, b: UvBox) => a.every((value, i) => value === b[i]);
 
@@ -46,9 +48,15 @@ export function useStartBoxes(
       const next: StartBoxes = {
         greeting: toUv(outer, greeting.getBoundingClientRect()),
         column: toUv(outer, column.getBoundingClientRect()),
+        headroom: Math.max(
+          0,
+          Math.round(greeting.getBoundingClientRect().top - outer.top),
+        ),
       };
       setBoxes((last) =>
-        same(last.greeting, next.greeting) && same(last.column, next.column)
+        same(last.greeting, next.greeting) &&
+        same(last.column, next.column) &&
+        last.headroom === next.headroom
           ? last
           : next,
       );

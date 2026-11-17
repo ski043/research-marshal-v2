@@ -10,7 +10,7 @@ import { AsciiShader } from "@/lib/ascii/shader";
 // one source to the next. Lines are measured in samples, so they stay one Braille dot
 // wide at every size.
 const CHART = `
-const float CHART_GRID = 0.105;
+const float CHART_GRID = 0.09;
 
 float chartHash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -90,8 +90,8 @@ vec4 chartLayers(vec2 uv, vec2 res, float t) {
   // the Milky Way and thin elsewhere.
   vec2 speck = floor(uv * ascii_samples);
   float band = exp(-pow((p.y - 0.62 * p.x + 0.12) / 0.17, 2.0));
-  float dust = step(1.0 - 0.005 - 0.045 * band * fbm(p * 5.0), chartHash(speck + 0.5));
-  stars = max(stars, dust * 0.5);
+  float dust = step(1.0 - 0.006 - 0.07 * band * fbm(p * 5.0), chartHash(speck + 0.5));
+  stars = max(stars, dust * 0.6);
   return vec4(links, stars, grid, warmth);
 }
 
@@ -111,19 +111,17 @@ float field(vec2 uv, vec2 res, float t) {
 }
 `;
 
-// Stars take the ink, links a paler ink, the grid the faintest; warm stars and the
-// pulses of some links take the accent.
+// Stars take the ink and links the blue. The grid is the same blue, thinned by alpha,
+// so it stays behind in both themes. Warm stars and the pulses of some links take the
+// accent.
 const COLOR_FIELD = `${CHART}
 vec4 colorField(vec2 uv, vec2 res, float t) {
   vec4 layers = chartLayers(uv, res, t);
   vec3 ink = paletteColor(1.0).rgb;
-  vec3 soft = paletteColor(0.5).rgb;
-  vec3 faint = paletteColor(0.0).rgb;
-  vec3 col = mix(mix(faint, soft, 0.3), soft, step(0.01, layers.x));
-  col = mix(col, mix(soft, ink, 0.4), step(0.3, layers.y));
-  col = mix(col, ink, step(0.7, layers.y));
+  vec3 soft = paletteColor(0.0).rgb;
+  vec3 col = mix(soft, ink, step(0.7, layers.y));
   col = mix(col, chartWarm, clamp(layers.w, 0.0, 1.0));
-  float strength = max(max(layers.y, layers.x * 0.9), layers.z * 0.7);
+  float strength = max(max(layers.y, layers.x * 0.85), layers.z * 0.42);
   return vec4(col, clamp(strength, 0.0, 1.0));
 }
 `;
@@ -145,12 +143,7 @@ export function StarChartGround() {
         chartPole: [1.1, 1.3],
         chartWarm: [1, 0.72, 0.36],
       }}
-      palette={[
-        "--ascii-paper",
-        "--border",
-        "--ascii-color-blue",
-        "--ascii-ink",
-      ]}
+      palette={["--ascii-paper", "--ascii-color-blue", "--ascii-ink"]}
       charset="braille"
       colorMode="truecolor"
       cell={CELL}

@@ -3,20 +3,24 @@
 import { useRef } from "react";
 import { SanFrancisco } from "@/components/asciicn/san-francisco";
 import { useStartBoxes } from "@/components/asciicn/start/use-boxes";
-import { useWide } from "@/components/asciicn/start/use-wide";
+import { useRoomy } from "@/components/asciicn/start/use-wide";
 
 const DUSK = "#05081a";
 
 export function SanFranciscoGround() {
-  const wide = useWide();
-  const canvas = useRef<HTMLDivElement>(null);
-  const { column } = useStartBoxes(canvas);
+  const ground = useRef<HTMLDivElement>(null);
+  const roomy = useRoomy(ground);
+  const { column, headroom } = useStartBoxes(ground);
   return (
-    <div className="absolute inset-0" style={{ backgroundColor: DUSK }}>
-      {wide ? (
+    <div
+      ref={ground}
+      className="absolute inset-0"
+      style={{ backgroundColor: DUSK }}
+    >
+      {roomy ? (
+        // The towers stand left and right of the text and the deck runs under the chips.
         <SanFrancisco
-          key="wide"
-          ref={canvas}
+          key="beside"
           className="absolute inset-0"
           frame={{
             horizon: -0.12,
@@ -28,9 +32,11 @@ export function SanFranciscoGround() {
           calm={{ box: column, grow: -24, fade: 100 }}
         />
       ) : (
+        // No room beside the text: the whole bridge sits in a band above the greeting.
         <SanFrancisco
-          key="narrow"
-          className="absolute inset-x-0 top-0 h-[28svh]"
+          key="above"
+          className="absolute inset-x-0 top-0"
+          style={{ height: Math.max(0, headroom - 8) }}
           cell={5}
           frame={{ spread: 0.31, scale: 1.5 }}
           fadeBottom={0.2}

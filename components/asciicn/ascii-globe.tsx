@@ -38,6 +38,13 @@ export interface GlobeMarker {
   color?: AsciiColor;
 }
 
+/** The centre and the radius of a globe, in CSS pixels. */
+export interface GlobeFrame {
+  cx: number;
+  cy: number;
+  radius: number;
+}
+
 /** A dotted arc that lifts off the surface between two places. */
 export interface GlobeArc {
   from: LatLon;
@@ -71,6 +78,8 @@ export interface AsciiGlobeProps
   ocean?: number;
   /** A glow around the lit limb. Default `true`. */
   atmosphere?: boolean;
+  /** The sun's glint on the sea. Default `true`. */
+  glint?: boolean;
   /** Faint latitude and longitude lines every 30°. Default `false`. */
   graticule?: boolean;
   /** Drag or use the arrow keys to turn and tilt it; it coasts after a drag. Default `true`. */
@@ -80,11 +89,12 @@ export interface AsciiGlobeProps
   /** Frame rate cap. Default 60. */
   fps?: number;
   /**
-   * A large globe that rises into the box like a horizon: its radius as a
-   * share of the width, and how far its top sits below the top edge, in CSS
-   * pixels. It is centred across. Default: centred, filling the shorter side.
+   * Where the globe sits, from the size of the box in CSS pixels: its centre
+   * from the top left and its radius. A centre outside the box shows one limb
+   * of a large globe. Pass a constant function. Default: centred, filling the
+   * shorter side.
    */
-  frame?: { radius: number; top: number };
+  frame?: (width: number, height: number) => GlobeFrame;
   /** `false` holds one still frame. Default `true`. */
   animate?: boolean;
   /** Filled with a handle for export. */
@@ -286,6 +296,7 @@ interface View {
 
 interface Paint {
   ocean: number;
+  glint: boolean;
   atmosphere: boolean;
   graticule: boolean;
   colors: Colors;
@@ -329,7 +340,9 @@ const shadeGlobe = (
   const day = smoothstep(-0.12, 0.22, light);
   const lit = Math.max(0, light);
   const [hx, hy, hz] = view.half;
-  const glint = Math.max(0, u * hx + v * hy + z * hz) ** 70 * (1 - land) * day;
+  const glint = paint.glint
+    ? Math.max(0, u * hx + v * hy + z * hz) ** 70 * (1 - land) * day
+    : 0;
   // Thicker air at the limb lifts the lit edge.
   const limb = (1 - z) ** 3 * day;
 
@@ -549,6 +562,7 @@ export const AsciiGlobe = ({
   light = 300,
   ocean = 0.3,
   atmosphere = true,
+  glint = true,
   graticule = false,
   draggable = true,
   cell = 10,
@@ -660,23 +674,26 @@ export const AsciiGlobe = ({
     const angle = light * RADIANS;
     const sun = [Math.sin(angle) * 0.82, Math.cos(angle) * 0.82, 0.58] as const;
     const halfLength = Math.hypot(sun[0], sun[1], sun[2] + 1);
+    const placed = framing?.(boxWidth, boxHeight) ?? {
+      cx: boxWidth / 2,
+      cy: boxHeight / 2,
+      radius: (Math.min(boxWidth, boxHeight) / 2) * RADIUS_SHARE,
+    };
     const view: View = {
       cosTilt: Math.cos(turn.tilt * RADIANS),
-      cx: boxWidth / 2,
-      cy: framing ? framing.top + boxWidth * framing.radius : boxHeight / 2,
+      cx: placed.cx,
+      cy: placed.cy,
       half: [
         sun[0] / halfLength,
         sun[1] / halfLength,
         (sun[2] + 1) / halfLength,
       ],
       lon: turn.lon,
-      radius: framing
-        ? boxWidth * framing.radius
-        : (Math.min(boxWidth, boxHeight) / 2) * RADIUS_SHARE,
+      radius: placed.radius,
       sinTilt: Math.sin(turn.tilt * RADIANS),
       sun,
     };
-    const paint: Paint = { atmosphere, colors, graticule, ocean };
+    const paint: Paint = { atmosphere, colors, glint, graticule, ocean };
     const sampleWidth = metrics.width / gx;
     const sampleHeight = metrics.height / gy;
     const { tones } = field;
