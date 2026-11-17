@@ -18,10 +18,11 @@ import {
 import { type ReactNode, useId, useRef, useState } from "react";
 import { GlyphSpinner } from "@/components/asciicn/glyph-spinner";
 import { DroppedItem, VerifiedItem } from "@/components/run/claims-list";
+import { DecodoMark } from "@/components/run/decodo-mark";
 import { Elapsed } from "@/components/run/elapsed";
 import { SourceLabelBadge } from "@/components/run/source-label";
 import { domainOf } from "@/lib/research/domain";
-import type { WebFailure } from "@/lib/research/events";
+import type { DecodoEndpoint, WebFailure } from "@/lib/research/events";
 import type {
   ActivityGroup,
   ActivityRow,
@@ -62,6 +63,13 @@ const STOPPED_BY = {
   "dead-end": "no further search to try",
   error: "a step failed, so the run wrote the report with what it had",
 } as const;
+
+const DECODO: Readonly<Record<DecodoEndpoint, { did: string; name: string }>> =
+  {
+    google_search: { did: "Searched", name: "Google Search" },
+    universal: { did: "Read", name: "Universal scraper" },
+    map: { did: "Mapped", name: "Map" },
+  };
 
 const failureText = (failure: WebFailure) =>
   `${failure.kind}: ${failure.detail}`;
@@ -528,6 +536,7 @@ function Row({
   const { icon: Icon, title, detail, status, body } = partsOf(row);
   const running = row.state === "running";
   const expandable = body !== null;
+  const decodo = row.decodo && DECODO[row.decodo];
   const label =
     row.kind === "read" && row.label ? (
       <SourceLabelBadge label={row.label} className="h-4.5" />
@@ -566,7 +575,13 @@ function Row({
             </span>
           )}
           {label}
-          <span className="ms-auto shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+          <span className="ms-auto flex shrink-0 items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
+            {decodo && (
+              <span title="Web data by Decodo" className="flex">
+                <DecodoMark className="size-2.5" />
+                <span className="sr-only">via Decodo</span>
+              </span>
+            )}
             {running ? (
               <Elapsed since={row.startedAt} className="text-primary-ink" />
             ) : row.state === "stopped" ? (
@@ -623,6 +638,13 @@ function Row({
           className="ms-11 me-2 mb-2 animate-in rounded-lg bg-muted px-3 py-2.5 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none"
         >
           {body}
+          {decodo && (
+            <p className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <DecodoMark className="size-2.5" />
+              {row.state === "done" ? decodo.did : "Requested"} with Decodo (
+              {decodo.name})
+            </p>
+          )}
         </div>
       )}
     </li>

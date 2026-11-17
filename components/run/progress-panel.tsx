@@ -4,11 +4,13 @@ import { XIcon } from "lucide-react";
 import { ActivityList } from "@/components/run/activity-list";
 import { BudgetCard } from "@/components/run/budget-card";
 import { ClaimsList } from "@/components/run/claims-list";
+import { DecodoMark } from "@/components/run/decodo-mark";
 import { SourcesList } from "@/components/run/sources-list";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type RunView, sourcesOf } from "@/lib/research/run-view";
 import { type ActivityGroup, rowCount } from "@/lib/ui/activity";
+import { totalsOf } from "@/lib/ui/totals";
 import { useFollow } from "@/lib/ui/use-follow";
 
 const TAB =
@@ -26,7 +28,7 @@ function Count({ children }: { children: number }) {
 
 /**
  * Everything the run did, beside the report: the budget, then the Activity timetable,
- * the live source list and the claims.
+ * the live source list and the claims, and at the foot the credit of the web data.
  */
 export function ProgressPanel({
   view,
@@ -62,6 +64,7 @@ export function ProgressPanel({
       <div className="shrink-0 p-3">
         <BudgetCard
           budget={view.budget}
+          totals={totalsOf(view)}
           running={running}
           startedAt={startedAt}
           totalMs={totalMs}
@@ -95,6 +98,18 @@ export function ProgressPanel({
           <ClaimsList verified={view.verified} dropped={view.dropped} />
         </TabsContent>
       </Tabs>
+      <p className="flex shrink-0 justify-center border-t px-3 py-2 text-xs text-muted-foreground">
+        <a
+          href="https://decodo.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-sm transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          Web data by
+          <DecodoMark wordmark className="h-2.5 w-auto" />
+          <span className="sr-only">Decodo (opens in a new tab)</span>
+        </a>
+      </p>
     </div>
   );
 }

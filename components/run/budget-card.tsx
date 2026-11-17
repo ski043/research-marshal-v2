@@ -1,6 +1,7 @@
 import { Elapsed } from "@/components/run/elapsed";
 import type { BudgetUsage } from "@/lib/research/run-view";
 import { formatDuration } from "@/lib/ui/format";
+import type { RunTotals } from "@/lib/ui/totals";
 import { cn } from "@/lib/utils";
 
 function Meter({
@@ -53,17 +54,29 @@ function Meter({
   );
 }
 
+function Total({ label, children }: { label: string; children: number }) {
+  return (
+    <span className="whitespace-nowrap">
+      <span className="text-muted-foreground">{label} </span>
+      <span className="font-mono tabular-nums">{children}</span>
+    </span>
+  );
+}
+
 /**
  * How much of the fixed budget the run has used (U4, B1 to B3). The searches and the
  * pages count for the current round, or for the last round of a run that has ended.
+ * The last line counts the whole run, failures included (F1, F3).
  */
 export function BudgetCard({
   budget,
+  totals,
   running,
   startedAt,
   totalMs,
 }: {
   budget: BudgetUsage;
+  totals: RunTotals;
   running: boolean;
   startedAt: string | null;
   totalMs: number | null;
@@ -109,6 +122,19 @@ export function BudgetCard({
           />
         </div>
       )}
+      <p className="flex flex-wrap gap-x-3 gap-y-1 border-t pt-2.5 text-xs">
+        <span className="font-medium">Whole run</span>
+        <Total label="Searches">{totals.searches}</Total>
+        <Total label="Pages read">{totals.pagesRead}</Total>
+        {totals.pagesFailed > 0 && (
+          <Total label="failed">{totals.pagesFailed}</Total>
+        )}
+        {totals.pagesSkipped > 0 && (
+          <Total label="skipped">{totals.pagesSkipped}</Total>
+        )}
+        <Total label="Claims verified">{totals.claimsVerified}</Total>
+        <Total label="dropped">{totals.claimsDropped}</Total>
+      </p>
     </section>
   );
 }
