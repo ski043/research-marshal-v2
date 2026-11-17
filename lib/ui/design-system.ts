@@ -620,7 +620,7 @@ export const TYPE_ROLES: readonly TypeRole[] = [
     className: "font-mono text-xs tabular-nums",
     where:
       "A machine fact: a query, a URL, a domain, a duration, a count, the name of a step.",
-    sample: "search  site:nature.com sodium-ion cycle life  1.6s",
+    sample: "search  site:example.org sodium-ion cycle life  1.6s",
   },
 ];
 

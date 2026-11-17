@@ -1,0 +1,269 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "media": {
+      "scheme": "dark"
+    }
+  },
+  {
+    "goto": "/designsystem"
+  },
+  {
+    "waitFor": "[data-section]"
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "expect": "JSON.stringify([...document.querySelectorAll('[data-section]')].map((s) => s.id)) === '[\"idea\",\"colour\",\"typography\",\"shape\",\"brand\",\"ascii\",\"components\",\"motion\"]'",
+    "that": "the eight sections are there, in their order"
+  },
+  {
+    "expect": "[...document.querySelectorAll('nav[aria-label=Sections] a')].every((a) => document.querySelector(a.getAttribute('href'))) && [...document.querySelectorAll('[data-section] h2 a, [data-section] h3 a')].every((a) => a.closest('section').id === a.getAttribute('href').slice(1))",
+    "that": "every section and every part has an anchor that leads to it"
+  },
+  {
+    "expect": "document.querySelector('aside[aria-label=History]') === null && document.querySelector('#sidebar') === null && document.title === 'Design system \u00b7 Research Marshal'",
+    "that": "the page stands alone: no history sidebar, and a title of its own"
+  },
+  {
+    "eval": "(() => { const names = new Set(); const walk = (list) => { for (const rule of list) { if (rule.selectorText === '.dark') { for (const name of rule.style) if (name.startsWith('--') && CSS.supports('color', rule.style.getPropertyValue(name).trim())) names.add(name); } if (rule.cssRules) walk(rule.cssRules); } }; for (const sheet of document.styleSheets) { try { walk(sheet.cssRules); } catch {} } return names.size; })()"
+  },
+  {
+    "expect": "(() => { const n = (() => { const names = new Set(); const walk = (list) => { for (const rule of list) { if (rule.selectorText === '.dark') { for (const name of rule.style) if (name.startsWith('--') && CSS.supports('color', rule.style.getPropertyValue(name).trim())) names.add(name); } if (rule.cssRules) walk(rule.cssRules); } }; for (const sheet of document.styleSheets) { try { walk(sheet.cssRules); } catch {} } return names.size; })(); return n > 30 && document.querySelectorAll('[data-color-token]').length === n && document.querySelectorAll('[data-swatch=light]').length === n && document.querySelectorAll('[data-swatch=dark]').length === n; })()",
+    "that": "each colour that the stylesheet declares in .dark has one row with a light and a dark swatch"
+  },
+  {
+    "expect": "(() => { const cells = (() => { const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1; const ctx = canvas.getContext('2d', { willReadFrequently: true }); const linear = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; const luminance = (css) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data; return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b); }; return [...document.querySelectorAll('[data-check]')].map((cell) => { const style = getComputedStyle(cell.querySelector('[data-pair]')); const a = luminance(style.color); const b = luminance(style.backgroundColor); const shown = Number(cell.dataset.ratio); return { token: cell.dataset.token, on: cell.dataset.on, theme: cell.dataset.theme, shown, text: cell.textContent, measured: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }; }); })(); const off = cells.filter((c) => Math.abs(c.measured - c.shown) > c.shown * 0.01 + 0.01 || !c.text.includes(c.shown.toFixed(2))); if (off.length) console.warn(JSON.stringify(off.slice(0, 5))); return cells.length >= 100 && off.length === 0; })()",
+    "that": "each contrast ratio on the page is the ratio of the two colours as the browser paints them, within 1%"
+  },
+  {
+    "expect": "(() => { const cells = (() => { const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1; const ctx = canvas.getContext('2d', { willReadFrequently: true }); const linear = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; const luminance = (css) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data; return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b); }; return [...document.querySelectorAll('[data-check]')].map((cell) => { const style = getComputedStyle(cell.querySelector('[data-pair]')); const a = luminance(style.color); const b = luminance(style.backgroundColor); const shown = Number(cell.dataset.ratio); return { token: cell.dataset.token, on: cell.dataset.on, theme: cell.dataset.theme, shown, text: cell.textContent, measured: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }; }); })().filter((c) => c.token === '--foreground' && c.on === '--background'); return cells.length === 2 && cells.every((c) => c.shown >= 4.5 && Math.abs(c.measured - c.shown) <= c.shown * 0.01 + 0.01 && c.text.includes('pass')); })()",
+    "that": "the text on the background shows its measured ratio in the light and in the dark theme, and passes 4.5:1"
+  },
+  {
+    "expect": "[...document.querySelectorAll('[data-type-step]')].map((el) => { const size = JSON.parse(el.dataset.sizes).filter((each) => each.from === null || innerWidth >= each.from).at(-1); const style = getComputedStyle(el); return { id: el.dataset.typeStep, ok: Math.abs(parseFloat(style.fontSize) - size.px) < 0.01 && (size.lineHeightPx === null || Math.abs(parseFloat(style.lineHeight) - size.lineHeightPx) < 0.01) }; }).length >= 10 && [...document.querySelectorAll('[data-type-step]')].map((el) => { const size = JSON.parse(el.dataset.sizes).filter((each) => each.from === null || innerWidth >= each.from).at(-1); const style = getComputedStyle(el); return { id: el.dataset.typeStep, ok: Math.abs(parseFloat(style.fontSize) - size.px) < 0.01 && (size.lineHeightPx === null || Math.abs(parseFloat(style.lineHeight) - size.lineHeightPx) < 0.01) }; }).every((step) => step.ok)",
+    "that": "each step of the type scale renders at the size and the line height that the page states, at 1440px"
+  },
+  {
+    "click": "[data-color-token='--background'] [data-copy='--background']"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "$v(\"[data-color-token='--background'] [data-copy='--background']\").hasAttribute('data-copied') && $v(\"[data-color-token='--background'] [data-copy='--background']\").textContent.includes('Copied')",
+    "that": "a click on a token copies it, and the control says Copied"
+  },
+  {
+    "shot": "design-system-colour-dark.png"
+  },
+  {
+    "click": "label[title=Light]"
+  },
+  {
+    "wait": 400
+  },
+  {
+    "expect": "!document.documentElement.classList.contains('dark') && getComputedStyle(document.querySelector(\"[data-color-token='--background'] [data-swatch=dark]\")).backgroundColor !== getComputedStyle(document.querySelector(\"[data-color-token='--background'] [data-swatch=light]\")).backgroundColor",
+    "that": "the theme switch of the page turns the page light, and the dark swatch stays dark"
+  },
+  {
+    "expect": "(() => { const cells = (() => { const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1; const ctx = canvas.getContext('2d', { willReadFrequently: true }); const linear = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; const luminance = (css) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data; return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b); }; return [...document.querySelectorAll('[data-check]')].map((cell) => { const style = getComputedStyle(cell.querySelector('[data-pair]')); const a = luminance(style.color); const b = luminance(style.backgroundColor); const shown = Number(cell.dataset.ratio); return { token: cell.dataset.token, on: cell.dataset.on, theme: cell.dataset.theme, shown, text: cell.textContent, measured: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }; }); })(); return cells.every((c) => Math.abs(c.measured - c.shown) <= c.shown * 0.01 + 0.01); })()",
+    "that": "the ratios hold in the light theme of the page too"
+  },
+  {
+    "shot": "design-system-colour-light.png"
+  },
+  {
+    "click": "label[title=System]"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "eval": "(location.hash = '#components', 1)"
+  },
+  {
+    "wait": 400
+  },
+  {
+    "expect": "(() => { const top = $v('#components').getBoundingClientRect().top; return top > 60 && top < 200 && document.scrollingElement.scrollTop === 0; })()",
+    "that": "an anchor scrolls its section to just under the header"
+  },
+  {
+    "expect": "['default','secondary','outline','ghost','destructive','link'].every((v) => $v(`[data-button-variant=${v}] button:not([disabled])`) && $v(`[data-button-variant=${v}] button[disabled]`))",
+    "that": "each button variant shows enabled and disabled"
+  },
+  {
+    "expect": "['running','completed','cancelled','failed'].every((s) => $v(`[data-status=${s}]`))",
+    "that": "the four run statuses each show an icon and a word"
+  },
+  {
+    "expect": "(() => { const text = $v('#components-activity').textContent; return ['no results', 'failed', 'reading', 'stopped', 'cancelled', 'read'].every((word) => text.includes(word)) && $$v('#components-activity [title=\"Web data by Decodo\"]').length >= 6 && $$v('#components-activity .border-primary-ink').length === 1 && $$v('#components-activity .border-dashed').length === 1 && $$v('#components-activity .border-destructive').length === 2; })()",
+    "that": "the Activity rows show a running, a done, a failed and a stopped row, the status pills, and the Decodo mark"
+  },
+  {
+    "expect": "/^0:\\d\\d$/.test($v('#components-activity .text-primary-ink.tabular-nums, #components-activity .tabular-nums .text-primary-ink')?.textContent ?? '')",
+    "that": "the clock of the running row counts from the moment the page opened"
+  },
+  {
+    "click": "#components-activity button[aria-expanded=false]",
+    "text": "sodium-ion battery cycle life"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "$v('#components-activity').textContent.includes('Searched with Decodo (Google Search)')",
+    "that": "an open Decodo row names the Decodo endpoint"
+  },
+  {
+    "expect": "$$v('#components-budget meter').length === 4 && $v('#components-budget').textContent.includes('3 / 5')",
+    "that": "the budget card shows its four meters"
+  },
+  {
+    "hover": "[data-citation-demo] a"
+  },
+  {
+    "waitFor": "[data-slot=hover-card-content]"
+  },
+  {
+    "expect": "$v('[data-slot=hover-card-content]').textContent.includes('retained 80% of their initial capacity') && $v('[data-slot=hover-card-content]').textContent.includes('journal.example.org')",
+    "that": "the citation chip opens its popover with the quote and the source"
+  },
+  {
+    "shot": "design-system-components-dark.png"
+  },
+  {
+    "click": "#components-chips ul[aria-label='Example questions'] button"
+  },
+  {
+    "wait": 200
+  },
+  {
+    "expect": "$v('[data-picked]').textContent === $v(\"#components-chips ul[aria-label='Example questions'] button\").title",
+    "that": "a suggestion chip hands over its question"
+  },
+  {
+    "click": "[data-prompt-demo] textarea"
+  },
+  {
+    "type": "Are sodium-ion batteries ready for grid storage?"
+  },
+  {
+    "press": "Enter"
+  },
+  {
+    "wait": 800
+  },
+  {
+    "expect": "location.pathname === '/designsystem' && $v('[data-prompt-demo] [data-held]') !== null && $v('[data-prompt-demo] textarea').value.startsWith('Are sodium-ion')",
+    "that": "the prompt box is the real one, and Enter starts no run on this page"
+  },
+  {
+    "eval": "(location.hash = '#ascii', 1)"
+  },
+  {
+    "wait": 1800
+  },
+  {
+    "expect": "$$v('#ascii [data-scene] [data-state]').length === 1 && $$v('[data-scene] canvas').every((c) => c.closest('[aria-hidden=true]')) && ['cancelled','failed','not-found'].every((v) => $v(`[data-glyph=${v}] svg[aria-hidden=true]`))",
+    "that": "the scene and the three dithered glyphs are live and hidden from assistive technology"
+  },
+  {
+    "expect": "$v('#ascii [data-scene] [data-state]').dataset.state === 'running' && document.querySelector('#idea [data-scene] [data-state]').dataset.state !== 'running'",
+    "that": "the scene on screen runs and the one off screen is paused"
+  },
+  {
+    "shot": "design-system-ascii-dark.png"
+  },
+  {
+    "media": {
+      "scheme": "dark",
+      "reducedMotion": true
+    }
+  },
+  {
+    "eval": "(location.hash = '#ascii', 1)"
+  },
+  {
+    "reload": true
+  },
+  {
+    "waitFor": "[data-section]"
+  },
+  {
+    "eval": "(document.querySelector('#ascii').scrollIntoView({ behavior: 'instant' }), 1)"
+  },
+  {
+    "waitFor": "#ascii [data-scene] canvas"
+  },
+  {
+    "wait": 1500
+  },
+  {
+    "expect": "[...document.querySelectorAll('[data-scene] [data-state]')].every((el) => el.dataset.state === 'static' || el.dataset.state === 'fallback') && $v('#ascii [data-scene] [data-state]').dataset.state === 'static'",
+    "that": "under reduced motion the scene holds a still frame"
+  },
+  {
+    "media": {
+      "scheme": "dark",
+      "reducedMotion": false
+    }
+  },
+  {
+    "goto": "/designsystem"
+  },
+  {
+    "waitFor": "[data-section]"
+  },
+  {
+    "wait": 800
+  },
+  {
+    "press": "Tab"
+  },
+  {
+    "expect": "document.activeElement.textContent === 'Skip to the content'",
+    "that": "the first Tab lands on the skip link"
+  },
+  {
+    "press": "Enter"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "location.hash === '#design-system' && document.activeElement === document.querySelector('main')",
+    "that": "the skip link moves the focus to the content"
+  },
+  {
+    "viewport": [390, 844]
+  },
+  {
+    "goto": "/designsystem"
+  },
+  {
+    "waitFor": "[data-section]"
+  },
+  {
+    "wait": 800
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= 390 && document.querySelector('main').parentElement.scrollWidth <= 390",
+    "that": "the page does not scroll sideways at 390px"
+  },
+  {
+    "expect": "[...document.querySelectorAll('[data-type-step]')].map((el) => { const size = JSON.parse(el.dataset.sizes).filter((each) => each.from === null || innerWidth >= each.from).at(-1); const style = getComputedStyle(el); return { id: el.dataset.typeStep, ok: Math.abs(parseFloat(style.fontSize) - size.px) < 0.01 && (size.lineHeightPx === null || Math.abs(parseFloat(style.lineHeight) - size.lineHeightPx) < 0.01) }; }).every((step) => step.ok)",
+    "that": "each step of the type scale renders at its stated size at 390px"
+  },
+  {
+    "shot": "design-system-390.png"
+  },
+  {
+    "console": true
+  }
+]
