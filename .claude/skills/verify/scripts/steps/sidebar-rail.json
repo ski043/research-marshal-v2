@@ -165,7 +165,7 @@
     "text": "[offline:completed]"
   },
   {
-    "waitText": "Finished"
+    "waitFor": "article[aria-label='Report']"
   },
   {
     "wait": 600
