@@ -42,7 +42,9 @@ export function ModelSelect({
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent align="end">
+      {/* The menu leaves the document flow, so it would take the light theme over the
+          night panel of the start screen, the only place that has a prompt box. */}
+      <SelectContent align="end" className="dark">
         {options.map((option) => (
           <SelectItem
             key={option.key}

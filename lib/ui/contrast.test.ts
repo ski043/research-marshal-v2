@@ -85,9 +85,17 @@ const TEXT: readonly (readonly [text: string, on: readonly string[]])[] = [
   ],
   // Links of the report and the numbered chips of citations and claims.
   ["--link", ["--background", "--card", "--popover", "--muted", "--link-soft"]],
+  // A status word also sits on the accent of a hovered row.
   [
     "--success",
-    ["--background", "--card", "--popover", "--muted", "--success-soft"],
+    [
+      "--background",
+      "--card",
+      "--popover",
+      "--muted",
+      "--accent",
+      "--success-soft",
+    ],
   ],
   // The bare word. On its soft surface a warning has its own text colour.
   ["--warning", ["--background", "--card", "--popover", "--muted"]],

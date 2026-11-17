@@ -23,7 +23,7 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "text-[1.0625rem] leading-none font-semibold tracking-[-0.02em] whitespace-nowrap text-sidebar-foreground",
+        "text-lg leading-none font-semibold tracking-tight whitespace-nowrap text-sidebar-foreground",
         className,
       )}
     >
