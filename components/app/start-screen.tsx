@@ -16,12 +16,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { SidebarTrigger } from "@/components/app/app-shell";
 import type { ModelOption } from "@/components/app/model-select";
 import { PromptBox } from "@/components/app/prompt-box";
-import {
-  DEFAULT_START_VARIANT,
-  StartBackground,
-  type StartVariant,
-  startVariantSpec,
-} from "@/components/asciicn/start-background";
+import { StartBackground } from "@/components/asciicn/start-background";
 import { greetingFor, plural } from "@/lib/ui/format";
 import { cn } from "@/lib/utils";
 
@@ -115,14 +110,11 @@ export function StartScreen({
   models,
   defaultModel,
   budget,
-  variant = DEFAULT_START_VARIANT,
 }: {
   models: readonly ModelOption[];
   defaultModel: string;
   budget: Budget;
-  variant?: StartVariant;
 }) {
-  const ground = startVariantSpec(variant);
   const [question, setQuestion] = useState("");
   const budgetId = useId();
   const input = useRef<HTMLTextAreaElement>(null);
@@ -178,13 +170,10 @@ export function StartScreen({
   ];
 
   return (
-    <main
-      className={cn(
-        "relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground lg:rounded-2xl lg:border lg:shadow-xs",
-        ground.screen,
-      )}
-    >
-      <StartBackground variant={variant} />
+    // The scene paints its own night, so the screen takes the dark tokens in both themes
+    // and has the dusk of the scene from the first paint, before the scene has loaded.
+    <main className="dark relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-[#05081a] text-foreground lg:rounded-2xl lg:border lg:shadow-xs">
+      <StartBackground />
       <div className="flex h-13 shrink-0 items-center px-3 lg:hidden">
         <SidebarTrigger />
       </div>
