@@ -33,15 +33,16 @@ export function ThemeSwitcher() {
   }, [theme]);
 
   return (
-    <fieldset className="flex items-center gap-0.5 rounded-full border bg-background p-0.5">
+    <fieldset className="flex items-center gap-0.5 rounded-full bg-sidebar-accent p-0.5">
       <legend className="sr-only">Theme</legend>
       {OPTIONS.map(({ value, label, icon: Icon }) => (
         <label
           key={value}
           title={label}
           className={cn(
-            "relative flex size-6 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:text-foreground has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-ring",
-            theme === value && "bg-accent text-foreground",
+            "relative flex size-6 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:text-foreground has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-ring",
+            theme === value &&
+              "bg-background text-foreground shadow-xs dark:bg-accent",
           )}
         >
           <input

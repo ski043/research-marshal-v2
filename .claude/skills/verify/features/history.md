@@ -9,7 +9,7 @@ Every run is stored when it happens, including a cancelled run. The user can lis
 - `history-json` exports one run as JSON, as the `RunRecord` type in `lib/research/index.ts`.
 - `history-report` prints only the report of a run.
 - `history-cancelled` keeps a cancelled run in the list.
-- `history-web` lists every run in the sidebar, grouped by day, with a status icon and a filter (U8).
+- `history-web` lists every run in the sidebar as one line, grouped by age (Today, Yesterday, Previous 7 days, Previous 30 days, then by month and by year), with a search over the questions (U8). A running run carries a pulsing dot. The state of every run is in the row as hidden text and in its tooltip.
 - `history-web-run` opens a past run read-only, with its date and its model (U9, M3).
 - `history-rerun` starts a new run with the question and the model of a past run and leaves the past run unchanged (U10, M4).
 - `history-not-found` shows `Run not found` inside the shell for an unknown address.

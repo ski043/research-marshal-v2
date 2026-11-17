@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  dayLabel,
+  ageLabel,
   formatClock,
   formatDateTime,
   formatDuration,
   greetingFor,
-  groupByDay,
+  groupByAge,
   plural,
-  relativeTime,
 } from "./format";
 
 const at = (text: string) => new Date(text);
@@ -44,35 +43,55 @@ describe("formatClock", () => {
 describe("history dates", () => {
   const now = at("2026-11-16T21:46:00");
 
-  it("names today, yesterday and an earlier day", () => {
-    expect(dayLabel(at("2026-11-16T00:05:00"), now)).toBe("Today");
-    expect(dayLabel(at("2026-11-15T23:59:00"), now)).toBe("Yesterday");
-    expect(dayLabel(at("2026-11-09T10:00:00"), now)).toBe("9 Nov");
-    expect(dayLabel(at("2025-12-31T10:00:00"), now)).toBe("31 Dec 2025");
+  it.each([
+    ["2026-11-16T00:05:00", "Today"],
+    ["2026-11-15T23:59:00", "Yesterday"],
+    ["2026-11-14T23:59:00", "Previous 7 days"],
+    ["2026-11-09T00:00:00", "Previous 7 days"],
+    ["2026-11-08T23:59:00", "Previous 30 days"],
+    ["2026-10-17T00:00:00", "Previous 30 days"],
+    ["2026-10-16T23:59:00", "October 2026"],
+    ["2026-01-01T00:00:00", "January 2026"],
+    ["2025-12-31T23:59:00", "2025"],
+    ["2019-06-01T12:00:00", "2019"],
+  ])("puts %s under %s", (date, label) => {
+    expect(ageLabel(at(date), now)).toBe(label);
   });
 
   it("counts calendar days, not 24-hour spans", () => {
-    expect(dayLabel(at("2026-11-15T21:50:00"), now)).toBe("Yesterday");
+    expect(ageLabel(at("2026-11-15T21:50:00"), now)).toBe("Yesterday");
   });
 
-  it("shows a relative time today and the clock time before", () => {
-    expect(relativeTime(at("2026-11-16T21:45:40"), now)).toBe("now");
-    expect(relativeTime(at("2026-11-16T21:34:00"), now)).toBe("12m");
-    expect(relativeTime(at("2026-11-16T18:10:00"), now)).toBe("3h");
-    expect(relativeTime(at("2026-11-15T09:05:00"), now)).toBe("09:05");
+  it("keeps a run with a clock ahead of this one under Today", () => {
+    expect(ageLabel(at("2026-11-17T00:10:00"), now)).toBe("Today");
+  });
+
+  it("names a recent run by its span, not by last year, after New Year", () => {
+    const january = at("2026-01-03T10:00:00");
+    expect(ageLabel(at("2025-12-30T10:00:00"), january)).toBe(
+      "Previous 7 days",
+    );
+    expect(ageLabel(at("2025-11-20T10:00:00"), january)).toBe("2025");
   });
 
   it("writes one fixed date format", () => {
     expect(formatDateTime(at("2026-11-06T07:04:00"))).toBe("6 Nov 2026, 07:04");
   });
 
-  it("groups a newest-first list under one heading per day, in order", () => {
-    const groups = groupByDay(
+  it("groups a newest-first list under one heading per age, in order", () => {
+    const groups = groupByAge(
       [
         "2026-11-16T20:00:00",
         "2026-11-16T08:00:00",
         "2026-11-15T12:00:00",
-        "2026-11-02T12:00:00",
+        "2026-11-12T12:00:00",
+        "2026-11-10T12:00:00",
+        "2026-10-28T12:00:00",
+        "2026-10-02T12:00:00",
+        "2026-09-30T12:00:00",
+        "2026-09-01T12:00:00",
+        "2025-03-01T12:00:00",
+        "2024-03-01T12:00:00",
       ],
       at,
       now,
@@ -80,7 +99,24 @@ describe("history dates", () => {
     expect(groups.map((g) => [g.label, g.items.length])).toEqual([
       ["Today", 2],
       ["Yesterday", 1],
-      ["2 Nov", 1],
+      ["Previous 7 days", 2],
+      ["Previous 30 days", 1],
+      ["October 2026", 1],
+      ["September 2026", 2],
+      ["2025", 1],
+      ["2024", 1],
+    ]);
+  });
+
+  it("keeps one heading per age when the list is not sorted", () => {
+    const groups = groupByAge(
+      ["2026-11-16T20:00:00", "2026-11-15T12:00:00", "2026-11-16T08:00:00"],
+      at,
+      now,
+    );
+    expect(groups.map((g) => [g.label, g.items])).toEqual([
+      ["Today", ["2026-11-16T20:00:00", "2026-11-16T08:00:00"]],
+      ["Yesterday", ["2026-11-15T12:00:00"]],
     ]);
   });
 });

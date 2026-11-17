@@ -14,3 +14,12 @@ export function BrandMark({ className }: { className?: string }) {
     </span>
   );
 }
+
+/** The name next to the mark. */
+export function Wordmark({ className }: { className?: string }) {
+  return (
+    <span className={cn("font-semibold tracking-tight", className)}>
+      Research Marshal
+    </span>
+  );
+}
