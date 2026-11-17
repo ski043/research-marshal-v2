@@ -2,25 +2,6 @@
 
 import { type RefObject, useSyncExternalStore } from "react";
 
-const QUERY = "(min-width: 640px)";
-
-const subscribe = (onChange: () => void) => {
-  const query = window.matchMedia(QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-};
-
-/**
- * Whether the screen is at least as wide as the `sm` breakpoint. Client only: the
- * grounds never render on the server.
- */
-export const useWide = (): boolean =>
-  useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(QUERY).matches,
-    () => true,
-  );
-
 // The text column is 42rem wide. A picture beside it needs about 9rem on each side.
 const ROOMY = 960;
 // Before the ground is in the document: the screen without the sidebar, which shows

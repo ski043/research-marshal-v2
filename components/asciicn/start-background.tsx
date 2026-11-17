@@ -3,13 +3,7 @@
 import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
 
-export const START_VARIANTS = [
-  "san-francisco",
-  "lighthouse",
-  "globe",
-  "ribbons",
-  "star-chart",
-] as const;
+export const START_VARIANTS = ["san-francisco", "globe-right"] as const;
 export type StartVariant = (typeof START_VARIANTS)[number];
 
 export const DEFAULT_START_VARIANT: StartVariant = "san-francisco";
@@ -19,14 +13,11 @@ export function isStartVariant(value: unknown): value is StartVariant {
 }
 
 type Spec = {
-  label: string;
   name: string;
-  /** Whether the small globe stays above the greeting. */
-  mark: boolean;
+  /** Variants of one picture share a group, and `name` tells them apart inside it. */
+  group?: string;
   /** Classes for the screen. `dark` gives a scene that paints its own night the dark tokens in both themes. */
   screen?: string;
-  /** Classes for the block of the mark and the greeting. */
-  hero?: string;
   Ground: ComponentType;
 };
 
@@ -34,9 +25,7 @@ type Spec = {
 // stays out of the first load of the start screen.
 const SPECS: Record<StartVariant, Spec> = {
   "san-francisco": {
-    label: "B1",
     name: "San Francisco",
-    mark: false,
     // The dusk of the scene from the first paint, before the scene has loaded.
     screen: "dark bg-[#05081a]",
     Ground: dynamic(
@@ -47,52 +36,13 @@ const SPECS: Record<StartVariant, Spec> = {
       { ssr: false },
     ),
   },
-  lighthouse: {
-    label: "B2",
-    name: "Lighthouse",
-    mark: false,
-    // The greeting sits on the picture, which is night in both themes.
-    hero: "dark text-foreground",
-    Ground: dynamic(
-      () =>
-        import("@/components/asciicn/start/lighthouse").then(
-          (mod) => mod.LighthouseGround,
-        ),
-      { ssr: false },
-    ),
-  },
-  globe: {
-    label: "B3",
-    name: "Globe",
-    mark: false,
+  "globe-right": {
+    name: "Right",
+    group: "Globe",
     Ground: dynamic(
       () =>
         import("@/components/asciicn/start/globe").then(
           (mod) => mod.GlobeGround,
-        ),
-      { ssr: false },
-    ),
-  },
-  ribbons: {
-    label: "B4",
-    name: "Ribbons",
-    mark: true,
-    Ground: dynamic(
-      () =>
-        import("@/components/asciicn/start/ribbons").then(
-          (mod) => mod.RibbonsGround,
-        ),
-      { ssr: false },
-    ),
-  },
-  "star-chart": {
-    label: "B5",
-    name: "Star chart",
-    mark: false,
-    Ground: dynamic(
-      () =>
-        import("@/components/asciicn/start/star-chart").then(
-          (mod) => mod.StarChartGround,
         ),
       { ssr: false },
     ),
