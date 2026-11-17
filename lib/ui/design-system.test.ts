@@ -236,6 +236,21 @@ describe("the scale and the classes that the app uses", () => {
     ).toEqual(ofModel(EASING_ROLES, "ease-"));
   });
 
+  it("finds no colour value written into a class, in the app or on the design system page", () => {
+    const literal = /[a-z-]+-\[#[0-9a-fA-F]{3,8}\]/g;
+    const everyFile = [
+      ...files.map(({ file }) => file),
+      ...OWN.flatMap((dir) => sources(dir)),
+    ];
+    const found = everyFile.flatMap((file) =>
+      [...readFileSync(path.join(root, file), "utf8").matchAll(literal)].map(
+        (match) => `${file}: ${match[0]}`,
+      ),
+    );
+
+    expect(found).toEqual([]);
+  });
+
   it("names only spacing that a component has", () => {
     for (const { className } of SPACING_ROLES) {
       expect(

@@ -29,7 +29,7 @@ export function Scene({
       aria-hidden
       data-scene
       className={cn(
-        "relative isolate overflow-hidden rounded-2xl border bg-[#050608]",
+        "dark relative isolate overflow-hidden rounded-2xl border bg-sidebar",
         className,
       )}
     >

@@ -231,7 +231,7 @@ export function ComponentsSection({
         title="Prompt box"
         rule="The one form of the app. It stands on the night of the start screen in both themes, so it takes the dark tokens."
       >
-        <div className="dark rounded-2xl border bg-[#050608] px-4 py-8 text-foreground sm:px-8">
+        <div className="dark rounded-2xl border bg-sidebar px-4 py-8 text-foreground sm:px-8">
           <div className="mx-auto max-w-2xl">
             <PromptDemo models={models} defaultModel={defaultModel} />
           </div>

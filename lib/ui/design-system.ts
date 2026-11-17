@@ -135,7 +135,7 @@ export const COLOR_ROLES: readonly ColorRole[] = [
     token: "--sidebar",
     group: "surfaces",
     name: "Sidebar and frame",
-    use: "The sidebar and the frame around the page panel. It is the colour of the body.",
+    use: "The sidebar and the frame around the page panel. It is the colour of the body. In the dark theme it is also the ground of the night panel behind the scene, which is dark in both themes.",
   },
   {
     token: "--card",

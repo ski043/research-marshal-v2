@@ -13,7 +13,7 @@ Near-black in the dark theme with a trace of cool, white and cool greys in the l
 | Token | Role | Light | Dark | Use |
 | --- | --- | --- | --- | --- |
 | `--background` | Page | `oklch(1 0 0)` `#ffffff` | `oklch(0.14 0.007 269.7)` `#08090c` | The ground of a page panel: the run, the report, a list. |
-| `--sidebar` | Sidebar and frame | `oklch(0.971 0.008 278.6)` `#f4f5fb` | `oklch(0.122 0.006 261.6)` `#050608` | The sidebar and the frame around the page panel. It is the colour of the body. |
+| `--sidebar` | Sidebar and frame | `oklch(0.971 0.008 278.6)` `#f4f5fb` | `oklch(0.122 0.006 261.6)` `#050608` | The sidebar and the frame around the page panel. It is the colour of the body. In the dark theme it is also the ground of the night panel behind the scene, which is dark in both themes. |
 | `--card` | Card | `oklch(1 0 0)` `#ffffff` | `oklch(0.178 0.008 274.4)` `#101115` | A block that stands on the page: the prompt box, the budget card. |
 | `--popover` | Popover | `oklch(1 0 0)` `#ffffff` | `oklch(0.22 0.01 276.5)` `#191a1f` | Anything that floats above the page: the citation popover, a menu, a sheet. |
 | `--muted` | Quiet fill | `oklch(0.956 0.011 274.9)` `#eef0f8` | `oklch(0.25 0.012 270.9)` `#1f2128` | A fill inside a surface: an open Activity row, a tab list, a source label, an empty meter segment. |
