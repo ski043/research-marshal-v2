@@ -22,7 +22,7 @@ export function Quote({ children }: { children: string }) {
 export function VerifiedItem({ claim }: { claim: VerifiedClaim }) {
   return (
     <div className="flex gap-2.5">
-      <span className="mt-0.5 flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-md bg-primary-soft px-1 font-mono text-[0.6875rem] font-medium tabular-nums text-primary-ink">
+      <span className="mt-0.5 flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-md bg-link-soft px-1 font-mono text-[0.6875rem] font-medium tabular-nums text-link">
         <span className="sr-only">Claim </span>
         {claim.number}
       </span>

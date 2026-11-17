@@ -25,21 +25,22 @@ const GREETING_ID = "greeting";
 // the greeting of the hour, so the heading never changes in front of the user.
 const GREET = `(function(){var h=new Date().getHours();var e=document.getElementById(${JSON.stringify(GREETING_ID)});if(e)e.textContent=h>=5&&h<12?"Good morning":h>=12&&h<18?"Good afternoon":"Good evening"})()`;
 
-type Tone = "blue" | "purple" | "green" | "pink" | "orange";
+// The colours of the scene behind the screen: its stars, its dusk, its lamps, its bridge.
+type Tone = "starlight" | "violet" | "amber" | "rose" | "orange";
 
 const INK: Readonly<Record<Tone, string>> = {
-  blue: "text-ascii-blue",
-  purple: "text-ascii-purple",
-  green: "text-ascii-green",
-  pink: "text-ascii-pink",
+  starlight: "text-ascii-blue",
+  violet: "text-ascii-purple",
+  amber: "text-highlight",
+  rose: "text-ascii-pink",
   orange: "text-ascii-orange",
 };
 
 const TILE: Readonly<Record<Tone, string>> = {
-  blue: "bg-ascii-blue/12 text-ascii-blue",
-  purple: "bg-ascii-purple/12 text-ascii-purple",
-  green: "bg-ascii-green/12 text-ascii-green",
-  pink: "bg-ascii-pink/12 text-ascii-pink",
+  starlight: "bg-ascii-blue/12 text-ascii-blue",
+  violet: "bg-ascii-purple/12 text-ascii-purple",
+  amber: "bg-highlight/12 text-highlight",
+  rose: "bg-ascii-pink/12 text-ascii-pink",
   orange: "bg-ascii-orange/12 text-ascii-orange",
 };
 
@@ -56,14 +57,14 @@ const SUGGESTIONS: readonly Suggestion[] = [
     question:
       "How many charge cycles do lithium iron phosphate batteries last, and what shortens their life?",
     icon: BatteryChargingIcon,
-    tone: "green",
+    tone: "amber",
   },
   {
     title: "Microplastics and health",
     question:
       "What is known about the health effects of microplastics in the human body?",
     icon: MicroscopeIcon,
-    tone: "pink",
+    tone: "rose",
   },
   {
     title: "Four-day work week",
@@ -76,14 +77,14 @@ const SUGGESTIONS: readonly Suggestion[] = [
     title: "Suez Canal blockage",
     question: "How did the 2021 Suez Canal blockage affect global trade?",
     icon: ShipIcon,
-    tone: "blue",
+    tone: "starlight",
   },
   {
     title: "Sleep trackers",
     question:
       "How accurate are consumer sleep trackers compared with a sleep laboratory?",
     icon: MoonStarIcon,
-    tone: "purple",
+    tone: "violet",
   },
 ];
 
@@ -150,7 +151,7 @@ export function StartScreen({
     {
       label: plural(budget.rounds, "round"),
       icon: RefreshCwIcon,
-      tone: "blue",
+      tone: "starlight",
     },
     {
       label: `${plural(budget.queriesPerRound, "search", "searches")} per round`,
@@ -160,12 +161,12 @@ export function StartScreen({
     {
       label: `${plural(budget.readsPerRound, "page")} per round`,
       icon: FileTextIcon,
-      tone: "green",
+      tone: "amber",
     },
     {
       label: plural(budget.mapsPerRun, "site map"),
       icon: MapIcon,
-      tone: "purple",
+      tone: "violet",
     },
   ];
 

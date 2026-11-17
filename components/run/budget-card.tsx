@@ -43,9 +43,7 @@ function Meter({
             key={i}
             className={cn(
               "h-1.5 flex-1 rounded-full transition-colors duration-200",
-              i < used
-                ? "bg-primary-ink"
-                : "bg-muted ring-1 ring-border ring-inset",
+              i < used ? "bg-link" : "bg-muted ring-1 ring-border ring-inset",
             )}
           />
         ))}

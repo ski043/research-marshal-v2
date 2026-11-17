@@ -28,7 +28,7 @@ export function Citation({ claim }: { claim: VerifiedClaim }) {
         rel="noopener noreferrer"
         aria-label={`Citation ${claim.number}: ${source.title}, ${source.domain}, ${source.label}. Opens in a new tab.`}
         aria-describedby={quoteId}
-        className="relative mx-px inline-flex h-4.5 min-w-4.5 -translate-y-px items-center justify-center rounded-md bg-primary-soft px-1 align-middle font-mono text-[0.6875rem] font-medium leading-none text-primary-ink no-underline tabular-nums transition-colors duration-150 before:absolute before:-inset-1 hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring data-popup-open:bg-primary data-popup-open:text-primary-foreground"
+        className="relative mx-px inline-flex h-4.5 min-w-4.5 -translate-y-px items-center justify-center rounded-md bg-link-soft px-1 align-middle font-mono text-[0.6875rem] font-medium leading-none text-link no-underline tabular-nums transition-colors duration-150 before:absolute before:-inset-1 hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring data-popup-open:bg-primary data-popup-open:text-primary-foreground"
       >
         {claim.number}
       </HoverCardTrigger>
@@ -43,11 +43,11 @@ export function Citation({ claim }: { claim: VerifiedClaim }) {
       >
         <figure className="flex flex-col">
           <blockquote className="border-b px-3.5 py-3 text-sm/relaxed text-pretty text-popover-foreground">
-            <span aria-hidden className="text-muted-foreground">
+            <span aria-hidden className="text-highlight">
               “
             </span>
             {claim.quote}
-            <span aria-hidden className="text-muted-foreground">
+            <span aria-hidden className="text-highlight">
               ”
             </span>
           </blockquote>

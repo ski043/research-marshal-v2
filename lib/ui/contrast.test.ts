@@ -69,7 +69,8 @@ const TEXT: readonly (readonly [text: string, on: readonly string[]])[] = [
   ["--accent-foreground", ["--accent"]],
   ["--sidebar-foreground", ["--sidebar", "--sidebar-accent"]],
   ["--sidebar-accent-foreground", ["--sidebar-accent"]],
-  ["--primary-foreground", ["--primary"]],
+  // The primary button fills with the primary ink under the pointer.
+  ["--primary-foreground", ["--primary", "--primary-ink"]],
   [
     "--primary-ink",
     [
@@ -82,14 +83,15 @@ const TEXT: readonly (readonly [text: string, on: readonly string[]])[] = [
       "--primary-soft",
     ],
   ],
+  // Links of the report and the numbered chips of citations and claims.
+  ["--link", ["--background", "--card", "--popover", "--muted", "--link-soft"]],
   [
     "--success",
     ["--background", "--card", "--popover", "--muted", "--success-soft"],
   ],
-  [
-    "--warning",
-    ["--background", "--card", "--popover", "--muted", "--warning-soft"],
-  ],
+  // The bare word. On its soft surface a warning has its own text colour.
+  ["--warning", ["--background", "--card", "--popover", "--muted"]],
+  ["--warning-soft-foreground", ["--warning-soft"]],
   [
     "--destructive",
     ["--background", "--card", "--popover", "--muted", "--destructive-soft"],
@@ -103,8 +105,12 @@ const NON_TEXT: readonly (readonly [ui: string, on: readonly string[]])[] = [
   ["--input", ["--background", "--sidebar", "--card"]],
   ["--primary", ["--background", "--sidebar", "--card"]],
   ["--ascii-ink", ["--background", "--sidebar", "--card"]],
-  // The tinted icons of the example chips and of the budget pills.
-  ...(["blue", "purple", "green", "pink", "orange"] as const).map(
+  // The filled segments of the budget meters.
+  ["--link", ["--background", "--card"]],
+  // The quote marks of the citation popover, and the amber icons of the start screen.
+  ["--highlight", ["--background", "--popover"]],
+  // The other tinted icons of the example chips and of the budget pills.
+  ...(["blue", "purple", "pink", "orange"] as const).map(
     (tone) => [`--ascii-color-${tone}`, ["--background"]] as const,
   ),
 ];
