@@ -1,12 +1,25 @@
 "use client";
 
+import {
+  BatteryChargingIcon,
+  CalendarDaysIcon,
+  FileTextIcon,
+  type LucideIcon,
+  MapIcon,
+  MicroscopeIcon,
+  MoonStarIcon,
+  RefreshCwIcon,
+  SearchIcon,
+  ShipIcon,
+} from "lucide-react";
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { SidebarTrigger } from "@/components/app/app-shell";
 import type { ModelOption } from "@/components/app/model-select";
 import { PromptBox } from "@/components/app/prompt-box";
 import { GlobeMark } from "@/components/asciicn/globe-mark";
-import { greetingFor } from "@/lib/ui/format";
+import { greetingFor, plural } from "@/lib/ui/format";
+import { cn } from "@/lib/utils";
 
 // The field is decoration, so it loads after the prompt box and never blocks it.
 const DotField = dynamic(
@@ -15,16 +28,84 @@ const DotField = dynamic(
 );
 
 const GREETING_ID = "greeting";
+const BUDGET_ID = "budget";
 // The server cannot know the local time. This runs before the first paint and writes
 // the greeting of the hour, so the heading never changes in front of the user.
 const GREET = `(function(){var h=new Date().getHours();var e=document.getElementById(${JSON.stringify(GREETING_ID)});if(e)e.textContent=h>=5&&h<12?"Good morning":h>=12&&h<18?"Good afternoon":"Good evening"})()`;
 
-const EXAMPLES = [
-  "How long do lithium iron phosphate batteries last?",
-  "What is known about the health effects of microplastics?",
-  "How did the 2021 Suez Canal blockage affect global trade?",
-  "Does a four-day work week change productivity?",
+type Tone = "blue" | "purple" | "green" | "pink" | "orange";
+
+const INK: Readonly<Record<Tone, string>> = {
+  blue: "text-ascii-blue",
+  purple: "text-ascii-purple",
+  green: "text-ascii-green",
+  pink: "text-ascii-pink",
+  orange: "text-ascii-orange",
+};
+
+const TILE: Readonly<Record<Tone, string>> = {
+  blue: "bg-ascii-blue/12 text-ascii-blue",
+  purple: "bg-ascii-purple/12 text-ascii-purple",
+  green: "bg-ascii-green/12 text-ascii-green",
+  pink: "bg-ascii-pink/12 text-ascii-pink",
+  orange: "bg-ascii-orange/12 text-ascii-orange",
+};
+
+type Suggestion = {
+  title: string;
+  question: string;
+  icon: LucideIcon;
+  tone: Tone;
+};
+
+const SUGGESTIONS: readonly Suggestion[] = [
+  {
+    title: "Battery lifespan",
+    question:
+      "How many charge cycles do lithium iron phosphate batteries last, and what shortens their life?",
+    icon: BatteryChargingIcon,
+    tone: "green",
+  },
+  {
+    title: "Microplastics and health",
+    question:
+      "What is known about the health effects of microplastics in the human body?",
+    icon: MicroscopeIcon,
+    tone: "pink",
+  },
+  {
+    title: "Four-day work week",
+    question:
+      "What did the large trials of a four-day work week find about productivity?",
+    icon: CalendarDaysIcon,
+    tone: "orange",
+  },
+  {
+    title: "Suez Canal blockage",
+    question: "How did the 2021 Suez Canal blockage affect global trade?",
+    icon: ShipIcon,
+    tone: "blue",
+  },
+  {
+    title: "Sleep trackers",
+    question:
+      "How accurate are consumer sleep trackers compared with a sleep laboratory?",
+    icon: MoonStarIcon,
+    tone: "purple",
+  },
+];
+
+const INVITATION = "Ask a research question…";
+const ROTATING = [
+  "Are sodium-ion batteries ready for grid storage?",
+  "Which countries restrict PFAS in consumer products?",
+  "How well do heat pumps work below minus 15 °C?",
+  "What explains the decline of insects in Europe?",
+  "Do congestion charges reduce city traffic?",
 ] as const;
+
+const TYPE_STEP = 6;
+const TYPE_INTERVAL_MS = 16;
 
 export type Budget = {
   rounds: number;
@@ -44,11 +125,56 @@ export function StartScreen({
 }) {
   const [question, setQuestion] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
+  const typing = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fill = (text: string) => {
-    setQuestion(text);
-    input.current?.focus();
+  const stopTyping = () => {
+    if (typing.current) clearInterval(typing.current);
+    typing.current = null;
   };
+  useEffect(
+    () => () => {
+      if (typing.current) clearInterval(typing.current);
+    },
+    [],
+  );
+
+  const type = (text: string) => {
+    stopTyping();
+    input.current?.focus();
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setQuestion(text);
+      return;
+    }
+    let length = 0;
+    typing.current = setInterval(() => {
+      length = Math.min(text.length, length + TYPE_STEP);
+      setQuestion(text.slice(0, length));
+      if (length >= text.length) stopTyping();
+    }, TYPE_INTERVAL_MS);
+  };
+
+  const limits: readonly { label: string; icon: LucideIcon; tone: Tone }[] = [
+    {
+      label: plural(budget.rounds, "round"),
+      icon: RefreshCwIcon,
+      tone: "blue",
+    },
+    {
+      label: `${plural(budget.queriesPerRound, "search", "searches")} per round`,
+      icon: SearchIcon,
+      tone: "orange",
+    },
+    {
+      label: `${plural(budget.readsPerRound, "page")} per round`,
+      icon: FileTextIcon,
+      tone: "green",
+    },
+    {
+      label: plural(budget.mapsPerRun, "site map"),
+      icon: MapIcon,
+      tone: "purple",
+    },
+  ];
 
   return (
     <main className="relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs">
@@ -84,31 +210,68 @@ export function StartScreen({
 
           <PromptBox
             question={question}
-            onQuestionChange={setQuestion}
+            onQuestionChange={(text) => {
+              stopTyping();
+              setQuestion(text);
+            }}
             models={models}
             defaultModel={defaultModel}
             inputRef={input}
-          />
-
-          <p className="mt-3 text-center text-xs text-pretty text-muted-foreground">
-            One run takes at most {budget.rounds} rounds, each with{" "}
-            {budget.queriesPerRound} searches and {budget.readsPerRound} pages,
-            and {budget.mapsPerRun} site map. Every fact in the report carries a
-            quote that was checked on its page.
-          </p>
+            invitation={INVITATION}
+            examples={ROTATING}
+          >
+            <div className="-mt-3 flex items-center gap-2 rounded-b-2xl border border-t-0 bg-muted/48 px-3 pt-5.5 pb-2.5">
+              <span
+                id={BUDGET_ID}
+                title="The limits of one run are fixed."
+                className="shrink-0 text-xs text-muted-foreground"
+              >
+                Budget
+              </span>
+              <FadeScroller className="-my-1 min-w-0 flex-1 py-1">
+                <ul aria-labelledby={BUDGET_ID} className="flex gap-1.5">
+                  {limits.map((limit) => (
+                    <li
+                      key={limit.label}
+                      className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border bg-background ps-1 pe-2.5 text-xs font-medium text-foreground/80"
+                    >
+                      <span
+                        className={cn(
+                          "flex size-5 items-center justify-center rounded-full",
+                          TILE[limit.tone],
+                        )}
+                      >
+                        <limit.icon aria-hidden className="size-3" />
+                      </span>
+                      {limit.label}
+                    </li>
+                  ))}
+                </ul>
+              </FadeScroller>
+            </div>
+          </PromptBox>
 
           <ul
             aria-label="Example questions"
             className="mt-6 flex flex-wrap justify-center gap-2"
           >
-            {EXAMPLES.map((example) => (
-              <li key={example}>
+            {SUGGESTIONS.map((suggestion, index) => (
+              <li
+                key={suggestion.title}
+                className="animate-in duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] fill-mode-backwards fade-in slide-in-from-bottom-1.5 motion-reduce:animate-none"
+                style={{ animationDelay: `${40 + 30 * index}ms` }}
+              >
                 <button
                   type="button"
-                  onClick={() => fill(example)}
-                  className="inline-flex min-h-8 items-center rounded-full border bg-background px-3 py-1 text-left text-xs text-muted-foreground transition-[background-color,border-color,color,scale] duration-150 hover:border-input hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.98] sm:text-sm"
+                  title={suggestion.question}
+                  onClick={() => type(suggestion.question)}
+                  className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-full border bg-background px-3 text-xs text-muted-foreground outline-none transition-[background-color,border-color,color,scale] duration-150 ease-out hover:border-input hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] sm:text-sm"
                 >
-                  {example}
+                  <suggestion.icon
+                    aria-hidden
+                    className={cn("size-3.5 shrink-0", INK[suggestion.tone])}
+                  />
+                  {suggestion.title}
                 </button>
               </li>
             ))}
@@ -116,5 +279,46 @@ export function StartScreen({
         </div>
       </div>
     </main>
+  );
+}
+
+/** A row that scrolls sideways and fades at each edge that has more behind it. */
+function FadeScroller({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      setEdges({ start: el.scrollLeft > 1, end: el.scrollLeft < max - 1 });
+    };
+    measure();
+    el.addEventListener("scroll", measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", measure);
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={cn("overflow-x-auto [scrollbar-width:none]", className)}
+      style={{
+        maskImage: `linear-gradient(to right, ${edges.start ? "transparent, black 1.5rem" : "black, black"}, ${edges.end ? "black calc(100% - 1.5rem), transparent" : "black, black"})`,
+      }}
+    >
+      {children}
+    </div>
   );
 }

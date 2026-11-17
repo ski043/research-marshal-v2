@@ -24,11 +24,11 @@
     "click": "main ul[aria-label='Example questions'] button"
   },
   {
-    "wait": 200
+    "wait": 600
   },
   {
-    "expect": "$v('textarea').value === $v(\"main ul[aria-label='Example questions'] button\").textContent && document.activeElement === $v('textarea')",
-    "that": "an example question fills the prompt box and moves the focus there"
+    "expect": "$v('textarea').value.endsWith('?') && $v('textarea').value === $v(\"main ul[aria-label='Example questions'] button\").title && document.activeElement === $v('textarea')",
+    "that": "an example chip types its question into the prompt box and moves the focus there"
   },
   {
     "expect": "$v('button[type=submit]').disabled === false",

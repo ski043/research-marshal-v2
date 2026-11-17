@@ -103,6 +103,10 @@ const NON_TEXT: readonly (readonly [ui: string, on: readonly string[]])[] = [
   ["--input", ["--background", "--sidebar", "--card"]],
   ["--primary", ["--background", "--sidebar", "--card"]],
   ["--ascii-ink", ["--background", "--sidebar", "--card"]],
+  // The tinted icons of the example chips and of the budget pills.
+  ...(["blue", "purple", "green", "pink", "orange"] as const).map(
+    (tone) => [`--ascii-color-${tone}`, ["--background"]] as const,
+  ),
 ];
 
 describe.each(["light", "dark"] as const)("%s theme", (theme) => {

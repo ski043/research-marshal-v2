@@ -58,6 +58,26 @@
   --color-ascii-orange: var(--ascii-color-orange);
   --color-ascii-red: var(--ascii-color-red);
   --color-ascii-grey: var(--ascii-color-grey);
+
+  --animate-placeholder: placeholder 2.8s cubic-bezier(0.23, 1, 0.32, 1) both;
+  @keyframes placeholder {
+    0% {
+      opacity: 0;
+      transform: translateY(6px);
+      filter: blur(2px);
+    }
+    7%,
+    93% {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-6px);
+      filter: blur(2px);
+    }
+  }
 }
 
 :root {

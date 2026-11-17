@@ -25,7 +25,7 @@
     "click": "button[aria-label^='Model']"
   },
   {
-    "click": "[role=menuitemradio]",
+    "click": "[role=option]",
     "text": "Haiku"
   },
   {
