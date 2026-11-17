@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { Instrument_Serif, Newsreader } from "next/font/google";
 import { connection } from "next/server";
 import { type ReactNode, Suspense } from "react";
+import { ICON_DIR, iconType } from "@/app/lab/icons";
 import { Wordmark } from "@/components/app/brand-mark";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +20,6 @@ const instrumentSerif = Instrument_Serif({
 });
 const newsreader = Newsreader({ subsets: ["latin"] });
 
-const ICON_DIR = path.join(process.cwd(), "public/lab/icons");
-const ICON_FILE = /\.(svg|png|jpe?g|webp|avif|gif|ico)$/i;
 const ICON_SIZES = [28, 64, 256] as const;
 
 // The app has no class for a light surface inside a dark page. This copies the light
@@ -217,7 +216,7 @@ function Surface({
 async function IconCandidates() {
   await connection();
   const files = (await readdir(ICON_DIR).catch(() => [] as string[]))
-    .filter((file) => ICON_FILE.test(file))
+    .filter((file) => iconType(file) !== undefined)
     .sort();
   if (files.length === 0) {
     return (
@@ -246,7 +245,7 @@ async function IconCandidates() {
                   <figure key={size} className="flex flex-col gap-2">
                     {/* biome-ignore lint/performance/noImgElement: a candidate file as it is, in any format, without the image optimizer */}
                     <img
-                      src={`/lab/icons/${encodeURIComponent(file)}`}
+                      src={`/lab/icon/${encodeURIComponent(file)}`}
                       alt={`${file} at ${size} pixels`}
                       width={size}
                       height={size}
