@@ -1,18 +1,15 @@
-import Image from "next/image";
 import icon from "@/app/icon.png";
 import { cn } from "@/lib/utils";
 
 /** The app icon. Decorative next to the name. */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <Image
-      src={icon}
+    // biome-ignore lint/performance/noImgElement: the file is the 192px favicon, served as it is; next/image would add 15 kB of script to every route for one 28px icon
+    <img
+      src={icon.src}
       alt=""
       width={28}
       height={28}
-      // The file is the 192px favicon; the optimiser would only add a request for it.
-      unoptimized
-      loading="eager"
       className={cn("size-7 shrink-0", className)}
     />
   );
