@@ -2,6 +2,7 @@
 
 import { type ComponentProps, useMemo } from "react";
 import { Streamdown } from "streamdown";
+import { HalftoneRule } from "@/components/asciicn/dot-rule";
 import { Citation } from "@/components/run/citation";
 import type { ReportView, VerifiedClaim } from "@/lib/research/run-view";
 import { citationOf, linkCitations } from "@/lib/ui/citations";
@@ -9,19 +10,28 @@ import { cn } from "@/lib/utils";
 
 type Components = NonNullable<ComponentProps<typeof Streamdown>["components"]>;
 
+// Only the first heading of a report carries the rule.
+const FIRST_HEADING = "mt-2.5 [:is(h1,h2)~*>&]:hidden";
+
 // Streamdown passes the syntax node along; it must not reach the DOM.
 const TYPOGRAPHY = {
-  h1: ({ node: _node, ...props }) => (
+  h1: ({ node: _node, children, ...props }) => (
     <h1
       {...props}
       className="mt-0 mb-4 text-2xl font-semibold tracking-tight text-balance"
-    />
+    >
+      {children}
+      <HalftoneRule className={FIRST_HEADING} />
+    </h1>
   ),
-  h2: ({ node: _node, ...props }) => (
+  h2: ({ node: _node, children, ...props }) => (
     <h2
       {...props}
       className="mt-8 mb-3 text-lg font-semibold tracking-tight text-balance"
-    />
+    >
+      {children}
+      <HalftoneRule className={FIRST_HEADING} />
+    </h2>
   ),
   h3: ({ node: _node, ...props }) => (
     <h3 {...props} className="mt-6 mb-2 text-base font-semibold" />

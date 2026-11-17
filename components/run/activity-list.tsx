@@ -17,6 +17,7 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import { type ReactNode, useId, useRef, useState } from "react";
+import { DotLine } from "@/components/asciicn/dot-rule";
 import { GlyphSpinner } from "@/components/asciicn/glyph-spinner";
 import { DroppedItem, VerifiedItem } from "@/components/run/claims-list";
 import { DecodoMark } from "@/components/run/decodo-mark";
@@ -745,7 +746,7 @@ export function ActivityList({
             className="sticky top-0 z-20 flex items-center gap-2 bg-background px-2 py-1.5 text-xs font-medium text-muted-foreground"
           >
             {group.round === null ? "Report" : `Round ${group.round}`}
-            <span aria-hidden className="h-px flex-1 bg-border" />
+            <DotLine className="min-w-0 flex-1 text-input" />
             <span className="font-mono tabular-nums">{group.rows.length}</span>
           </h3>
           <ol className="relative flex flex-col">
