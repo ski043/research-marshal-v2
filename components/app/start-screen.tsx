@@ -12,20 +12,19 @@ import {
   SearchIcon,
   ShipIcon,
 } from "lucide-react";
-import dynamic from "next/dynamic";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { SidebarTrigger } from "@/components/app/app-shell";
 import type { ModelOption } from "@/components/app/model-select";
 import { PromptBox } from "@/components/app/prompt-box";
 import { GlobeMark } from "@/components/asciicn/globe-mark";
+import {
+  DEFAULT_START_VARIANT,
+  StartBackground,
+  type StartVariant,
+  startVariantSpec,
+} from "@/components/asciicn/start-background";
 import { greetingFor, plural } from "@/lib/ui/format";
 import { cn } from "@/lib/utils";
-
-// The field is decoration, so it loads after the prompt box and never blocks it.
-const DotField = dynamic(
-  () => import("@/components/asciicn/dot-field").then((mod) => mod.DotField),
-  { ssr: false },
-);
 
 const GREETING_ID = "greeting";
 // The server cannot know the local time. This runs before the first paint and writes
@@ -117,11 +116,14 @@ export function StartScreen({
   models,
   defaultModel,
   budget,
+  variant = DEFAULT_START_VARIANT,
 }: {
   models: readonly ModelOption[];
   defaultModel: string;
   budget: Budget;
+  variant?: StartVariant;
 }) {
+  const ground = startVariantSpec(variant);
   const [question, setQuestion] = useState("");
   const budgetId = useId();
   const input = useRef<HTMLTextAreaElement>(null);
@@ -177,18 +179,25 @@ export function StartScreen({
   ];
 
   return (
-    <main className="relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs">
-      <DotField
-        clear={{ width: 760, height: 520 }}
-        className="-z-10 hidden sm:block"
-      />
+    <main
+      className={cn(
+        "relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground lg:rounded-2xl lg:border lg:shadow-xs",
+        ground.screen,
+      )}
+    >
+      <StartBackground variant={variant} />
       <div className="flex h-13 shrink-0 items-center px-3 lg:hidden">
         <SidebarTrigger />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="m-auto flex w-full max-w-2xl flex-col px-4 py-10 sm:px-8">
-          <div className="mb-8 flex animate-in flex-col items-center gap-4 text-center duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
-            <GlobeMark />
+          <div
+            className={cn(
+              "mb-8 flex animate-in flex-col items-center gap-4 text-center duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none",
+              ground.hero,
+            )}
+          >
+            {ground.mark && <GlobeMark />}
             <h1
               id={GREETING_ID}
               suppressHydrationWarning
