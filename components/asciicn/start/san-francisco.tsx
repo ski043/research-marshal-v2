@@ -5,18 +5,12 @@ import { SanFrancisco } from "@/components/asciicn/san-francisco";
 import { useStartBoxes } from "@/components/asciicn/start/use-boxes";
 import { useRoomy } from "@/components/asciicn/start/use-wide";
 
-const DUSK = "#05081a";
-
 export function SanFranciscoGround() {
   const ground = useRef<HTMLDivElement>(null);
   const roomy = useRoomy(ground);
   const { column, headroom } = useStartBoxes(ground);
   return (
-    <div
-      ref={ground}
-      className="absolute inset-0"
-      style={{ backgroundColor: DUSK }}
-    >
+    <div ref={ground} className="absolute inset-0">
       {roomy ? (
         // The towers stand left and right of the text and the deck runs under the chips.
         <SanFrancisco

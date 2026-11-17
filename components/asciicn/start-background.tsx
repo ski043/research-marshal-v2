@@ -37,7 +37,8 @@ const SPECS: Record<StartVariant, Spec> = {
     label: "B1",
     name: "San Francisco",
     mark: false,
-    screen: "dark",
+    // The dusk of the scene from the first paint, before the scene has loaded.
+    screen: "dark bg-[#05081a]",
     Ground: dynamic(
       () =>
         import("@/components/asciicn/start/san-francisco").then(
