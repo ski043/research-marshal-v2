@@ -45,7 +45,7 @@ const ARCS: readonly GlobeArc[] = [
 const beside = (width: number, height: number): GlobeFrame => {
   const flank = (width - 672) / 2;
   const radius = flank * 1.6;
-  return { cx: width + radius - flank - 24, cy: height * 0.54, radius };
+  return { cx: width + radius - flank + 20, cy: height * 0.54, radius };
 };
 // Without room beside the text the globe rises from the bottom edge, under the chips.
 const below = (width: number, height: number): GlobeFrame => ({

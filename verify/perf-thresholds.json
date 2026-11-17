@@ -17,9 +17,10 @@
   "bundle": {
     "marginPercent": 1,
     "routes": {
-      "/runs/[runId]": 1245055,
-      "/": 738421,
-      "/_not-found": 597071
+      "/runs/[runId]": 1245732,
+      "/lab/backgrounds": 742462,
+      "/": 741311,
+      "/_not-found": 597241
     }
   },
   "pipelineShape": {

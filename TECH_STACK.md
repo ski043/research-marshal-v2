@@ -27,7 +27,7 @@ Version 1 runs locally for one user. It has no accounts and no hosted service. T
 | Components | shadcn/ui with the default `base-nova` style | CLI 4.23 | The prompt box (U1), the citation popover (U6), the source lists (S3), and the history (U8). |
 | Icons | lucide-react | 1.x | The default icon library of shadcn/ui. |
 | Component support | `@base-ui/react`, `class-variance-authority`, `cn`, `tw-animate-css` | | The packages that the shadcn/ui components import. The shadcn CLI adds them. |
-| ASCII art | The asciicn engine (`lib/ascii`), copied in by the shadcn CLI from `https://asciicn.dev/r/ascii-core.json` | | Draws the dot field and the globe of the start screen as glyphs on a canvas. It is source in the repository and adds no npm package. |
+| ASCII art | The asciicn engine (`lib/ascii`), copied in by the shadcn CLI from `https://asciicn.dev/r/ascii-core.json` and `https://asciicn.dev/r/ascii-shader.json` | | Draws the background and the globe of the start screen as glyphs on a canvas. `ascii-core` draws on Canvas2D and `ascii-shader` on WebGL2. It is source in the repository and adds no npm package. |
 | Report rendering | Streamdown | 2.7 | Renders the report (R1) and turns each citation into a popover with a link (U6, U7). |
 | Report cleanup | `mdast-util-from-markdown`, `micromark-extension-gfm`, `mdast-util-gfm`, and `mdast-util-to-markdown`, with `@types/mdast` | 2.1.0, 3.0.0, 3.1.0, 2.2.3, and 4.0.4 | Parses the model draft with the parser that Streamdown uses, keeps only the constructs that a report can contain, and writes the draft back as Markdown (R7, V4). |
 | Validation | Zod | 4.6 | Parses the question, the environment variables, and the model output. |

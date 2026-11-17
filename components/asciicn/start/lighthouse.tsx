@@ -11,13 +11,20 @@ export function LighthouseGround() {
   const wide = useWide();
   return (
     <div className="absolute inset-x-2 top-14 h-[calc(50%-3.5rem)] overflow-hidden rounded-2xl lg:inset-x-3 lg:top-3 lg:h-[calc(50%-4.75rem)]">
-      {/* From the sm breakpoint up the scene is taller than the window: the frame crops the sea, so the tower stands large against the sky. */}
+      {/* From the sm breakpoint up the scene is taller than the window. The window
+          crops the sea, so the tower stands large against the sky. */}
       <Lighthouse
         ref={canvas}
         className="absolute inset-x-0 top-0 h-full sm:h-[160%]"
         tint={1}
-        axis={wide ? undefined : 0.79}
-        calm={{ box: greeting, strength: 0.85, grow: 6, fade: 110 }}
+        axis={wide ? 0.8 : 0.84}
+        calm={{
+          box: greeting,
+          strength: 0.8,
+          grow: 4,
+          // The tower stands close to the greeting on a phone, so the calm ends sooner.
+          fade: wide ? 130 : 16,
+        }}
       />
     </div>
   );
