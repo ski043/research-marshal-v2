@@ -21,7 +21,7 @@ const same = (a: UvBox, b: UvBox) => a.every((value, i) => value === b[i]);
 
 /**
  * Where the text of the start screen sits inside `canvas`, so a scene can thin out
- * behind it. The boxes follow every change of size.
+ * behind it. The boxes follow every change of size and every scroll of the text.
  */
 export function useStartBoxes(
   canvas: RefObject<HTMLElement | null>,
@@ -65,7 +65,20 @@ export function useStartBoxes(
     const observer = new ResizeObserver(measure);
     for (const element of [root, main, greeting, column])
       observer.observe(element);
-    return () => observer.disconnect();
+    // On a short window the text scrolls in front of the canvas, which stays put.
+    let frame = 0;
+    const onScroll = () => {
+      frame ||= requestAnimationFrame(() => {
+        frame = 0;
+        measure();
+      });
+    };
+    main.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => {
+      observer.disconnect();
+      main.removeEventListener("scroll", onScroll, { capture: true });
+      cancelAnimationFrame(frame);
+    };
   }, [canvas]);
 
   return boxes;

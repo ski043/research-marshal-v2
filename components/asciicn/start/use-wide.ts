@@ -4,10 +4,10 @@ import { type RefObject, useSyncExternalStore } from "react";
 
 // The text column is 42rem wide. A picture beside it needs about 9rem on each side.
 const ROOMY = 960;
-// Before the ground is in the document: the screen without the sidebar, which shows
-// from 1024px up and takes 268px.
+// Before the ground is in the document, the screen it will fill already is: the scene
+// loads after the page. The screen has the width that the sidebar leaves, wide or as a rail.
 const guess = () =>
-  window.innerWidth - (window.innerWidth >= 1024 ? 268 : 0) >= ROOMY;
+  (document.querySelector("main")?.clientWidth ?? window.innerWidth) >= ROOMY;
 
 /**
  * Whether `ground` has room for a picture beside the text column. A ground reframes
