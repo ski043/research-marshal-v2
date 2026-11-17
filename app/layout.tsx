@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/app/app-shell";
 import { Sidebar } from "@/components/app/sidebar";
@@ -18,6 +18,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: { default: "Research Marshal", template: "%s · Research Marshal" },
   description: "Answers one research question with a cited Markdown report.",
+};
+
+// The colour of the sidebar, which is what meets the browser frame in each theme.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f5fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#05081a" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

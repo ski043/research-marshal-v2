@@ -1,43 +1,33 @@
-import { Instrument_Serif } from "next/font/google";
+import Image from "next/image";
+import icon from "@/app/icon.png";
 import { cn } from "@/lib/utils";
 
-const researchFace = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  style: "italic",
-});
-
-/** The mark of Research Marshal: a quote that is checked. Decorative next to the name. */
+/** The app icon. Decorative next to the name. */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary font-mono text-[13px] font-semibold leading-none text-primary-foreground",
-        className,
-      )}
-    >
-      ⠶
-    </span>
+    <Image
+      src={icon}
+      alt=""
+      width={28}
+      height={28}
+      // The file is the 192px favicon; the optimiser would only add a request for it.
+      unoptimized
+      loading="eager"
+      className={cn("size-7 shrink-0", className)}
+    />
   );
 }
 
-/**
- * The name next to the mark: "Research" in an italic serif and the primary ink,
- * "Marshal" in the sans of the interface. It is variant W8 of the gallery at /lab.
- */
+/** The name next to the mark: one sans style, with "Marshal" in the primary ink. */
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <span className={cn("leading-none whitespace-nowrap", className)}>
-      <span
-        className={cn(
-          researchFace.className,
-          "text-[1.3em] text-primary-ink italic",
-        )}
-      >
-        Research
-      </span>{" "}
-      <span className="font-semibold tracking-tight">Marshal</span>
+    <span
+      className={cn(
+        "text-[1.0625rem] leading-none font-semibold tracking-[-0.02em] whitespace-nowrap text-sidebar-foreground",
+        className,
+      )}
+    >
+      Research <span className="text-primary-ink">Marshal</span>
     </span>
   );
 }
