@@ -3,7 +3,9 @@
 import { SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useSidebar } from "@/components/app/app-shell";
+import { RAIL_ONLY, ROW, WIDE_ONLY } from "@/components/app/sidebar-classes";
 import { type RunStatus, STATUS_LABEL } from "@/components/app/status-icon";
 import { formatDateTime, groupByAge, plural } from "@/lib/ui/format";
 import { cn } from "@/lib/utils";
@@ -29,6 +31,8 @@ export function HistoryList({
   now: string;
 }) {
   const searchId = useId();
+  const searchField = useRef<HTMLInputElement>(null);
+  const { setSidebar } = useSidebar();
   const active = useParams<{ runId?: string }>().runId;
   const [search, setSearch] = useState("");
   const [now, setNow] = useState(renderedAt);
@@ -51,27 +55,42 @@ export function HistoryList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="relative px-2 pb-1">
-        <label htmlFor={searchId} className="sr-only">
-          Search the history
-        </label>
-        <SearchIcon
-          aria-hidden
-          className="pointer-events-none absolute top-2.5 left-4.5 size-4 text-muted-foreground"
-        />
-        <input
-          id={searchId}
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search"
-          className="h-9 w-full rounded-lg bg-transparent ps-9 pe-2.5 text-sm text-foreground outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-muted-foreground hover:bg-sidebar-accent/60 focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-sidebar-ring [&::-webkit-search-cancel-button]:hidden"
-        />
+        <div className={WIDE_ONLY}>
+          <label htmlFor={searchId} className="sr-only">
+            Search the history
+          </label>
+          <SearchIcon
+            aria-hidden
+            className="pointer-events-none absolute top-2.5 left-4.5 size-4 text-muted-foreground"
+          />
+          <input
+            ref={searchField}
+            id={searchId}
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search"
+            className="h-9 w-full rounded-lg bg-transparent ps-9 pe-2.5 text-sm text-foreground outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-muted-foreground hover:bg-sidebar-accent/60 focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-sidebar-ring [&::-webkit-search-cancel-button]:hidden"
+          />
+        </div>
+        <button
+          type="button"
+          aria-label="Search the history"
+          title="Search"
+          onClick={() => {
+            setSidebar("expanded");
+            searchField.current?.focus();
+          }}
+          className={`absolute top-0 left-2 hidden lg:flex ${ROW} ${RAIL_ONLY}`}
+        >
+          <SearchIcon aria-hidden className="size-4 shrink-0" />
+        </button>
       </div>
       <nav
         aria-label="Past runs"
         // `relative` keeps the visually hidden state of each row inside this scroller.
         // Without it the document grows as tall as the list.
-        className="relative min-h-0 flex-1 overflow-y-auto px-2 pb-6 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)] [scrollbar-width:thin]"
+        className={`relative min-h-0 flex-1 overflow-y-auto px-2 pb-6 ${WIDE_ONLY} [mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)] [scrollbar-width:thin]`}
       >
         {runs.length === 0 ? (
           <p className="px-2.5 pt-4 text-sm text-pretty text-muted-foreground">
