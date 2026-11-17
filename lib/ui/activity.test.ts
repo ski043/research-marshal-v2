@@ -17,6 +17,7 @@ import {
   activityOf,
   currentAction,
   rowCount,
+  waitProgress,
 } from "./activity";
 
 async function eventsOf(name: string): Promise<RunEvent[]> {
@@ -509,5 +510,19 @@ describe("durations", () => {
 
   it("counts every row", async () => {
     expect(rowCount(activity(await eventsOf("failures")))).toBe(11);
+  });
+});
+
+describe("waitProgress", () => {
+  it("starts at nothing, grows with the run and never reaches the end", async () => {
+    const events = await eventsOf("budget");
+    const steps = events.map((_, i) =>
+      waitProgress(activity(events.slice(0, i))),
+    );
+
+    expect(steps[0]).toBe(0);
+    expect(steps.every((step, i) => step >= (steps[i - 1] ?? 0))).toBe(true);
+    expect(steps.at(-1)).toBeGreaterThan(0.75);
+    expect(steps.at(-1)).toBeLessThan(1);
   });
 });

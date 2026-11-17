@@ -805,3 +805,17 @@ export function currentAction(groups: readonly ActivityGroup[]): string | null {
 export function rowCount(groups: readonly ActivityGroup[]): number {
   return groups.reduce((sum, group) => sum + group.rows.length, 0);
 }
+
+/**
+ * How far a run without a report has come, from 0 towards 1. A run does not know how
+ * many steps it will take, so each finished step moves the value on by less than the
+ * one before, and it never reaches 1.
+ */
+export function waitProgress(groups: readonly ActivityGroup[]): number {
+  const finished = groups.reduce(
+    (sum, group) =>
+      sum + group.rows.filter((row) => row.state !== "running").length,
+    0,
+  );
+  return finished / (finished + 10);
+}

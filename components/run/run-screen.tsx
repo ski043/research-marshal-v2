@@ -18,6 +18,7 @@ import {
 } from "react";
 import { cancelRunAction, rerunAction, type StartState } from "@/app/actions";
 import { SidebarTrigger } from "@/components/app/app-shell";
+import { BridgeDots } from "@/components/asciicn/bridge-dots";
 import { GlyphSpinner } from "@/components/asciicn/glyph-spinner";
 import { Elapsed } from "@/components/run/elapsed";
 import { ProgressPanel } from "@/components/run/progress-panel";
@@ -32,7 +33,7 @@ import {
 } from "@/components/ui/sheet";
 import type { Question, RunEvent, RunId } from "@/lib/research/events";
 import type { RunView } from "@/lib/research/run-view";
-import { activityOf, currentAction } from "@/lib/ui/activity";
+import { activityOf, currentAction, waitProgress } from "@/lib/ui/activity";
 import { formatDateTime } from "@/lib/ui/format";
 import { useStored } from "@/lib/ui/storage";
 import { PANEL_KEY } from "@/lib/ui/theme";
@@ -328,14 +329,7 @@ export function RunScreen({
                     className="ms-auto font-mono text-xs tabular-nums text-muted-foreground"
                   />
                 </p>
-                {[92, 78, 85, 52].map((width) => (
-                  <span
-                    key={width}
-                    aria-hidden
-                    className="h-2 animate-pulse rounded-full bg-muted motion-reduce:animate-none"
-                    style={{ width: `${width}%` }}
-                  />
-                ))}
+                <BridgeDots progress={waitProgress(groups)} className="my-2" />
                 <p className="text-xs text-muted-foreground">
                   The report appears here while the run writes it.
                 </p>
