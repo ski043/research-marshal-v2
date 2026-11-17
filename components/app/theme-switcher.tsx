@@ -24,7 +24,8 @@ function apply(theme: Theme): void {
   document.documentElement.classList.toggle("dark", dark);
 }
 
-export function ThemeSwitcher() {
+/** The stored theme and its setter. Applies the theme and follows the system in System. */
+export function useTheme(): [Theme, (next: Theme) => void] {
   const [stored, store] = useStored(THEME_KEY);
   const theme: Theme = isTheme(stored) ? stored : "system";
 
@@ -37,6 +38,61 @@ export function ThemeSwitcher() {
     return () => media.removeEventListener("change", follow);
   }, [theme]);
 
+  return [theme, store];
+}
+
+/** The three themes as one segmented switch. */
+export function ThemeSegments({
+  theme,
+  onChange,
+  className,
+}: {
+  theme: Theme;
+  onChange: (next: Theme) => void;
+  className?: string;
+}) {
+  return (
+    <fieldset
+      className={cn(
+        "flex items-center gap-0.5 rounded-full bg-sidebar-accent p-0.5",
+        className,
+      )}
+    >
+      <legend className="sr-only">Theme</legend>
+      {OPTIONS.map(({ value, label, icon: Icon }) => (
+        <label
+          key={value}
+          title={label}
+          className={cn(
+            "relative flex size-6 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:text-foreground has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-ring",
+            theme === value &&
+              "bg-background text-foreground shadow-xs dark:bg-accent",
+          )}
+        >
+          <input
+            type="radio"
+            name="theme"
+            value={value}
+            checked={theme === value}
+            onChange={() => onChange(value)}
+            className="sr-only"
+          />
+          <Icon aria-hidden className="size-3.5" />
+          <span className="sr-only">{label}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+/** The switch for a page outside the app shell, which has no rail. */
+export function ThemeToggle({ className }: { className?: string }) {
+  const [theme, store] = useTheme();
+  return <ThemeSegments theme={theme} onChange={store} className={className} />;
+}
+
+export function ThemeSwitcher() {
+  const [theme, store] = useTheme();
   const at = OPTIONS.findIndex((option) => option.value === theme);
   const current = OPTIONS[at];
   const next = OPTIONS[(at + 1) % OPTIONS.length];
@@ -45,36 +101,7 @@ export function ThemeSwitcher() {
 
   return (
     <>
-      <fieldset
-        className={cn(
-          "flex items-center gap-0.5 rounded-full bg-sidebar-accent p-0.5",
-          WIDE_ONLY,
-        )}
-      >
-        <legend className="sr-only">Theme</legend>
-        {OPTIONS.map(({ value, label, icon: Icon }) => (
-          <label
-            key={value}
-            title={label}
-            className={cn(
-              "relative flex size-6 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:text-foreground has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-ring",
-              theme === value &&
-                "bg-background text-foreground shadow-xs dark:bg-accent",
-            )}
-          >
-            <input
-              type="radio"
-              name="theme"
-              value={value}
-              checked={theme === value}
-              onChange={() => store(value)}
-              className="sr-only"
-            />
-            <Icon aria-hidden className="size-3.5" />
-            <span className="sr-only">{label}</span>
-          </label>
-        ))}
-      </fieldset>
+      <ThemeSegments theme={theme} onChange={store} className={WIDE_ONLY} />
       {/* The rail has room for one button, so it steps through the three themes. */}
       <button
         type="button"
