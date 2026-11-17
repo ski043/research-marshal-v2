@@ -134,8 +134,8 @@ void sfSetup(vec2 res, float t) {
   // would cut a tower at the edge.
   float portrait = step(sfAsp, 0.85);
   float w = max(sfAsp, 0.86);
-  sfS = mix(mix(0.4, 0.35, tall), 0.325, portrait);
-  float hz = mix(mix(0.4, 0.44, tall), 0.27 - 0.29 * sfS, portrait);
+  sfS = mix(mix(0.4, 0.35, tall) * sfLens.x, 0.325, portrait);
+  float hz = mix(mix(0.4, 0.44, tall) + sfFrame.x, 0.27 - 0.29 * sfS, portrait);
   sfHzRow = floor(hz * sfN.y + 0.5);
   sfHz = sfHzRow / sfN.y;
   sfK = 0.22 * (1.0 - portrait);
@@ -144,9 +144,9 @@ void sfSetup(vec2 res, float t) {
   sfCam = 0.55 * (1.0 - portrait);
   float halfEdge = floor(0.1 * sfS / sfCw + 0.5);
   float edge = sfAsp * 0.5 - (halfEdge + 1.5) * sfCw;
-  sfA = mix(0.28 * w, edge, portrait);
-  sfCx = 0.03 * w * (1.0 - portrait);
-  sfGlowX = mix(-0.1 * min(sfAsp, 1.4), -0.12 * sfAsp, portrait);
+  sfA = mix(sfFrame.y * w, edge, portrait);
+  sfCx = sfFrame.z * w * (1.0 - portrait);
+  sfGlowX = mix(sfFrame.w * min(sfAsp, 1.4), -0.12 * sfAsp, portrait);
   // On a phone the glow and its path on the water sit right under the
   // buttons, so they are held back there.
   sfGlowGain = mix(1.0, 0.45, portrait);
@@ -658,6 +658,16 @@ vec4 sfShade(vec2 uv, vec2 res, float t) {
   c.rgb += vec3(k, -k * 0.3, -k) * 0.05 * lit;
   sfCacheUv = uv;
   sfCacheT = t;
+  // The calm box, where text sits: the scene thins to specks inside it and
+  // comes back over sfCalm.z cells.
+  vec2 away = (abs(uv - sfCalmBox.xy - sfCalmBox.zw * 0.5) - sfCalmBox.zw * 0.5) * sfN;
+  float calm = sfCalm.x * (1.0 - smoothstep(0.0, max(sfCalm.z, 1.0), length(max(away - sfCalm.y, 0.0))));
+  c.rgb *= 1.0 - 0.8 * calm;
+  c.a *= 1.0 - 0.7 * calm;
+  // The water thins out toward the bottom edge, so a band ends in open paper.
+  float foot = smoothstep(0.0, max(sfLens.y, 1e-3), uv.y);
+  c.rgb *= mix(0.4, 1.0, foot);
+  c.a *= foot;
   sfCacheValue = vec4(c.rgb * sfIntensity, c.a * sqrt(sfIntensity));
   return sfCacheValue;
 }
@@ -713,6 +723,33 @@ export interface SanFranciscoProps extends AsciiSceneProps {
   /** The boat crossing the bay. Default `true`. */
   boat?: boolean;
   /**
+   * The framing of a landscape box: how far the horizon moves up, in box
+   * heights, how far each tower stands from the middle and where the middle
+   * of the span and the afterglow sit, in box widths from the centre.
+   * Default: the horizon at 0.4, the towers flanking the middle third.
+   */
+  frame?: {
+    horizon?: number;
+    spread?: number;
+    centre?: number;
+    glow?: number;
+    /** The size of the bridge, as a multiple of its own. Default 1. */
+    scale?: number;
+  };
+  /** How much of the box, from the bottom edge up, fades out to paper, 0 to 1. Default 0. */
+  fadeBottom?: number;
+  /**
+   * A box where text sits, in `uv` (x and y of the lower left corner, width,
+   * height). The scene thins to specks inside it by `strength` (0 to 1). The
+   * box grows by `grow` CSS pixels and the scene returns over `fade` pixels.
+   */
+  calm?: {
+    box: readonly [number, number, number, number];
+    strength?: number;
+    grow?: number;
+    fade?: number;
+  };
+  /**
    * The surface behind the glyphs. Default: the scene's dusk in `truecolor`,
    * `ansi16` and `duotone`; the theme's paper, or the phosphor's, otherwise.
    */
@@ -740,6 +777,9 @@ export const SanFrancisco = ({
   fog = 0.6,
   traffic = 0.2,
   boat = true,
+  frame,
+  fadeBottom = 0,
+  calm,
   paper,
   charset = "dots",
   chars,
@@ -766,8 +806,21 @@ export const SanFrancisco = ({
       colorField={COLOR_FIELD}
       uniforms={{
         sfBoatOn: boat ? 1 : 0,
+        sfCalm: [
+          calm && calm.box[2] > 0 ? clamp(calm.strength ?? 1, 0, 1) : 0,
+          (calm?.grow ?? 0) / cell,
+          (calm?.fade ?? 80) / cell,
+        ],
+        sfCalmBox: calm ? [...calm.box] : [0, 0, 0, 0],
         sfFogAmount: clamp(fog, 0, 1),
+        sfFrame: [
+          frame?.horizon ?? 0,
+          frame?.spread ?? 0.28,
+          frame?.centre ?? 0.03,
+          frame?.glow ?? -0.1,
+        ],
         sfIntensity: clamp(intensity, 0, 1),
+        sfLens: [frame?.scale ?? 1, clamp(fadeBottom, 0, 1)],
         sfTraffic: clamp(traffic, 0, 1),
       }}
       charset={charset}
