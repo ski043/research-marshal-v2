@@ -261,7 +261,7 @@ Spacing is a multiple of 4px.
 | `duration-150` | 150ms | A change under the pointer: colour, fill, border, the press of a chip. |
 | `duration-200` | 200ms | Something that moves or arrives: a new Activity row, an open row, the width of the sidebar. |
 | `duration-300` | 300ms | A screen that enters: the greeting, a notice, one cell of a dithered glyph. |
-| `duration-400` | 400ms | The suggestion chips, one after the other, 30ms apart. |
+| `duration-400` | 400ms | The slowest step: the suggestion chips, one after the other, 30ms apart, and a dot of the waiting bridge as it lights. |
 
 | Class | Value | Use |
 | --- | --- | --- |

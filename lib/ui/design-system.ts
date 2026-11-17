@@ -692,7 +692,7 @@ export const DURATION_ROLES: readonly { className: string; use: string }[] = [
   },
   {
     className: "duration-400",
-    use: "The suggestion chips, one after the other, 30ms apart.",
+    use: "The slowest step: the suggestion chips, one after the other, 30ms apart, and a dot of the waiting bridge as it lights.",
   },
 ];
 

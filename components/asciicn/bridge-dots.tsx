@@ -48,7 +48,7 @@ export function BridgeDots({
           cy={y * PITCH + 1 + DOT / 2}
           r={DOT / 2}
           className={cn(
-            "transition-[fill] duration-500 ease-out motion-reduce:transition-none",
+            "transition-[fill] duration-400 ease-out motion-reduce:transition-none",
             x >= lit
               ? "fill-muted-foreground/30"
               : lamp
