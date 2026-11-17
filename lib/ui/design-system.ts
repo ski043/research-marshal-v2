@@ -15,8 +15,6 @@ export type TokenName = `--${string}`;
 export const CONTRAST_FLOOR = { text: 4.5, "non-text": 3 } as const;
 export type ContrastKind = keyof typeof CONTRAST_FLOOR;
 
-// ── The stylesheet ──────────────────────────────────────────────────────────────
-
 type Declarations = ReadonlyMap<TokenName, string>;
 
 /** The body of the first top-level block that `opener` starts, nested blocks included. */
@@ -59,8 +57,6 @@ export function readStylesheet(css: string): Stylesheet {
     theme: declarationsOf(blockBody(css, /^@theme inline\s*\{/m)),
   };
 }
-
-// ── Colour roles ────────────────────────────────────────────────────────────────
 
 export const COLOR_GROUPS = [
   {
@@ -496,8 +492,6 @@ export const SETTING_ROLES: readonly {
   },
 ];
 
-// ── Shape, depth, type and motion: the utility classes the app really uses ──────
-
 /** One step of the radius scale. `use` is null for a step that no component uses. */
 export const RADIUS_ROLES: Readonly<Record<string, string | null>> = {
   sm: "The focus outline of an inline link, a keyboard key.",
@@ -712,8 +706,6 @@ export const EASING_ROLES: readonly { className: string; use: string }[] = [
     use: "A longer way in that needs a soft landing: the suggestion chips, the rotating placeholder.",
   },
 ];
-
-// ── The model ───────────────────────────────────────────────────────────────────
 
 export type ColorValue = {
   /** The value as the stylesheet writes it. */
