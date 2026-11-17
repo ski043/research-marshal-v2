@@ -5,10 +5,14 @@ import type { ComponentType } from "react";
 
 export const START_VARIANTS = [
   "san-francisco",
-  "lighthouse",
-  "globe",
-  "ribbons",
-  "star-chart",
+  "canyon-river",
+  "canyon-dusk",
+  "globe-right",
+  "globe-bottom",
+  "globe-left",
+  "globe-top",
+  "globe-center",
+  "globe-corner",
 ] as const;
 export type StartVariant = (typeof START_VARIANTS)[number];
 
@@ -19,24 +23,22 @@ export function isStartVariant(value: unknown): value is StartVariant {
 }
 
 type Spec = {
-  label: string;
   name: string;
-  /** Whether the small globe stays above the greeting. */
-  mark: boolean;
+  /** Variants of one picture share a group, and `name` tells them apart inside it. */
+  group?: string;
   /** Classes for the screen. `dark` gives a scene that paints its own night the dark tokens in both themes. */
   screen?: string;
-  /** Classes for the block of the mark and the greeting. */
-  hero?: string;
   Ground: ComponentType;
 };
+
+// The deep blue of the canyon from the first paint, before the scene has loaded.
+const CANYON_SCREEN = "dark bg-[#070c1a]";
 
 // Every ground is its own chunk that loads after the prompt box, so the WebGL engine
 // stays out of the first load of the start screen.
 const SPECS: Record<StartVariant, Spec> = {
   "san-francisco": {
-    label: "B1",
     name: "San Francisco",
-    mark: false,
     // The dusk of the scene from the first paint, before the scene has loaded.
     screen: "dark bg-[#05081a]",
     Ground: dynamic(
@@ -47,52 +49,92 @@ const SPECS: Record<StartVariant, Spec> = {
       { ssr: false },
     ),
   },
-  lighthouse: {
-    label: "B2",
-    name: "Lighthouse",
-    mark: false,
-    // The greeting sits on the picture, which is night in both themes.
-    hero: "dark text-foreground",
+  "canyon-river": {
+    name: "Golden hour",
+    group: "Canyon",
+    screen: CANYON_SCREEN,
     Ground: dynamic(
       () =>
-        import("@/components/asciicn/start/lighthouse").then(
-          (mod) => mod.LighthouseGround,
+        import("@/components/asciicn/start/canyon-river").then(
+          (mod) => mod.CanyonRiverGround,
         ),
       { ssr: false },
     ),
   },
-  globe: {
-    label: "B3",
-    name: "Globe",
-    mark: false,
+  "canyon-dusk": {
+    name: "Dusk",
+    group: "Canyon",
+    screen: CANYON_SCREEN,
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/canyon-river").then(
+          (mod) => mod.CanyonDuskGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "globe-right": {
+    name: "Right",
+    group: "Globe",
     Ground: dynamic(
       () =>
         import("@/components/asciicn/start/globe").then(
-          (mod) => mod.GlobeGround,
+          (mod) => mod.GlobeRightGround,
         ),
       { ssr: false },
     ),
   },
-  ribbons: {
-    label: "B4",
-    name: "Ribbons",
-    mark: true,
+  "globe-bottom": {
+    name: "Bottom",
+    group: "Globe",
     Ground: dynamic(
       () =>
-        import("@/components/asciicn/start/ribbons").then(
-          (mod) => mod.RibbonsGround,
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeBottomGround,
         ),
       { ssr: false },
     ),
   },
-  "star-chart": {
-    label: "B5",
-    name: "Star chart",
-    mark: false,
+  "globe-left": {
+    name: "Left",
+    group: "Globe",
     Ground: dynamic(
       () =>
-        import("@/components/asciicn/start/star-chart").then(
-          (mod) => mod.StarChartGround,
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeLeftGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "globe-top": {
+    name: "Top",
+    group: "Globe",
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeTopGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "globe-center": {
+    name: "Centre",
+    group: "Globe",
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeCenterGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "globe-corner": {
+    name: "Corner",
+    group: "Globe",
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeCornerGround,
         ),
       { ssr: false },
     ),

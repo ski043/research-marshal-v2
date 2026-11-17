@@ -16,7 +16,6 @@ import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { SidebarTrigger } from "@/components/app/app-shell";
 import type { ModelOption } from "@/components/app/model-select";
 import { PromptBox } from "@/components/app/prompt-box";
-import { GlobeMark } from "@/components/asciicn/globe-mark";
 import {
   DEFAULT_START_VARIANT,
   StartBackground,
@@ -191,13 +190,7 @@ export function StartScreen({
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="m-auto flex w-full max-w-2xl flex-col px-4 py-10 sm:px-8">
-          <div
-            className={cn(
-              "mb-8 flex animate-in flex-col items-center gap-4 text-center duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none",
-              ground.hero,
-            )}
-          >
-            {ground.mark && <GlobeMark />}
+          <div className="mb-8 flex animate-in flex-col items-center gap-4 text-center duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
             <h1
               id={GREETING_ID}
               suppressHydrationWarning
