@@ -13,7 +13,7 @@ import {
   ShipIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { SidebarTrigger } from "@/components/app/app-shell";
 import type { ModelOption } from "@/components/app/model-select";
 import { PromptBox } from "@/components/app/prompt-box";
@@ -28,7 +28,6 @@ const DotField = dynamic(
 );
 
 const GREETING_ID = "greeting";
-const BUDGET_ID = "budget";
 // The server cannot know the local time. This runs before the first paint and writes
 // the greeting of the hour, so the heading never changes in front of the user.
 const GREET = `(function(){var h=new Date().getHours();var e=document.getElementById(${JSON.stringify(GREETING_ID)});if(e)e.textContent=h>=5&&h<12?"Good morning":h>=12&&h<18?"Good afternoon":"Good evening"})()`;
@@ -124,6 +123,7 @@ export function StartScreen({
   budget: Budget;
 }) {
   const [question, setQuestion] = useState("");
+  const budgetId = useId();
   const input = useRef<HTMLTextAreaElement>(null);
   const typing = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -222,14 +222,14 @@ export function StartScreen({
           >
             <div className="-mt-3 flex items-center gap-2 rounded-b-2xl border border-t-0 bg-muted/48 px-3 pt-5.5 pb-2.5">
               <span
-                id={BUDGET_ID}
+                id={budgetId}
                 title="The limits of one run are fixed."
                 className="shrink-0 text-xs text-muted-foreground"
               >
                 Budget
               </span>
               <FadeScroller className="-my-1 min-w-0 flex-1 py-1">
-                <ul aria-labelledby={BUDGET_ID} className="flex gap-1.5">
+                <ul aria-labelledby={budgetId} className="flex gap-1.5">
                   {limits.map((limit) => (
                     <li
                       key={limit.label}
@@ -276,6 +276,11 @@ export function StartScreen({
               </li>
             ))}
           </ul>
+
+          <p className="mt-6 text-center text-xs text-pretty text-muted-foreground">
+            Every fact in the report carries a quote that was checked on its
+            page.
+          </p>
         </div>
       </div>
     </main>
