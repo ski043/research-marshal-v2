@@ -8,6 +8,11 @@ export const START_VARIANTS = [
   "canyon-river",
   "canyon-dusk",
   "globe-right",
+  "globe-bottom",
+  "globe-left",
+  "globe-top",
+  "globe-center",
+  "globe-corner",
 ] as const;
 export type StartVariant = (typeof START_VARIANTS)[number];
 
@@ -74,7 +79,62 @@ const SPECS: Record<StartVariant, Spec> = {
     Ground: dynamic(
       () =>
         import("@/components/asciicn/start/globe").then(
-          (mod) => mod.GlobeGround,
+          (mod) => mod.GlobeRightGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "globe-bottom": {
+    name: "Bottom",
+    group: "Globe",
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeBottomGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "globe-left": {
+    name: "Left",
+    group: "Globe",
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeLeftGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "globe-top": {
+    name: "Top",
+    group: "Globe",
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeTopGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "globe-center": {
+    name: "Centre",
+    group: "Globe",
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeCenterGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "globe-corner": {
+    name: "Corner",
+    group: "Globe",
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/globe").then(
+          (mod) => mod.GlobeCornerGround,
         ),
       { ssr: false },
     ),

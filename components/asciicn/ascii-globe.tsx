@@ -74,10 +74,30 @@ export interface AsciiGlobeProps
   tilt?: number;
   /** Where the sun is, in degrees clockwise from the top. Default 300 (upper left). */
   light?: number;
+  /**
+   * How far the sun stands on the viewer's side, from -1 (behind the globe,
+   * which leaves a lit crescent at the limb) to 1 (behind the viewer).
+   * Default 0.58.
+   */
+  lightDepth?: number;
   /** Brightness of the sea on the day side, 0 to 1. Default 0.3. */
   ocean?: number;
   /** A glow around the lit limb. Default `true`. */
   atmosphere?: boolean;
+  /** How far the glow reaches past the limb, in globe radii. Default 0.07. A large globe wants less. */
+  halo?: number;
+  /**
+   * A box where text sits, in `uv` (x and y of the lower left corner, width,
+   * height). The globe thins out inside it by `strength` (0 to 1) and draws
+   * no marker or arc there. The box grows by `grow` CSS pixels and the globe
+   * returns over `fade` pixels.
+   */
+  calm?: {
+    box: readonly [number, number, number, number];
+    strength?: number;
+    grow?: number;
+    fade?: number;
+  };
   /** The sun's glint on the sea. Default `true`. */
   glint?: boolean;
   /** Faint latitude and longitude lines every 30°. Default `false`. */
@@ -265,7 +285,6 @@ const useGlobeDrag = (
 const RADIANS = Math.PI / 180;
 // Globe radius as a share of half the box's shorter side; the rest is halo.
 const RADIUS_SHARE = 0.86;
-const HALO = 0.07;
 const PULSE = 4;
 
 const clamp01 = (value: number) => (value > 0 ? Math.min(value, 1) : 0);
@@ -298,6 +317,7 @@ interface Paint {
   ocean: number;
   glint: boolean;
   atmosphere: boolean;
+  halo: number;
   graticule: boolean;
   colors: Colors;
 }
@@ -319,11 +339,11 @@ const shadeGlobe = (
       return;
     }
     const r = Math.sqrt(r2);
-    if (r > 1 + HALO * 2.5) {
+    if (r > 1 + paint.halo * 2.5) {
       return;
     }
     const lit = smoothstep(-0.35, 0.7, (u * lx + v * ly) / r);
-    const glow = Math.exp(-(r - 1) / HALO) * (0.12 + 0.88 * lit);
+    const glow = Math.exp(-(r - 1) / paint.halo) * (0.12 + 0.88 * lit);
     out[0] = glow * 0.5;
     [out[1], out[2], out[3]] = sea;
     return;
@@ -441,16 +461,21 @@ interface Overlay {
   view: View;
   cellWidth: number;
   cellHeight: number;
+  /** How calm the box is at a point in CSS pixels, from 0 (open) to 1. */
+  calmAt: (x: number, y: number) => number;
 }
 
 const plot = (
-  { frame, view, cellWidth, cellHeight }: Overlay,
+  { frame, view, cellWidth, cellHeight, calmAt }: Overlay,
   point: readonly [number, number, number],
   glyph: string,
   rgb: Rgb8,
 ) => {
   const x = view.cx + point[0] * view.radius;
   const y = view.cy - point[1] * view.radius;
+  if (calmAt(x, y) > 0.5) {
+    return;
+  }
   frame.put(Math.floor(x / cellWidth), Math.floor(y / cellHeight), glyph, rgb);
 };
 
@@ -560,8 +585,11 @@ export const AsciiGlobe = ({
   start = 10,
   tilt = 18,
   light = 300,
+  lightDepth = 0.58,
   ocean = 0.3,
   atmosphere = true,
+  halo = 0.07,
+  calm,
   glint = true,
   graticule = false,
   draggable = true,
@@ -672,7 +700,12 @@ export const AsciiGlobe = ({
     const boxWidth = box?.clientWidth || width;
     const boxHeight = box?.clientHeight || height;
     const angle = light * RADIANS;
-    const sun = [Math.sin(angle) * 0.82, Math.cos(angle) * 0.82, 0.58] as const;
+    const across = Math.sqrt(Math.max(0, 1 - lightDepth * lightDepth));
+    const sun = [
+      Math.sin(angle) * across,
+      Math.cos(angle) * across,
+      lightDepth,
+    ] as const;
     const halfLength = Math.hypot(sun[0], sun[1], sun[2] + 1);
     const placed = framing?.(boxWidth, boxHeight) ?? {
       cx: boxWidth / 2,
@@ -693,7 +726,22 @@ export const AsciiGlobe = ({
       sinTilt: Math.sin(turn.tilt * RADIANS),
       sun,
     };
-    const paint: Paint = { atmosphere, colors, glint, graticule, ocean };
+    const paint: Paint = { atmosphere, colors, glint, graticule, halo, ocean };
+    const calmStrength = calm && calm.box[2] > 0 ? (calm.strength ?? 1) : 0;
+    const calmHalfWidth = ((calm?.box[2] ?? 0) * boxWidth) / 2;
+    const calmHalfHeight = ((calm?.box[3] ?? 0) * boxHeight) / 2;
+    const calmX = (calm?.box[0] ?? 0) * boxWidth + calmHalfWidth;
+    const calmY = (1 - (calm?.box[1] ?? 0)) * boxHeight - calmHalfHeight;
+    const calmGrow = calm?.grow ?? 0;
+    const calmFade = Math.max(1, calm?.fade ?? 80);
+    const calmAt = (px: number, py: number) => {
+      if (calmStrength === 0) {
+        return 0;
+      }
+      const dx = Math.max(Math.abs(px - calmX) - calmHalfWidth - calmGrow, 0);
+      const dy = Math.max(Math.abs(py - calmY) - calmHalfHeight - calmGrow, 0);
+      return calmStrength * (1 - smoothstep(0, calmFade, Math.hypot(dx, dy)));
+    };
     const sampleWidth = metrics.width / gx;
     const sampleHeight = metrics.height / gy;
     const { tones } = field;
@@ -712,6 +760,11 @@ export const AsciiGlobe = ({
             out[0] = Math.min(1, (out[0] ?? 0) * 1.35 + 0.04);
           }
         }
+        if ((out[0] ?? 0) > 0) {
+          out[0] =
+            (out[0] ?? 0) *
+            (1 - calmAt((x + 0.5) * sampleWidth, (y + 0.5) * sampleHeight));
+        }
         const index = y * field.width + x;
         tones[index] = out[0] ?? 0;
         if (fieldColors && (out[0] ?? 0) > 0) {
@@ -728,6 +781,7 @@ export const AsciiGlobe = ({
       // Markers keep their accent even in mono, so give the frame colour.
       frame.setColored(true);
       const overlay = {
+        calmAt,
         cellHeight: metrics.height,
         cellWidth: metrics.width,
         frame,
