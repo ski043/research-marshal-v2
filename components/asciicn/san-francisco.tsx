@@ -200,14 +200,14 @@ vec3 sfSky(float x, float y) {
   float h = clamp((y - sfHz) / (1.0 - sfHz), 0.0, 1.0);
   vec3 c = mix(vec3(0.98, 0.62, 0.42), vec3(0.84, 0.44, 0.48), smoothstep(0.0, 0.12, h));
   c = mix(c, vec3(0.44, 0.33, 0.58), smoothstep(0.08, 0.28, h));
-  c = mix(c, vec3(0.2, 0.24, 0.52), smoothstep(0.22, 0.48, h));
-  c = mix(c, vec3(0.1, 0.14, 0.36), smoothstep(0.45, 0.8, h));
-  c = mix(c, vec3(0.07, 0.08, 0.2), smoothstep(0.78, 1.0, h));
+  c = mix(c, vec3(0.13, 0.13, 0.26), smoothstep(0.22, 0.48, h));
+  c = mix(c, vec3(0.05, 0.055, 0.1), smoothstep(0.42, 0.72, h));
+  c = mix(c, vec3(0.031, 0.035, 0.047), smoothstep(0.68, 0.95, h));
   // Thin streaks of high cloud, their undersides lit pink by the afterglow.
   float band = smoothstep(0.06, 0.2, h) * (1.0 - 0.6 * smoothstep(0.45, 0.9, h));
   float streak = smoothstep(0.5, 0.78, fbm(vec2(x * 1.3 - sfT * 0.004, y * 10.0 + 3.0)));
   vec3 cloud = mix(vec3(0.95, 0.55, 0.55), vec3(0.42, 0.38, 0.62), smoothstep(0.1, 0.4, h));
-  cloud = mix(cloud, vec3(0.17, 0.2, 0.42), smoothstep(0.4, 0.85, h));
+  cloud = mix(cloud, vec3(0.1, 0.105, 0.17), smoothstep(0.4, 0.85, h));
   c = mix(c, cloud, streak * band * 0.6);
   c += vec3(1.0, 0.5, 0.26) * sfGlow(x, y) * 0.45 * sfGlowGain;
   c += vec3(1.0, 0.86, 0.62) * sfCore(x, y) * 0.9 * sfGlowGain;
@@ -617,7 +617,7 @@ vec4 sfScene(vec2 uv, vec2 res, float t, float fogAmount, float traffic, float b
   float mr = max(2.0 * axis - 1.0 - row + shiftR, axis);
   vec4 m = sfAbove(col + shiftC, mr, fogAmount, traffic);
   float streak = 0.8 + 0.22 * snoise(vec2(x * 1.6 - t * 0.015, row * 0.6 + t * 0.18));
-  vec3 water = vec3(0.07, 0.09, 0.22);
+  vec3 water = vec3(0.035, 0.04, 0.07);
   float k = clamp(0.75 * streak * (1.0 - 0.3 * depth), 0.0, 1.0);
   vec3 c = mix(water, m.rgb * vec3(0.8, 0.82, 0.96), k);
   float tone = mix(sfTone(water), m.a * 0.8, k);
@@ -693,7 +693,7 @@ vec3 colorField(vec2 uv, vec2 res, float t) {
 
 // Modes that paint the scene's own colours need its dusk behind them in
 // both themes; mono and palette keep the theme's paper, or the phosphor's.
-const DUSK = "#05081a";
+const DUSK = "#050608";
 const DUSK_MODES: ReadonlySet<ColorMode> = new Set<ColorMode>([
   "truecolor",
   "ansi16",
@@ -705,7 +705,7 @@ const FALLBACK = (
     className="absolute inset-0"
     style={{
       background:
-        "linear-gradient(to bottom, #0b0f2a 0%, #1c2350 45%, #5a4a78 66%, #8a5a5e 70%, #0a0e22 71%, #05081a 100%)",
+        "linear-gradient(to bottom, #08090c 0%, #14152a 45%, #4d4064 66%, #8a5a5e 70%, #090a10 71%, #050608 100%)",
     }}
   />
 );

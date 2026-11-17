@@ -173,7 +173,7 @@ export function StartScreen({
   return (
     // The scene paints its own night, so the screen takes the dark tokens in both themes
     // and has the dusk of the scene from the first paint, before the scene has loaded.
-    <main className="dark relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-[#05081a] text-foreground lg:rounded-2xl lg:border lg:shadow-xs">
+    <main className="dark relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-[#050608] text-foreground lg:rounded-2xl lg:border lg:shadow-xs">
       <StartBackground />
       <div className="flex h-13 shrink-0 items-center px-3 lg:hidden">
         <SidebarTrigger />
