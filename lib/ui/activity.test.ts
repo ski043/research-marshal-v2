@@ -407,6 +407,77 @@ describe("activityOf on a run that stopped early", () => {
   });
 });
 
+describe("the web data call behind a row", () => {
+  it("names the Decodo endpoint of every search, page read and site map, and of no other row (W2)", async () => {
+    const endpoints = new Map<ActivityRow["kind"], Set<string | null>>();
+    for (const row of rowsOf(activity(await eventsOf("budget")))) {
+      endpoints.set(
+        row.kind,
+        (endpoints.get(row.kind) ?? new Set()).add(row.decodo),
+      );
+    }
+
+    expect(
+      Object.fromEntries([...endpoints].map(([kind, set]) => [kind, [...set]])),
+    ).toEqual({
+      plan: [null],
+      search: ["google_search"],
+      select: [null],
+      map: ["map"],
+      read: ["universal"],
+      skipped: [null],
+      gap: [null],
+      report: [null],
+      end: [null],
+    });
+  });
+
+  it("names it on a failed search, a failed page read and a read in a browser", async () => {
+    const events = await eventsOf("failures");
+    const failedPage = PageUrl.parse("https://example.org/lfp-cycle-life/2");
+    const groups = activity(
+      events.map((event) =>
+        event.type === "decodo.requested" && event.input === failedPage
+          ? { ...event, rendered: true as const }
+          : event,
+      ),
+    );
+
+    expect(
+      only(groups, "search").map((row) => [row.state, row.decodo]),
+    ).toEqual([
+      ["done", "google_search"],
+      ["done", "google_search"],
+      ["failed", "google_search"],
+    ]);
+    expect(
+      only(groups, "read").map((row) => [row.state, row.rendered, row.decodo]),
+    ).toEqual([
+      ["done", false, "universal"],
+      ["failed", true, "universal"],
+    ]);
+  });
+
+  it("names none where the run recorded no request", async () => {
+    const events = await eventsOf("budget");
+    const planned = upTo(events, (event) => event.type === "round.started");
+    const withoutMapRequest = events
+      .filter(
+        (event) =>
+          !(event.type === "decodo.requested" && event.endpoint === "map"),
+      )
+      .map((event, i) => ({ ...event, seq: i + 1 }));
+
+    expect(
+      only(activity(planned), "search").map((row) => [row.state, row.decodo]),
+    ).toEqual(Array(BUDGET.queriesPerRound).fill(["running", null]));
+    expect(only(activity(withoutMapRequest), "map")[0]).toMatchObject({
+      state: "done",
+      decodo: null,
+    });
+  });
+});
+
 describe("durations", () => {
   it("uses the measured model time of a step when the run recorded one", async () => {
     const events = await eventsOf("completed");

@@ -1,5 +1,6 @@
 import { domainOf } from "@/lib/research/domain";
 import type {
+  DecodoEndpoint,
   ModelStep,
   PageUrl,
   PlannedQuery,
@@ -25,7 +26,7 @@ import {
  */
 export type RowState = "running" | "done" | "failed" | "stopped";
 
-type Base = {
+type Base<Endpoint extends DecodoEndpoint = never> = {
   id: string;
   state: RowState;
   startedAt: string | null;
@@ -33,6 +34,10 @@ type Base = {
   // Measured by the run (`decodo.settled`, `model.called`) where it is, else the time
   // between the events around the action. Null while running and when no event marks it.
   durationMs: number | null;
+  // The Decodo endpoint of the web data call that made the row, as the run recorded it
+  // (`decodo.requested`). Null for a step of the app or the model, and for a web action
+  // whose request the run did not record.
+  decodo: Endpoint | null;
 };
 
 export type PlanRow = Base & {
@@ -42,7 +47,7 @@ export type PlanRow = Base & {
   droppedQueries: readonly PlannedQuery[];
 };
 
-export type SearchRow = Base & {
+export type SearchRow = Base<"google_search"> & {
   kind: "search";
   round: RoundNo;
   query: PlannedQuery;
@@ -57,7 +62,7 @@ export type SelectRow = Base & {
   mapRequest: { site: string; need: string } | null;
 };
 
-export type MapRow = Base & {
+export type MapRow = Base<"map"> & {
   kind: "map";
   round: RoundNo;
   site: string;
@@ -75,7 +80,7 @@ export type ReadPhase =
   | "read"
   | "failed";
 
-export type ReadRow = Base & {
+export type ReadRow = Base<"universal"> & {
   kind: "read";
   round: RoundNo;
   url: PageUrl;
@@ -218,6 +223,7 @@ export function activityOf(
       startedAt: previousAt ?? at,
       endedAt: null,
       durationMs: null,
+      decodo: null,
       phase: "writing",
       writtenBy: null,
       chars: 0,
@@ -262,6 +268,7 @@ export function activityOf(
             durationMs: first
               ? (takeModelMs("plan") ?? between(runStartedAt, at))
               : null,
+            decodo: null,
             queries: event.queries,
             droppedQueries: event.droppedQueries,
           },
@@ -273,6 +280,7 @@ export function activityOf(
             startedAt: at,
             endedAt: null,
             durationMs: null,
+            decodo: null,
             query,
             outcome: null,
           })),
@@ -298,6 +306,7 @@ export function activityOf(
           );
           if (row) {
             row.startedAt = at;
+            row.decodo = event.endpoint;
             rowByCall.set(event.call, row);
           }
         } else if (event.endpoint === "map") {
@@ -309,6 +318,7 @@ export function activityOf(
             startedAt: at,
             endedAt: null,
             durationMs: null,
+            decodo: event.endpoint,
             site: event.input,
             need: round.select?.mapRequest?.need ?? null,
             outcome: null,
@@ -326,6 +336,7 @@ export function activityOf(
               startedAt: at,
               endedAt: null,
               durationMs: null,
+              decodo: event.endpoint,
               url,
               title: titleOf(url),
               domain: domainOf(url),
@@ -385,6 +396,7 @@ export function activityOf(
           endedAt: at,
           durationMs:
             takeModelMs("select") ?? between(round.searchesDoneAt, at),
+          decodo: null,
           picked: event.picked.map((url) => ({ url, title: titleOf(url) })),
           unknownNumbers: event.unknownNumbers,
           mapRequest: event.mapRequest,
@@ -403,6 +415,7 @@ export function activityOf(
           startedAt: at,
           endedAt: null,
           durationMs: null,
+          decodo: null,
           site: event.site,
           need: round.select?.mapRequest?.need ?? null,
           outcome: null,
@@ -509,6 +522,7 @@ export function activityOf(
           startedAt: from,
           endedAt: at,
           durationMs: takeModelMs("checkGaps") ?? between(from, at),
+          decodo: null,
           answered: event.answered,
           missing: event.missing,
           nextQueries: event.nextQueries,
@@ -525,6 +539,7 @@ export function activityOf(
           startedAt: at,
           endedAt: at,
           durationMs: null,
+          decodo: null,
           step: event.step,
           message: event.message,
         });
@@ -572,6 +587,7 @@ export function activityOf(
           startedAt: at,
           endedAt: at,
           durationMs: between(runStartedAt, at),
+          decodo: null,
           end: event.end,
         });
         break;
@@ -660,6 +676,7 @@ function skippedRow(view: RunView, round: RoundAcc): SkippedRow[] {
       startedAt: null,
       endedAt: null,
       durationMs: null,
+      decodo: null,
       pages: [...pages.values()],
     },
   ];
@@ -682,6 +699,7 @@ function nextStep(
     state: "running",
     endedAt: null,
     durationMs: null,
+    decodo: null,
   } as const;
   const writing: ReportRow = {
     ...running,
