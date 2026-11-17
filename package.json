@@ -16,6 +16,7 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "verify:stack": "RESEARCH_MARSHAL_PAID=1 vitest run --config verify/vitest.config.mts",
     "verify:run": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/verify-run.ts",
+    "design:tokens": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/design-tokens.ts",
     "perf:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register.mjs scripts/perf-check.ts",
     "postinstall": "prisma generate",
     "bootstrap": "node scripts/setup-worktree.mjs",

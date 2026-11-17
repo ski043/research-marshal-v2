@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   composite,
@@ -6,160 +5,67 @@ import {
   inSrgbGamut,
   oklchToLinearSrgb,
   parseOklch,
-  type Rgb,
+  toHex,
 } from "./color";
+import { type ContrastKind, THEME_NAMES } from "./design-system";
+import { loadDesignSystem } from "./design-system-source";
 
-const css = readFileSync(
-  new URL("../../app/globals.css", import.meta.url),
-  "utf8",
-);
+// The pairs come from the roles in lib/ui/design-system.ts: each colour names the
+// surfaces that the components put it on.
+const system = loadDesignSystem();
 
-function tokensOf(selector: string): Map<string, string> {
-  const escaped = selector.replace(".", "\\.");
-  const blocks = css.matchAll(new RegExp(`^${escaped}\\s*\\{([^}]*)\\}`, "gm"));
-  const tokens = new Map<string, string>();
-  for (const [, body = ""] of blocks) {
-    for (const [, name = "", value = ""] of body.matchAll(
-      /(--[\w-]+)\s*:\s*([^;]+);/g,
-    )) {
-      tokens.set(name, value.replace(/\s+/g, " ").trim());
-    }
-  }
-  return tokens;
-}
+const pairs = (kind: ContrastKind) =>
+  system.colors.flatMap((color) =>
+    color.checks
+      .filter((check) => check.kind === kind)
+      .map((check) => [color.token, check.on, check] as const),
+  );
 
-const light = tokensOf(":root");
-const THEMES = {
-  light,
-  dark: new Map([...light, ...tokensOf(".dark")]),
-} as const;
-type Theme = keyof typeof THEMES;
-
-function raw(theme: Theme, name: string): string {
-  const value = THEMES[theme].get(name);
-  if (value === undefined) throw new Error(`${theme} has no token ${name}`);
-  const alias = /^var\((--[\w-]+)\)$/.exec(value);
-  return alias?.[1] ? raw(theme, alias[1]) : value;
-}
-
-/** The opaque colour of a token. A token with alpha is not a surface or a text colour. */
-function color(theme: Theme, name: string): Rgb {
-  const parsed = parseOklch(raw(theme, name));
-  expect(parsed.alpha, `${theme} ${name} is opaque`).toBe(1);
-  return oklchToLinearSrgb(parsed);
-}
-
-const SURFACES = [
-  "--background",
-  "--sidebar",
-  "--card",
-  "--popover",
-  "--muted",
-  "--accent",
-  "--sidebar-accent",
-] as const;
-
-// Every text colour with every surface the components put it on.
-const TEXT: readonly (readonly [text: string, on: readonly string[]])[] = [
-  ["--foreground", SURFACES],
-  ["--muted-foreground", SURFACES],
-  ["--card-foreground", ["--card"]],
-  ["--popover-foreground", ["--popover"]],
-  ["--secondary-foreground", ["--secondary"]],
-  ["--accent-foreground", ["--accent"]],
-  ["--sidebar-foreground", ["--sidebar", "--sidebar-accent"]],
-  ["--sidebar-accent-foreground", ["--sidebar-accent"]],
-  // The primary button fills with the primary ink under the pointer.
-  ["--primary-foreground", ["--primary", "--primary-ink"]],
-  [
-    "--primary-ink",
-    [
-      "--background",
-      "--sidebar",
-      "--card",
-      "--popover",
-      "--muted",
-      "--accent",
-      "--primary-soft",
-    ],
-  ],
-  // Links of the report and the numbered chips of citations and claims.
-  ["--link", ["--background", "--card", "--popover", "--muted", "--link-soft"]],
-  // A status word also sits on the accent of a hovered row.
-  [
-    "--success",
-    [
-      "--background",
-      "--card",
-      "--popover",
-      "--muted",
-      "--accent",
-      "--success-soft",
-    ],
-  ],
-  // The bare word. On its soft surface a warning has its own text colour.
-  ["--warning", ["--background", "--card", "--popover", "--muted"]],
-  ["--warning-soft-foreground", ["--warning-soft"]],
-  [
-    "--destructive",
-    ["--background", "--card", "--popover", "--muted", "--destructive-soft"],
-  ],
-];
-
-// Focus rings, the borders of inputs, and fills that carry meaning without text.
-const NON_TEXT: readonly (readonly [ui: string, on: readonly string[]])[] = [
-  ["--ring", ["--background", "--sidebar", "--card", "--popover", "--muted"]],
-  ["--sidebar-ring", ["--sidebar", "--sidebar-accent"]],
-  ["--input", ["--background", "--sidebar", "--card"]],
-  ["--primary", ["--background", "--sidebar", "--card"]],
-  ["--ascii-ink", ["--background", "--sidebar", "--card"]],
-  // The filled segments of the budget meters.
-  ["--link", ["--background", "--card"]],
-  // The quote marks of the citation popover, and the amber icons of the start screen.
-  ["--highlight", ["--background", "--popover"]],
-  // The other tinted icons of the example chips and of the budget pills.
-  ...(["blue", "purple", "pink", "orange"] as const).map(
-    (tone) => [`--ascii-color-${tone}`, ["--background"]] as const,
-  ),
-];
-
-describe.each(["light", "dark"] as const)("%s theme", (theme) => {
+describe.each(THEME_NAMES)("%s theme", (theme) => {
   it("keeps every colour token inside sRGB, so the maths is the colour on screen", () => {
-    for (const [name] of THEMES[theme]) {
-      const value = raw(theme, name);
-      if (!value.startsWith("oklch(")) continue;
+    for (const color of system.colors) {
+      const { css } = color.value[theme];
       expect(
-        inSrgbGamut(oklchToLinearSrgb(parseOklch(value))),
-        `${name}: ${value}`,
+        inSrgbGamut(oklchToLinearSrgb(parseOklch(css))),
+        `${color.token}: ${css}`,
       ).toBe(true);
     }
   });
 
-  it.each(
-    TEXT.flatMap(([text, on]) => on.map((surface) => [text, surface] as const)),
-  )("text %s on %s reaches 4.5:1", (text, surface) => {
-    expect(
-      contrast(color(theme, text), color(theme, surface)),
-    ).toBeGreaterThanOrEqual(4.5);
+  it("puts text and shapes only on opaque colours", () => {
+    const opaque = (token: string) =>
+      system.colors.find((color) => color.token === token)?.value[theme].alpha;
+    for (const color of system.colors) {
+      if (color.checks.length > 0) expect(opaque(color.token)).toBe(1);
+      for (const check of color.checks) expect(opaque(check.on)).toBe(1);
+    }
   });
 
-  it.each(
-    NON_TEXT.flatMap(([ui, on]) => on.map((surface) => [ui, surface] as const)),
-  )("non-text %s on %s reaches 3:1", (ui, surface) => {
-    expect(
-      contrast(color(theme, ui), color(theme, surface)),
-    ).toBeGreaterThanOrEqual(3);
+  it.each(pairs("text"))("text %s on %s reaches 4.5:1", (_text, _on, check) => {
+    expect(check.ratio[theme]).toBeGreaterThanOrEqual(4.5);
   });
+
+  it.each(pairs("non-text"))(
+    "non-text %s on %s reaches 3:1",
+    (_ui, _on, check) => {
+      expect(check.ratio[theme]).toBeGreaterThanOrEqual(3);
+    },
+  );
 
   it("keeps text readable through the scrim behind a sheet", () => {
-    const scrim = parseOklch(raw(theme, "--scrim"));
+    const value = (token: string) => {
+      const color = system.colors.find((each) => each.token === token);
+      if (!color) throw new Error(`no colour ${token}`);
+      return parseOklch(color.value[theme].css);
+    };
+    const scrim = value("--scrim");
     const dimmed = composite(
       oklchToLinearSrgb(scrim),
       scrim.alpha,
-      color(theme, "--background"),
+      oklchToLinearSrgb(value("--background")),
     );
     expect(
-      contrast(color(theme, "--popover"), dimmed),
+      contrast(oklchToLinearSrgb(value("--popover")), dimmed),
       "the sheet stands out from the dimmed page",
     ).toBeGreaterThan(1.15);
   });
@@ -182,5 +88,16 @@ describe("colour maths", () => {
 
   it("rejects a colour it cannot check", () => {
     expect(() => parseOklch("#fff")).toThrow();
+  });
+
+  it("writes a colour as sRGB hex, with its alpha when it has one", () => {
+    const of = (value: string) => {
+      const parsed = parseOklch(value);
+      return toHex(oklchToLinearSrgb(parsed), parsed.alpha);
+    };
+    expect(of("oklch(1 0 0)")).toBe("#ffffff");
+    expect(of("oklch(0 0 0)")).toBe("#000000");
+    expect(of("oklch(0.5659 0 0)")).toBe("#767676");
+    expect(of("oklch(0 0 0 / 60%)")).toBe("#00000099");
   });
 });
