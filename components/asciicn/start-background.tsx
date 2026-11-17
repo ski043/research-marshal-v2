@@ -3,7 +3,12 @@
 import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
 
-export const START_VARIANTS = ["san-francisco", "globe-right"] as const;
+export const START_VARIANTS = [
+  "san-francisco",
+  "canyon-river",
+  "canyon-dusk",
+  "globe-right",
+] as const;
 export type StartVariant = (typeof START_VARIANTS)[number];
 
 export const DEFAULT_START_VARIANT: StartVariant = "san-francisco";
@@ -21,6 +26,9 @@ type Spec = {
   Ground: ComponentType;
 };
 
+// The deep blue of the canyon from the first paint, before the scene has loaded.
+const CANYON_SCREEN = "dark bg-[#070c1a]";
+
 // Every ground is its own chunk that loads after the prompt box, so the WebGL engine
 // stays out of the first load of the start screen.
 const SPECS: Record<StartVariant, Spec> = {
@@ -32,6 +40,30 @@ const SPECS: Record<StartVariant, Spec> = {
       () =>
         import("@/components/asciicn/start/san-francisco").then(
           (mod) => mod.SanFranciscoGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "canyon-river": {
+    name: "Golden hour",
+    group: "Canyon",
+    screen: CANYON_SCREEN,
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/canyon-river").then(
+          (mod) => mod.CanyonRiverGround,
+        ),
+      { ssr: false },
+    ),
+  },
+  "canyon-dusk": {
+    name: "Dusk",
+    group: "Canyon",
+    screen: CANYON_SCREEN,
+    Ground: dynamic(
+      () =>
+        import("@/components/asciicn/start/canyon-river").then(
+          (mod) => mod.CanyonDuskGround,
         ),
       { ssr: false },
     ),

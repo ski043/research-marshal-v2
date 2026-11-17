@@ -41,7 +41,7 @@ export function BackgroundsLab(props: {
         scroll={false}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex min-h-8 items-center rounded-lg px-2 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          "flex min-h-8 shrink-0 items-center rounded-lg px-2 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
           active &&
             "bg-primary text-primary-foreground hover:text-primary-foreground",
         )}
@@ -56,11 +56,15 @@ export function BackgroundsLab(props: {
       <StartScreen key={current} variant={current} {...props} />
       <nav
         aria-label="Background variants"
-        className="fixed right-3 bottom-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end gap-x-2 gap-y-1 rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
+        // Below lg the bar sits in the top bar and scrolls sideways, so it never covers the foot of the picture.
+        className="fixed top-2 right-3 z-40 flex max-w-[calc(100%-4.5rem)] gap-x-2 overflow-x-auto rounded-xl border bg-popover p-1 text-popover-foreground shadow-md [scrollbar-width:none] lg:top-auto lg:bottom-3 lg:max-w-[calc(100%-1.5rem)]"
       >
         {SECTIONS.map(({ group, variants }) =>
           group ? (
-            <fieldset key={group} className="flex items-center gap-0.5">
+            <fieldset
+              key={group}
+              className="flex shrink-0 items-center gap-0.5"
+            >
               <legend className="float-start ps-2 pe-1 text-xs/8 text-muted-foreground">
                 {group}
               </legend>

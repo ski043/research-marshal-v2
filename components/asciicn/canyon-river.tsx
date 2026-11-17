@@ -233,7 +233,7 @@ vec3 canyonSky(float x, float y) {
   col = mix(col, vec3(1.0, 0.86, 0.56), clamp(canyonGlow(x, y), 0.0, 1.0));
   // The sun itself, low over the plateau.
   float disc = length(vec2(x - canyonSun, y - canyonHz - 0.05));
-  col = mix(col, vec3(1.0, 0.96, 0.84), 1.0 - smoothstep(0.034, 0.042, disc));
+  col = mix(col, vec3(1.0, 0.96, 0.84), (1.0 - smoothstep(0.034, 0.042, disc)) * (1.0 - canyonDusk));
   // Thin streaks of cloud, gold on their undersides, drifting slowly.
   float band = smoothstep(0.14, 0.26, e) * (1.0 - smoothstep(0.5, 0.66, e));
   float wisp = fbm(vec2(x * 1.4 + canyonT * 0.006, y * 9.0 - 3.0));
@@ -277,6 +277,18 @@ vec3 canyonFloor(float x, float ty) {
   return mix(ground, vec3(0.56, 0.48, 0.5), haze * 0.75);
 }
 
+// Dusk: the sun is down. Shade and sky sink into the blue of the app, sunlit
+// rock cools to a dusty rose and only the afterglow stays warm.
+vec3 canyonGrade(vec3 c) {
+  float l = dot(c, vec3(0.299, 0.587, 0.114));
+  float warm = clamp((c.r - c.b) * 1.8, 0.0, 1.0);
+  float glow = smoothstep(0.5, 0.9, l) * warm;
+  vec3 cool = l * vec3(0.5, 0.78, 1.5);
+  vec3 rose = l * vec3(1.15, 0.7, 0.8);
+  vec3 ember = l * vec3(1.3, 0.84, 0.62);
+  return mix(c, mix(mix(cool, rose, warm), ember, glow), canyonDusk);
+}
+
 vec2 canyonCacheUv = vec2(-1.0);
 float canyonCacheT = -1.0;
 vec4 canyonCacheValue = vec4(0.0);
@@ -288,11 +300,11 @@ vec4 canyonScene(vec2 uv, vec2 res, float t) {
   float aspect = res.x / res.y;
   // Tall boxes narrow the view less than they crop it, so the river, both
   // walls and the sun stay in frame on a phone.
-  float zoom = clamp(aspect / 1.5, 0.55, 1.0);
-  float x = (uv.x - 0.5) * aspect / zoom;
+  float zoom = clamp(aspect / 1.5, 0.55, 1.0) * canyonLens.x;
+  float x = (uv.x - 0.5 - canyonLens.y) * aspect / zoom;
   float y = uv.y;
   // On tall boxes the horizon rises above the middle, where a headline sits.
-  canyonHz = mix(0.66, 0.5, smoothstep(0.75, 1.3, aspect));
+  canyonHz = canyonFrame.x > 0.0 ? canyonFrame.x : mix(0.66, 0.5, smoothstep(0.75, 1.3, aspect));
   float ty = y < canyonHz ? y * 0.5 / canyonHz : 0.5 + (y - canyonHz);
   // One value per dot, so a jitter never splits across two glyph columns.
   vec2 cell = floor(uv * ascii_samples / vec2(canyonPitch, 1.0));
@@ -300,10 +312,18 @@ vec4 canyonScene(vec2 uv, vec2 res, float t) {
   // The middle of the box, where a headline sits, keeps less detail.
   canyonCalm = (1.0 - smoothstep(0.2, 0.3, abs(uv.x - 0.5))) * (1.0 - smoothstep(0.15, 0.24, abs(uv.y - 0.52)));
   canyonCalmX = 1.0 - smoothstep(0.2, 0.3, abs(uv.x - 0.5));
+  // The quiet box, where text sits, in cells from its edge. It replaces the
+  // calm middle: the rock keeps less detail inside it.
+  vec2 away = (abs(uv - canyonQuietBox.xy - canyonQuietBox.zw * 0.5) - canyonQuietBox.zw * 0.5) * res;
+  float quiet = canyonQuiet.x * (1.0 - smoothstep(0.0, max(canyonQuiet.z, 1.0), length(max(away - canyonQuiet.y, 0.0))));
+  if (canyonQuiet.x > 0.0) {
+    canyonCalm = quiet;
+    canyonCalmX = canyonQuiet.x * (1.0 - smoothstep(0.0, max(canyonQuiet.z, 1.0), max(away.x - canyonQuiet.y, 0.0)));
+  }
   canyonRow = 0.5 / canyonHz / res.y;
   canyonW = 0.5 * aspect / zoom;
   // Right of the middle on wide boxes, clear of a centred headline.
-  canyonSun = canyonW * mix(0.5, 0.62, smoothstep(0.7, 1.6, aspect));
+  canyonSun = canyonW * (canyonFrame.y > -5.0 ? canyonFrame.y : mix(0.5, 0.62, smoothstep(0.7, 1.6, aspect)));
   canyonGapN = canyonRiverX(0.06);
   canyonGapM = canyonRiverX(0.33);
   canyonGapF = canyonRiverX(0.46);
@@ -404,9 +424,17 @@ vec4 canyonScene(vec2 uv, vec2 res, float t) {
   // Dot size follows brightness. The dots ramp switches at about 0.1, 0.35
   // and 0.75: shadow and the high sky stay on the smallest dot, lit rock
   // takes the middle one, and only light and sunlit rims the largest.
+  col = canyonGrade(col);
   float lum = dot(col, vec3(0.299, 0.587, 0.114));
   float tone = mix(1.25 * lum - 0.02, 0.06 + 1.45 * lum, ground) + solid;
   tone = clamp(tone, 0.0, 1.0);
+  // Inside the quiet box the scene thins to specks, so text reads over it.
+  col *= 1.0 - 0.8 * quiet;
+  tone *= 1.0 - 0.7 * quiet;
+  // A band ends in open paper: the scene thins out toward the top and the bottom edge.
+  float edge = smoothstep(0.0, max(canyonFade.y, 1e-3), uv.y) * (1.0 - smoothstep(1.0 - max(canyonFade.x, 1e-3), 1.0, uv.y));
+  col *= mix(0.4, 1.0, edge);
+  tone *= edge;
   // Without square cells a dot glyph's cell is half as wide as it is tall,
   // so dots light every other column to keep the grid of dots square.
   if (canyonPitch > 1.5 && mod(floor(uv.x * ascii_samples.x), 2.0) > 0.5) {
@@ -462,6 +490,36 @@ export interface CanyonRiverProps extends Omit<AsciiSceneProps, "interactive"> {
   intensity?: number;
   /** Thin streaks of cloud drifting across the sky. Default `true`. */
   clouds?: boolean;
+  /** How far the light has gone from golden hour (0) to a blue dusk (1). Default 0. */
+  dusk?: number;
+  /**
+   * The framing: the height of the horizon in box heights from the bottom
+   * edge, where the sun stands in half box widths right of the middle, how
+   * much the view is enlarged, and how far it moves right, in box widths.
+   * Default: the horizon at the middle on wide boxes and higher on tall
+   * ones, the sun right of the middle.
+   */
+  frame?: {
+    horizon?: number;
+    sun?: number;
+    zoom?: number;
+    pan?: number;
+  };
+  /** How much of the box, from the top edge down, fades out to paper, 0 to 1. Default 0. */
+  fadeTop?: number;
+  /** How much of the box, from the bottom edge up, fades out to paper, 0 to 1. Default 0. */
+  fadeBottom?: number;
+  /**
+   * A box where text sits, in `uv` (x and y of the lower left corner, width,
+   * height). The scene thins to specks inside it by `strength` (0 to 1). The
+   * box grows by `grow` CSS pixels and the scene returns over `fade` pixels.
+   */
+  calm?: {
+    box: readonly [number, number, number, number];
+    strength?: number;
+    grow?: number;
+    fade?: number;
+  };
   /**
    * Paper behind the glyphs. Default: a deep blue in `truecolor`,
    * `ansi16` and `duotone`; the theme's paper, or the phosphor's, otherwise.
@@ -499,6 +557,11 @@ export const CanyonRiver = ({
   stillTime = 0,
   intensity = 1,
   clouds = true,
+  dusk = 0,
+  frame,
+  fadeTop = 0,
+  fadeBottom = 0,
+  calm,
   fallback = FALLBACK,
   // The canyon has no pointer response; keep the flag off the DOM.
   interactive: _interactive,
@@ -512,7 +575,18 @@ export const CanyonRiver = ({
       colorField={COLOR_FIELD}
       uniforms={{
         canyonCloudsOn: clouds ? 1 : 0,
+        canyonDusk: clamp(dusk, 0, 1),
+        canyonFade: [clamp(fadeTop, 0, 1), clamp(fadeBottom, 0, 1)],
+        // 0 and -9 leave the horizon and the sun to the scene.
+        canyonFrame: [frame?.horizon ?? 0, frame?.sun ?? -9],
         canyonIntensity: clamp(intensity, 0, 1),
+        canyonLens: [frame?.zoom ?? 1, frame?.pan ?? 0],
+        canyonQuiet: [
+          calm && calm.box[2] > 0 ? clamp(calm.strength ?? 1, 0, 1) : 0,
+          (calm?.grow ?? 0) / cell,
+          (calm?.fade ?? 80) / cell,
+        ],
+        canyonQuietBox: calm ? [...calm.box] : [0, 0, 0, 0],
         canyonPitch: resolved.id === "dots" && !square ? 2 : 1,
       }}
       charset={charset}
