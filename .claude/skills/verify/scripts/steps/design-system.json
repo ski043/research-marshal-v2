@@ -8,7 +8,7 @@
     }
   },
   {
-    "goto": "/designsystem"
+    "goto": "/designsystem/full"
   },
   {
     "waitFor": "[data-section]"
@@ -215,7 +215,7 @@
     }
   },
   {
-    "goto": "/designsystem"
+    "goto": "/designsystem/full"
   },
   {
     "waitFor": "[data-section]"
@@ -244,7 +244,7 @@
     "viewport": [390, 844]
   },
   {
-    "goto": "/designsystem"
+    "goto": "/designsystem/full"
   },
   {
     "waitFor": "[data-section]"

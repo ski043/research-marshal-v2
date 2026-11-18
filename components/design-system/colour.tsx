@@ -216,7 +216,110 @@ function Token({
   );
 }
 
-export function ColourSection({ system }: { system: DesignSystem }) {
+const TILE_ORDER = [
+  "primary",
+  "secondary",
+  "highlight",
+  "statuses",
+  "ascii",
+  "surfaces",
+  "text",
+  "lines",
+] as const;
+
+/** The colours that say something new on a tile: no text partner of a surface, no sidebar twin. */
+const onTile = (token: TokenName) =>
+  token === "--foreground" ||
+  token === "--muted-foreground" ||
+  !(
+    token.endsWith("-foreground") ||
+    (token.startsWith("--sidebar-") && token !== "--sidebar") ||
+    token === "--scrim"
+  );
+
+function Tile({ token, wide }: { token: ColorToken; wide: boolean }) {
+  return (
+    <li
+      data-color-tile={token.token}
+      className={cn("flex min-w-0 flex-col gap-2", wide && "col-span-2")}
+    >
+      <div
+        className="h-28 rounded-2xl border shadow-xs"
+        style={{ backgroundColor: `var(${token.token})` }}
+      />
+      <div className="flex min-w-0 flex-col items-start gap-0.5">
+        <span className="text-sm font-medium">{token.name}</span>
+        <CopyValue value={token.token} />
+        <span className="font-mono text-xs whitespace-nowrap text-muted-foreground uppercase dark:hidden">
+          {token.value.light.hex}
+        </span>
+        <span className="hidden font-mono text-xs whitespace-nowrap text-muted-foreground uppercase dark:inline">
+          {token.value.dark.hex}
+        </span>
+      </div>
+    </li>
+  );
+}
+
+function Tiles({ system }: { system: DesignSystem }) {
+  const groups = TILE_ORDER.flatMap((id) =>
+    system.groups.filter((group) => group.id === id),
+  );
+  return (
+    <div className="grid gap-x-10 gap-y-10 pt-2 lg:grid-cols-2">
+      {groups.map((group) => (
+        <div
+          key={group.id}
+          className={cn(
+            "flex flex-col gap-4",
+            group.tokens.filter((token) => onTile(token.token)).length > 3 &&
+              "lg:col-span-2",
+          )}
+        >
+          <h3 className="text-base font-semibold">{group.title}</h3>
+          <ul
+            className={cn(
+              "grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4",
+              group.tokens.filter((token) => onTile(token.token)).length > 3 &&
+                "lg:grid-cols-8",
+            )}
+          >
+            {group.tokens
+              .filter((token) => onTile(token.token))
+              .map((token, index) => (
+                <Tile key={token.token} token={token} wide={index === 0} />
+              ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ColourSection({
+  system,
+  compact = false,
+}: {
+  system: DesignSystem;
+  /** The short cut of the page: one tile for each colour that matters, no contrast tables. */
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <Section
+        id="colour"
+        lead={
+          <p>
+            The palette comes from one picture: near-black for the night, orange
+            for the lit steel of the bridge, blue for the stars, amber for the
+            lamps. Green, yellow and red mean what they mean everywhere.
+          </p>
+        }
+      >
+        <Tiles system={system} />
+      </Section>
+    );
+  }
   const byToken = new Map(system.colors.map((color) => [color.token, color]));
   const css: Lookup = (token, theme) => {
     const color = byToken.get(token);
