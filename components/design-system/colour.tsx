@@ -216,33 +216,24 @@ function Token({
   );
 }
 
-const TILE_ORDER = [
-  "primary",
-  "secondary",
-  "highlight",
-  "statuses",
-  "ascii",
-  "surfaces",
-  "text",
-  "lines",
-] as const;
+const TILES: readonly { title: string; tokens: readonly TokenName[] }[] = [
+  {
+    title: "Palette",
+    tokens: [
+      "--primary",
+      "--primary-ink",
+      "--link",
+      "--highlight",
+      "--background",
+      "--foreground",
+    ],
+  },
+  { title: "Statuses", tokens: ["--success", "--warning", "--destructive"] },
+];
 
-/** The colours that say something new on a tile: no text partner of a surface, no sidebar twin. */
-const onTile = (token: TokenName) =>
-  token === "--foreground" ||
-  token === "--muted-foreground" ||
-  !(
-    token.endsWith("-foreground") ||
-    (token.startsWith("--sidebar-") && token !== "--sidebar") ||
-    token === "--scrim"
-  );
-
-function Tile({ token, wide }: { token: ColorToken; wide: boolean }) {
+function Tile({ token }: { token: ColorToken }) {
   return (
-    <li
-      data-color-tile={token.token}
-      className={cn("flex min-w-0 flex-col gap-2", wide && "col-span-2")}
-    >
+    <li data-color-tile={token.token} className="flex min-w-0 flex-col gap-2">
       <div
         className="h-28 rounded-2xl border shadow-xs"
         style={{ backgroundColor: `var(${token.token})` }}
@@ -262,33 +253,17 @@ function Tile({ token, wide }: { token: ColorToken; wide: boolean }) {
 }
 
 function Tiles({ system }: { system: DesignSystem }) {
-  const groups = TILE_ORDER.flatMap((id) =>
-    system.groups.filter((group) => group.id === id),
-  );
+  const byToken = new Map(system.colors.map((color) => [color.token, color]));
   return (
-    <div className="grid gap-x-10 gap-y-10 pt-2 lg:grid-cols-2">
-      {groups.map((group) => (
-        <div
-          key={group.id}
-          className={cn(
-            "flex flex-col gap-4",
-            group.tokens.filter((token) => onTile(token.token)).length > 3 &&
-              "lg:col-span-2",
-          )}
-        >
+    <div className="flex flex-col gap-8 pt-2">
+      {TILES.map((group) => (
+        <div key={group.title} className="flex flex-col gap-4">
           <h3 className="text-base font-semibold">{group.title}</h3>
-          <ul
-            className={cn(
-              "grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4",
-              group.tokens.filter((token) => onTile(token.token)).length > 3 &&
-                "lg:grid-cols-8",
-            )}
-          >
-            {group.tokens
-              .filter((token) => onTile(token.token))
-              .map((token, index) => (
-                <Tile key={token.token} token={token} wide={index === 0} />
-              ))}
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-6">
+            {group.tokens.flatMap((name) => {
+              const token = byToken.get(name);
+              return token ? [<Tile key={name} token={token} />] : [];
+            })}
           </ul>
         </div>
       ))}

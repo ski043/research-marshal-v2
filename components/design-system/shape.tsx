@@ -16,7 +16,56 @@ const FILLS = [
 ] as const;
 const fill = (index: number) => FILLS[index % FILLS.length];
 
-export function ShapeSection({ system }: { system: DesignSystem }) {
+export function ShapeSection({
+  system,
+  compact = false,
+}: {
+  system: DesignSystem;
+  /** The short cut of the page: the spacing alone. */
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <Section
+        id="shape"
+        title="Spacing"
+        lead={
+          <p className="text-sm/6">
+            Everything sits on a 4px grid. These are the measures that repeat.
+          </p>
+        }
+      >
+        <ul className="border-b">
+          {system.spacing.map((space, index) => (
+            <li
+              key={space.className}
+              className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-x-4 gap-y-1 border-t py-2.5 sm:grid-cols-[7rem_8rem_minmax(0,1fr)]"
+            >
+              <span className="flex flex-col items-start">
+                <CopyValue value={space.className} />
+                {space.value && (
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {space.value}
+                  </span>
+                )}
+              </span>
+              <span aria-hidden className="hidden sm:block">
+                {space.value && (
+                  <span
+                    className={cn("block h-2 rounded-full", fill(index))}
+                    style={{ width: space.value }}
+                  />
+                )}
+              </span>
+              <span className="col-span-2 text-sm text-pretty text-muted-foreground sm:col-span-1">
+                {space.use}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Section>
+    );
+  }
   return (
     <Section
       id="shape"

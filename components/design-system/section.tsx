@@ -17,15 +17,18 @@ export type SectionId = (typeof SECTIONS)[number]["id"];
 /** One numbered section of the page. Its heading is a link to itself. */
 export function Section({
   id,
+  title: titled,
   lead,
   children,
 }: {
   id: SectionId;
+  /** A title other than the one of `SECTIONS`, for a section that shows a part of itself. */
+  title?: string;
   lead: ReactNode;
   children: ReactNode;
 }) {
   const at = SECTIONS.findIndex((section) => section.id === id);
-  const title = SECTIONS[at]?.title;
+  const title = titled ?? SECTIONS[at]?.title;
   return (
     <section
       id={id}

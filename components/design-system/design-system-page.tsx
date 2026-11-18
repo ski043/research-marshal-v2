@@ -68,7 +68,7 @@ export function DesignSystemPage({ cut }: { cut: boolean }) {
                   href={`#${section.id}`}
                   className="flex h-7 items-center rounded-md px-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                 >
-                  {section.title}
+                  {cut && section.id === "shape" ? "Spacing" : section.title}
                 </a>
               </li>
             ))}
@@ -81,28 +81,30 @@ export function DesignSystemPage({ cut }: { cut: boolean }) {
         tabIndex={-1}
         className="mx-auto max-w-6xl px-4 outline-none sm:px-8"
       >
-        <div className="flex max-w-2xl flex-col gap-3 pt-12 sm:pt-16">
-          <h1 className="text-2xl font-medium tracking-tight text-balance sm:text-[1.875rem] sm:leading-tight">
-            The design system of Research Marshal
-          </h1>
-          <p className="text-[0.9375rem]/7 text-pretty text-muted-foreground">
-            Research Marshal answers one research question with a cited report.
-            This page shows how it looks and why: every colour, every size and
-            every component, with the rule that decides when to use it. Each
-            section and each part has a link of its own.
-          </p>
-          <p className="text-sm text-pretty text-muted-foreground">
-            Every value comes from <Code>app/globals.css</Code>. The page cannot
-            disagree with the app, because it reads the same file. An agent
-            reads the same model as text in the <Code>design-system</Code>{" "}
-            skill.
-          </p>
-        </div>
+        {!cut && (
+          <div className="flex max-w-2xl flex-col gap-3 pt-12 sm:pt-16">
+            <h1 className="text-2xl font-medium tracking-tight text-balance sm:text-[1.875rem] sm:leading-tight">
+              The design system of Research Marshal
+            </h1>
+            <p className="text-[0.9375rem]/7 text-pretty text-muted-foreground">
+              Research Marshal answers one research question with a cited
+              report. This page shows how it looks and why: every colour, every
+              size and every component, with the rule that decides when to use
+              it. Each section and each part has a link of its own.
+            </p>
+            <p className="text-sm text-pretty text-muted-foreground">
+              Every value comes from <Code>app/globals.css</Code>. The page
+              cannot disagree with the app, because it reads the same file. An
+              agent reads the same model as text in the{" "}
+              <Code>design-system</Code> skill.
+            </p>
+          </div>
+        )}
 
-        <IdeaSection system={system} />
+        <IdeaSection system={system} compact={cut} />
         <ColourSection system={system} compact={cut} />
         <TypographySection system={system} compact={cut} />
-        <ShapeSection system={system} />
+        <ShapeSection system={system} compact={cut} />
         <BrandSection system={system} />
         <AsciiSection />
         <ComponentsSection
