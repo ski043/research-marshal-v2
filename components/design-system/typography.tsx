@@ -52,7 +52,73 @@ function Step({ step }: { step: TypeStep }) {
   );
 }
 
-export function TypographySection({ system }: { system: DesignSystem }) {
+function ShortStep({ step }: { step: TypeStep }) {
+  const [size] = step.sizes;
+  return (
+    <li className="flex items-baseline gap-4 border-t py-2.5">
+      <p
+        data-type-step={step.id}
+        className={cn("min-w-0 flex-1 truncate", step.className)}
+      >
+        {step.sample}
+      </p>
+      <span className="shrink-0 text-xs text-muted-foreground">{step.job}</span>
+      <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
+        {size ? formatPx(size.px) : ""}
+      </span>
+    </li>
+  );
+}
+
+export function TypographySection({
+  system,
+  compact = false,
+}: {
+  system: DesignSystem;
+  /** The short cut of the page: one line for each step, no rules. */
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <Section
+        id="typography"
+        lead={
+          <p>
+            Two families and one short scale. Geist is for everything a person
+            reads. Geist Mono is for machine facts.
+          </p>
+        }
+      >
+        <ul className="grid gap-4 sm:grid-cols-2">
+          {system.fonts.map((font) => (
+            <li
+              key={font.name}
+              className="flex flex-col gap-2 rounded-xl border bg-card p-4"
+            >
+              <p
+                className={cn(
+                  "text-2xl font-medium tracking-tight",
+                  font.className,
+                )}
+              >
+                {font.name}
+              </p>
+              <p aria-hidden className={cn("truncate text-sm", font.className)}>
+                {font.className === "font-mono"
+                  ? "site:example.org battery cycle life  1.6s  18,420 chars"
+                  : "Every fact in the report carries a quote that was checked."}
+              </p>
+            </li>
+          ))}
+        </ul>
+        <ul className="mt-6 border-b">
+          {system.type.map((step) => (
+            <ShortStep key={step.id} step={step} />
+          ))}
+        </ul>
+      </Section>
+    );
+  }
   return (
     <Section
       id="typography"

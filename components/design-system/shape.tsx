@@ -3,6 +3,19 @@ import { Code, Part, Section } from "@/components/design-system/section";
 import { type DesignSystem, formatPx } from "@/lib/ui/design-system";
 import { cn } from "@/lib/utils";
 
+// A shape shows better in a colour. The fills step through the palette in this order.
+const FILLS = [
+  "bg-primary",
+  "bg-link",
+  "bg-highlight",
+  "bg-success",
+  "bg-ascii-purple",
+  "bg-ascii-pink",
+  "bg-warning-fill",
+  "bg-ascii-green",
+] as const;
+const fill = (index: number) => FILLS[index % FILLS.length];
+
 export function ShapeSection({ system }: { system: DesignSystem }) {
   return (
     <Section
@@ -33,7 +46,7 @@ export function ShapeSection({ system }: { system: DesignSystem }) {
               size: `${formatPx(radius.px)} / ${Number(radius.rem.toFixed(4))}rem`,
             })),
             { ...system.fullRadius, name: "full", size: "round" },
-          ].map((radius) => (
+          ].map((radius, index) => (
             <li
               key={radius.className}
               data-radius={radius.name}
@@ -45,7 +58,8 @@ export function ShapeSection({ system }: { system: DesignSystem }) {
               <div
                 aria-hidden
                 className={cn(
-                  "mb-1 h-20 w-28 max-w-full border border-input bg-muted",
+                  "mb-1 h-20 w-28 max-w-full",
+                  fill(index),
                   radius.className,
                 )}
               />
@@ -71,7 +85,7 @@ export function ShapeSection({ system }: { system: DesignSystem }) {
           <li className="flex flex-col items-start gap-1">
             <div
               aria-hidden
-              className="mb-1 h-16 w-full rounded-xl border bg-card"
+              className="mb-1 h-16 w-full rounded-xl border bg-primary-soft"
             />
             <CopyValue value="border" />
             <p className="text-sm text-pretty text-muted-foreground">
@@ -81,7 +95,7 @@ export function ShapeSection({ system }: { system: DesignSystem }) {
           <li className="flex flex-col items-start gap-1">
             <div
               aria-hidden
-              className="mb-1 h-16 w-full rounded-xl border border-input bg-card"
+              className="mb-1 h-16 w-full rounded-xl border border-input bg-link-soft"
             />
             <CopyValue value="border border-input" />
             <p className="text-sm text-pretty text-muted-foreground">
@@ -91,7 +105,7 @@ export function ShapeSection({ system }: { system: DesignSystem }) {
           <li className="flex flex-col items-start gap-1">
             <div
               aria-hidden
-              className="mb-1 h-16 w-full rounded-xl border bg-card outline-2 outline-offset-2 outline-ring"
+              className="mb-1 h-16 w-full rounded-xl border bg-success-soft outline-2 outline-offset-2 outline-ring"
             />
             <CopyValue value="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" />
             <p className="text-sm text-pretty text-muted-foreground">
@@ -107,7 +121,7 @@ export function ShapeSection({ system }: { system: DesignSystem }) {
         rule="Four steps of Tailwind's default theme. The higher something floats, the larger its shadow."
       >
         <ul className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {system.shadows.map((shadow) => (
+          {system.shadows.map((shadow, index) => (
             <li
               key={shadow.className}
               className="flex flex-col items-start gap-1"
@@ -116,7 +130,8 @@ export function ShapeSection({ system }: { system: DesignSystem }) {
                 <div
                   aria-hidden
                   className={cn(
-                    "h-12 rounded-lg border bg-popover",
+                    "h-12 rounded-lg",
+                    fill(index),
                     shadow.className,
                   )}
                 />
@@ -136,7 +151,7 @@ export function ShapeSection({ system }: { system: DesignSystem }) {
         rule="Everything sits on a 4px grid. These are the measures that repeat."
       >
         <ul className="border-b">
-          {system.spacing.map((space) => (
+          {system.spacing.map((space, index) => (
             <li
               key={space.className}
               className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-x-4 gap-y-1 border-t py-2.5 sm:grid-cols-[7rem_8rem_minmax(0,1fr)]"
@@ -152,7 +167,7 @@ export function ShapeSection({ system }: { system: DesignSystem }) {
               <span aria-hidden className="hidden sm:block">
                 {space.value && (
                   <span
-                    className="block h-2 rounded-full bg-link"
+                    className={cn("block h-2 rounded-full", fill(index))}
                     style={{ width: space.value }}
                   />
                 )}

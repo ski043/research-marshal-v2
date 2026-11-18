@@ -29,7 +29,7 @@ export function DesignSystemPage({ cut }: { cut: boolean }) {
   const system = loadDesignSystem();
   const run = runFixture();
   return (
-    <div className="relative h-dvh overflow-y-auto scroll-pt-28 bg-background text-foreground">
+    <div className="relative h-dvh overflow-y-auto scroll-pt-28 scroll-smooth bg-background text-foreground motion-reduce:scroll-auto">
       <a
         href={`#${CONTENT_ID}`}
         className="fixed top-2 left-2 z-[60] -translate-y-16 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-transform duration-150 focus:translate-y-0"
@@ -101,7 +101,7 @@ export function DesignSystemPage({ cut }: { cut: boolean }) {
 
         <IdeaSection system={system} />
         <ColourSection system={system} compact={cut} />
-        <TypographySection system={system} />
+        <TypographySection system={system} compact={cut} />
         <ShapeSection system={system} />
         <BrandSection system={system} />
         <AsciiSection />
