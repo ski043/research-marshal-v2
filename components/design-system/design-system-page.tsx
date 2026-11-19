@@ -15,6 +15,7 @@ import { BUDGET } from "@/lib/research/budget";
 import { DEFAULT_MODEL } from "@/lib/research/events";
 import { MODEL_OPTIONS } from "@/lib/research/model-config";
 import { loadDesignSystem } from "@/lib/ui/design-system-source";
+import { cn } from "@/lib/utils";
 
 const CONTENT_ID = "design-system";
 
@@ -29,7 +30,13 @@ export function DesignSystemPage({ cut }: { cut: boolean }) {
   const system = loadDesignSystem();
   const run = runFixture();
   return (
-    <div className="relative h-dvh overflow-y-auto scroll-pt-28 scroll-smooth bg-background text-foreground motion-reduce:scroll-auto">
+    <div
+      className={cn(
+        "relative h-dvh overflow-y-auto scroll-pt-28 bg-background text-foreground",
+        // Only the short cut scrolls smoothly. The full reference jumps, as before.
+        cut && "scroll-smooth motion-reduce:scroll-auto",
+      )}
+    >
       <a
         href={`#${CONTENT_ID}`}
         className="fixed top-2 left-2 z-[60] -translate-y-16 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-transform duration-150 focus:translate-y-0"

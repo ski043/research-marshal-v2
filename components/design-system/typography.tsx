@@ -53,7 +53,6 @@ function Step({ step }: { step: TypeStep }) {
 }
 
 function ShortStep({ step }: { step: TypeStep }) {
-  const [size] = step.sizes;
   return (
     <li className="flex items-baseline gap-4 border-t py-2.5">
       <p
@@ -63,8 +62,9 @@ function ShortStep({ step }: { step: TypeStep }) {
         {step.sample}
       </p>
       <span className="shrink-0 text-xs text-muted-foreground">{step.job}</span>
-      <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
-        {size ? formatPx(size.px) : ""}
+      {/* A step that changes with the screen names each size, small screen first. */}
+      <span className="w-24 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
+        {step.sizes.map((size) => formatPx(size.px)).join(" / ")}
       </span>
     </li>
   );

@@ -25,7 +25,7 @@
     "that": "every section and every part has an anchor that leads to it"
   },
   {
-    "expect": "document.querySelector('aside[aria-label=History]') === null && document.querySelector('#sidebar') === null && document.title === 'Design system \u00b7 Research Marshal'",
+    "expect": "document.querySelector('aside[aria-label=History]') === null && document.querySelector('#sidebar') === null && document.title === 'Design system, full reference \u00b7 Research Marshal'",
     "that": "the page stands alone: no history sidebar, and a title of its own"
   },
   {
@@ -160,7 +160,7 @@
     "wait": 800
   },
   {
-    "expect": "location.pathname === '/designsystem' && $v('[data-prompt-demo] [data-held]') !== null && $v('[data-prompt-demo] textarea').value.startsWith('Are sodium-ion')",
+    "expect": "location.pathname === '/designsystem/full' && $v('[data-prompt-demo] [data-held]') !== null && $v('[data-prompt-demo] textarea').value.startsWith('Are sodium-ion')",
     "that": "the prompt box is the real one, and Enter starts no run on this page"
   },
   {
