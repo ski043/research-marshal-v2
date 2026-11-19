@@ -5,7 +5,7 @@ description: The colours, the type scale, the shapes, the motion values, the bra
 
 # Research Marshal design system
 
-Every value is a token in `app/globals.css`, written once for `:root` (light) and once for `.dark`. `lib/ui/design-system.ts` gives each token its role, its usage rule and the surfaces it must stay readable on. That model has two readers: the page `/designsystem` for people, and `references/tokens.md` for you.
+Every value is a token in `app/globals.css`, written once for `:root` (light) and once for `.dark`. `lib/ui/design-system.ts` gives each token its role, its usage rule and the surfaces it must stay readable on. That model has two readers: the page `/designsystem/full` for people, and `references/tokens.md` for you. The page `/designsystem` is a short cut of the full page.
 
 Read `references/tokens.md` before you pick a colour, a size, a radius, a shadow or a duration. It lists every token of both themes with its value, its hex and its measured contrast, and the type scale by job.
 
@@ -61,7 +61,7 @@ Read `references/tokens.md` before you pick a colour, a size, a radius, a shadow
 2. For a new token, add its role to `COLOR_ROLES` in `lib/ui/design-system.ts`: the group, a name, the usage rule, and under `text` or `nonText` every surface it sits on.
 3. Run `pnpm design:tokens`. It rewrites `references/tokens.md`.
 4. Run `pnpm test lib/ui/contrast.test.ts lib/ui/design-system.test.ts`. A pair under its floor, a token without a role, or a font size, radius, shadow or duration that the scale does not name fails here.
-5. Look at `/designsystem` in both themes.
+5. Look at `/designsystem/full` in both themes.
 
 A new font size, radius, shadow or duration in a component fails the same test until `TYPE_ROLES`, `RADIUS_ROLES`, `SHADOW_ROLES` or `DURATION_ROLES` names it. Prefer a step that exists.
 

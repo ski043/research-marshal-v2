@@ -34,24 +34,38 @@ const FROM_THE_PICTURE: readonly {
   },
 ];
 
-export function IdeaSection({ system }: { system: DesignSystem }) {
+export function IdeaSection({
+  system,
+  compact = false,
+}: {
+  system: DesignSystem;
+  /** The short cut of the page: one sentence, and chips that lead to the one colour section. */
+  compact?: boolean;
+}) {
   return (
     <Section
       id="idea"
       lead={
-        <>
-          <p>
-            Research Marshal opens on one picture: the Golden Gate Bridge at
-            dusk, drawn in halftone dots. The colours of the interface are the
-            colours of this picture.
+        compact ? (
+          <p className="text-sm/6">
+            One picture, the Golden Gate Bridge at dusk in halftone dots. Its
+            colours are the colours of the interface.
           </p>
-          <p>
-            The night is the ground, the lit steel of the bridge is the primary,
-            the stars are the links and the citations, and the lamps are the
-            small highlights. Statuses are the one exception: green, yellow and
-            red mean what they mean everywhere.
-          </p>
-        </>
+        ) : (
+          <>
+            <p>
+              Research Marshal opens on one picture: the Golden Gate Bridge at
+              dusk, drawn in halftone dots. The colours of the interface are the
+              colours of this picture.
+            </p>
+            <p>
+              The night is the ground, the lit steel of the bridge is the
+              primary, the stars are the links and the citations, and the lamps
+              are the small highlights. Statuses are the one exception: green,
+              yellow and red mean what they mean everywhere.
+            </p>
+          </>
+        )
       }
     >
       <Scene className="h-64 sm:h-96" frame={{ scale: 1.15 }} />
@@ -61,7 +75,7 @@ export function IdeaSection({ system }: { system: DesignSystem }) {
           return (
             <li key={each.token}>
               <a
-                href={each.href}
+                href={compact ? "#colour" : each.href}
                 className="flex items-center gap-3 rounded-xl border bg-card p-3 transition-colors duration-150 hover:border-input focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <span

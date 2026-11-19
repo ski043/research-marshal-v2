@@ -142,7 +142,7 @@ The step files under `scripts/steps/` are the recipes. Each one checks one flow 
 | `screens.json` | Light and dark theme, theme after a reload, reduced motion, 390px width. |
 | `reconnect.json` | An event stream that closed for good opens again, and the run says that the connection was lost. |
 | `sidebar-rail.json` | The sidebar collapses to a rail of icons with names and tooltips, keeps the rail from the first frame of a reload, expands from Search with focus in the field, toggles with Ctrl or Cmd with Shift and the period key, keeps hidden history links out of the tab order, and leaves the 390px slide-over as it was. |
-| `design-system.json` | The design system page at `/designsystem`: every section and its anchor, one row per colour of the served stylesheet, each contrast ratio against the two colours as the browser paints them, the type sizes, the copy control, the live components, the theme switch, the skip link, 390px. The `design-system` skill has the rules. |
+| `design-system.json` | The design system page at `/designsystem/full`: every section and its anchor, one row per colour of the served stylesheet, each contrast ratio against the two colours as the browser paints them, the type sizes, the copy control, the live components, the theme switch, the skip link, 390px. The `design-system` skill has the rules. |
 
 Run all of them against one served app:
 

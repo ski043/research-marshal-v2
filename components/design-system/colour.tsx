@@ -216,7 +216,85 @@ function Token({
   );
 }
 
-export function ColourSection({ system }: { system: DesignSystem }) {
+const TILES: readonly { title: string; tokens: readonly TokenName[] }[] = [
+  {
+    title: "Palette",
+    tokens: [
+      "--primary",
+      "--primary-ink",
+      "--link",
+      "--highlight",
+      "--background",
+      "--foreground",
+    ],
+  },
+  { title: "Statuses", tokens: ["--success", "--warning", "--destructive"] },
+];
+
+function Tile({ token }: { token: ColorToken }) {
+  return (
+    <li data-color-tile={token.token} className="flex min-w-0 flex-col gap-2">
+      <div
+        className="h-28 rounded-2xl border shadow-xs"
+        style={{ backgroundColor: `var(${token.token})` }}
+      />
+      <div className="flex min-w-0 flex-col items-start gap-0.5">
+        <span className="text-sm font-medium">{token.name}</span>
+        <CopyValue value={token.token} />
+        <span className="font-mono text-xs whitespace-nowrap text-muted-foreground uppercase dark:hidden">
+          {token.value.light.hex}
+        </span>
+        <span className="hidden font-mono text-xs whitespace-nowrap text-muted-foreground uppercase dark:inline">
+          {token.value.dark.hex}
+        </span>
+      </div>
+    </li>
+  );
+}
+
+function Tiles({ system }: { system: DesignSystem }) {
+  const byToken = new Map(system.colors.map((color) => [color.token, color]));
+  return (
+    <div className="flex flex-col gap-8 pt-2">
+      {TILES.map((group) => (
+        <div key={group.title} className="flex flex-col gap-4">
+          <h3 className="text-base font-semibold">{group.title}</h3>
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-6">
+            {group.tokens.flatMap((name) => {
+              const token = byToken.get(name);
+              return token ? [<Tile key={name} token={token} />] : [];
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ColourSection({
+  system,
+  compact = false,
+}: {
+  system: DesignSystem;
+  /** The short cut of the page: one tile for each colour that matters, no contrast tables. */
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <Section
+        id="colour"
+        lead={
+          <p>
+            The palette comes from one picture: near-black for the night, orange
+            for the lit steel of the bridge, blue for the stars, amber for the
+            lamps. Green, yellow and red mean what they mean everywhere.
+          </p>
+        }
+      >
+        <Tiles system={system} />
+      </Section>
+    );
+  }
   const byToken = new Map(system.colors.map((color) => [color.token, color]));
   const css: Lookup = (token, theme) => {
     const color = byToken.get(token);

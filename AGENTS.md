@@ -81,7 +81,7 @@ The rules live in `biome.json`, `scripts/lint/`, and `scripts/project-rules.test
 ## Design system
 
 - Before you change a colour, a font size, a component style, the icon, the wordmark or the ASCII art, use the `design-system` skill (`.claude/skills/design-system/SKILL.md`).
-- The page `/designsystem` shows the same system to people. Both read `app/globals.css` through `lib/ui/design-system.ts`.
+- The page `/designsystem/full` shows the same system to people, and `/designsystem` shows a short cut of it. The pages and the skill read `app/globals.css` through `lib/ui/design-system.ts`.
 - After a change to a token, run `pnpm design:tokens` and commit `references/tokens.md`. `pnpm check` fails while that file is stale.
 
 ## Conventions
