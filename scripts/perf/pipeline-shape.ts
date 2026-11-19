@@ -1,12 +1,8 @@
 import type { WebActions } from "@/lib/research/budget";
+import { defaultModel, defaultWeb, PAGE_TEXT } from "@/lib/research/fakes";
 import type { ModelSteps } from "@/lib/research/model-config";
 import { runPipeline } from "@/lib/research/pipeline";
-import {
-  defaultModel,
-  defaultWeb,
-  PAGE_TEXT,
-  testRun,
-} from "@/lib/research/testing";
+import { testRun } from "@/lib/research/testing";
 
 // Runs the real pipeline on the test fakes with a fixed delay per web call and per model
 // call. It measures the pipeline's own scheduling, not the network or the model.

@@ -26,7 +26,12 @@ describe("parseResearchArgs", () => {
   it("joins the words into the question", () => {
     expect(parseResearchArgs(["How", "long", "do", "LFP", "last?"])).toEqual({
       ok: true,
-      args: { question: "How long do LFP last?", json: false, offline: null },
+      args: {
+        question: "How long do LFP last?",
+        model: "sonnet",
+        json: false,
+        offline: null,
+      },
     });
   });
 
@@ -60,6 +65,7 @@ describe("parseResearchArgs", () => {
         ok: true,
         args: {
           question: "",
+          model: "sonnet",
           json: false,
           offline: { scenario: "budget", paceMs: 200 },
         },
@@ -67,7 +73,25 @@ describe("parseResearchArgs", () => {
     );
   });
 
+  it("reads a model", () => {
+    expect(parseResearchArgs(["--model", "haiku", "Why?"])).toMatchObject({
+      ok: true,
+      args: { question: "Why?", model: "haiku" },
+    });
+    expect(parseResearchArgs(["Why?", "--model", "fable"])).toMatchObject({
+      ok: true,
+      args: { question: "Why?", model: "fable" },
+    });
+  });
+
   it.each([
+    [["--model"], "--model needs one of fable, opus, sonnet, haiku."],
+    [
+      ["--model", "gpt", "q"],
+      "--model needs one of fable, opus, sonnet, haiku.",
+    ],
+    [["--model", "Opus", "q"], "--model needs one of"],
+    [["--model", "--json", "q"], "--model needs one of"],
     [["--offline"], "--offline needs a scenario name."],
     [["--offline", "--json"], "--offline needs a scenario name."],
     [["--offline", "x", "--pace", "fast"], "--pace needs a whole number"],

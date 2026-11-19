@@ -1,6 +1,6 @@
 # Research Marshal PRD
 
-Status: draft 3, 2026-11-16.
+Status: draft 4, 2026-11-16.
 
 This document is the source of truth for what Research Marshal does. It does not cover the tech stack. [TECH_STACK.md](TECH_STACK.md) covers that.
 
@@ -70,6 +70,13 @@ Version 1 succeeds when all six criteria hold.
 - **B6.** The limits are fixed. The user cannot change them.
 - **B7.** A page that the app could not read is not a page read. Only a page that the app read counts toward the 8 page reads of a round. When a read fails, the run reads the next selected page. A round has at most 16 read attempts. When the web data service refuses one page of a site as unsupported, the run tries no other page of that site. The run shows those pages as skipped, with the reason.
 
+### Model
+
+- **M1.** The user chooses the model of a run in the prompt box before the run starts. The choices are Claude Fable 5.2, Claude Opus 5.5, Claude Sonnet 5.5, and Claude Haiku 5.5. The default is Claude Sonnet 5.5.
+- **M2.** A run uses one model for every model step. The model of a run cannot change after the run starts.
+- **M3.** The run shows its model. The history keeps the model of every past run.
+- **M4.** A rerun uses the model of the original run.
+
 ### Visible failures
 
 - **F1.** The run shows every page with one state: read, failed, or skipped. A failed page is a page that the app could not read, for example a blocked page. A skipped page is a page that the run found but did not read.
@@ -127,7 +134,7 @@ The user flow has four steps: ask, watch, read, and come back.
 **Come back**
 
 - **U8.** The history lists every past run, including cancelled runs.
-- **U9.** The history keeps the full run: the question, the date, the report, every step, every page with its state, and every dropped claim. A past run is read-only.
+- **U9.** The history keeps the full run: the question, the date, the model, the report, every step, every page with its state, and every dropped claim. A past run is read-only.
 - **U10.** Every past run has a rerun button. A rerun starts a new run with the same question. The app saves the new run as a separate entry and leaves the old run unchanged.
 
 ## Not in version 1

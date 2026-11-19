@@ -17,6 +17,7 @@ enum RunStatus {
 model Run {
   id         String    @id @default(cuid())
   question   String
+  model      String    @default("sonnet")
   status     RunStatus @default(RUNNING)
   createdAt  DateTime  @default(now())
   finishedAt DateTime?

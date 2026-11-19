@@ -3,6 +3,11 @@ import { z } from "zod";
 export const Question = z.string().trim().min(1).max(2000).brand<"Question">();
 export type Question = z.infer<typeof Question>;
 
+/** The model of a run (M1, M2). A key, never a model ID: `model-config.ts` maps it to one. */
+export const ModelChoice = z.enum(["fable", "opus", "sonnet", "haiku"]);
+export type ModelChoice = z.infer<typeof ModelChoice>;
+export const DEFAULT_MODEL: ModelChoice = "sonnet";
+
 export const RunId = z.string().min(1).brand<"RunId">();
 export type RunId = z.infer<typeof RunId>;
 

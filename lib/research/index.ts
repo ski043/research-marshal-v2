@@ -1,7 +1,14 @@
-import { readEnv } from "@/lib/env";
+import { readEnv, readFakesPace } from "@/lib/env";
 import { meterWeb, type WebActions } from "./budget";
 import { createDecodoWeb, sdkPort } from "./decodo";
-import type { ModelCall, Question, RunEnd, RunEvent, RunId } from "./events";
+import type {
+  ModelCall,
+  ModelChoice,
+  Question,
+  RunEnd,
+  RunEvent,
+  RunId,
+} from "./events";
 import { createModelSteps } from "./model";
 import type { ModelSteps } from "./model-config";
 import { runPipeline } from "./pipeline";
@@ -15,7 +22,8 @@ export type StartedRun = { runId: RunId; finished: Promise<RunEnd> };
 
 /**
  * The web and the model a run talks to. `startRun` uses Decodo and Anthropic when none are
- * given. Only the Anthropic model records `model.called` events; a fake model makes no call.
+ * given, or the offline fakes when `RESEARCH_MARSHAL_FAKES` is set. Only the Anthropic model
+ * records `model.called` events; a fake model makes no call.
  */
 export type RunPorts = { web: WebActions; model: ModelSteps };
 
@@ -28,33 +36,61 @@ export type RunRecord = {
 
 const POLL_MS = 200;
 
-const activeRuns = new Map<RunId, AbortController>();
+const globalForRuns = globalThis as typeof globalThis & {
+  activeRuns?: Map<RunId, AbortController>;
+};
+// `next dev` re-evaluates this module, and a new map would lose the runs that are still going.
+globalForRuns.activeRuns ??= new Map();
+const activeRuns = globalForRuns.activeRuns;
 
 const store = openStore();
 
 // Reads the keys at once, so a missing key fails before the run is stored.
 function livePorts(
   signal: AbortSignal,
+  model: ModelChoice,
 ): (record: (call: ModelCall) => void) => RunPorts {
   const keys = readEnv(["ANTHROPIC_API_KEY", "DECODO_AUTH_TOKEN"]);
   return (record) => ({
     web: createDecodoWeb(sdkPort(keys.DECODO_AUTH_TOKEN)),
     model: createModelSteps({
       apiKey: keys.ANTHROPIC_API_KEY,
+      model,
       signal,
       record,
     }),
   });
 }
 
-export async function startRun(
+/** True when `RESEARCH_MARSHAL_FAKES` makes every run without ports run on the offline fakes. */
+export function fakesEnabled(): boolean {
+  return readFakesPace() !== null;
+}
+
+// The scenario whose name is the question, so a browser can pick one by typing it.
+async function fakePorts(
   question: Question,
+  paceMs: number,
+): Promise<RunPorts> {
+  const { SCENARIOS, offlinePorts } = await import("./offline");
+  const scenario =
+    SCENARIOS.get(question.trim().toLowerCase()) ?? SCENARIOS.get("completed");
+  if (!scenario) throw new Error("the offline scenario completed is missing");
+  return offlinePorts(scenario, paceMs);
+}
+
+export async function startRun(
+  request: { question: Question; model: ModelChoice },
   ports?: RunPorts,
 ): Promise<StartedRun> {
+  const { question, model: choice } = request;
   const controller = new AbortController();
   const { signal } = controller;
-  const connect = ports ? () => ports : livePorts(signal);
-  const runId = await store.createRun(question);
+  const paceMs = ports ? null : readFakesPace();
+  const given =
+    ports ?? (paceMs === null ? null : await fakePorts(question, paceMs));
+  const connect = given ? () => given : livePorts(signal, choice);
+  const runId = await store.createRun({ question, model: choice });
   const log = createRunLog({
     runId,
     question,
@@ -91,11 +127,20 @@ export async function* followRun(
   options: { after?: number; signal?: AbortSignal } = {},
 ): AsyncIterable<RunEvent> {
   let after = options.after ?? 0;
+  let sealed = false;
   while (!options.signal?.aborted) {
-    for (const event of await store.readEvents(runId, after)) {
+    const events = await store.readEvents(runId, after);
+    for (const event of events) {
       yield event;
       after = event.seq;
       if (event.type === "run.finished") return;
+    }
+    if (sealed) return;
+    if (events.length === 0) {
+      const run = await store.readRun(runId);
+      sealed = run === null || run.status !== "running";
+      // One more read, because the run may have sealed after the read above.
+      if (sealed) continue;
     }
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }

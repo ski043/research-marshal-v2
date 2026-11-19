@@ -7,7 +7,9 @@ usage() {
   cat >&2 <<'USAGE'
 Usage:
   prove.sh <slug> offline <scenario> [--pace <ms>]   free, runs on fakes
-  prove.sh <slug> live "<question>"                  paid, real Decodo and Anthropic calls
+  prove.sh <slug> live [--model <m>] "<question>"    paid, real Decodo and Anthropic calls
+
+Models: fable, opus, sonnet (the default), haiku.
 
 Scenarios: completed, failures, dropped, budget, no-claims.
 Evidence goes to .verify/<slug>-<UTC time>-<random>/.

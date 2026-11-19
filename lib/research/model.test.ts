@@ -10,9 +10,10 @@ import {
 } from "./model";
 import {
   MalformedAnswer,
-  MODEL_CONFIG,
+  MODELS,
   type ModelSteps,
   QUOTE_MAX_CHARS,
+  stepConfig,
 } from "./model-config";
 import { runPipeline } from "./pipeline";
 import {
@@ -228,6 +229,7 @@ const realSteps = (
 ) =>
   createModelSteps({
     apiKey: "test-key",
+    model: "sonnet",
     signal: new AbortController().signal,
     record,
     ...(now ? { now } : {}),
@@ -245,10 +247,24 @@ describe("model requests", () => {
 
     expect(api.requests).toHaveLength(1);
     const [request] = api.requests;
-    expect(request?.max_tokens).toBe(MODEL_CONFIG[step].maxOutputTokens);
+    expect(request?.max_tokens).toBe(
+      stepConfig("sonnet", step).maxOutputTokens,
+    );
     const { instructions, prompt } = promptOf(step);
     expect(request?.system).toContain(instructions);
     expect(request?.prompt).toContain(prompt);
+  });
+
+  it.each(STEPS)("%s sends the model ID of the chosen model", async (step) => {
+    const api = fakeAnthropic((request) => ({ text: answerFor(request) }));
+    const haiku = createModelSteps({
+      apiKey: "test-key",
+      model: "haiku",
+      signal: new AbortController().signal,
+      record: () => {},
+    });
+    await callStep(haiku, step);
+    expect(api.requests.map((r) => r.model)).toEqual([MODELS.haiku.id]);
   });
 
   it("names the output limit when a structured answer is cut off", async () => {
@@ -259,7 +275,7 @@ describe("model requests", () => {
     await expect(callStep(realSteps(), "extract")).rejects.toThrow(
       new MalformedAnswer(
         "extract",
-        `the answer reached the output limit of ${MODEL_CONFIG.extract.maxOutputTokens} tokens`,
+        `the answer reached the output limit of ${stepConfig("sonnet", "extract").maxOutputTokens} tokens`,
       ),
     );
 
@@ -276,7 +292,7 @@ describe("model requests", () => {
     const failed = callStep(realSteps(), "writeReport");
     await expect(failed).rejects.toBeInstanceOf(FatalRunError);
     await expect(failed).rejects.toThrow(
-      `the answer reached the output limit of ${MODEL_CONFIG.writeReport.maxOutputTokens} tokens`,
+      `the answer reached the output limit of ${stepConfig("sonnet", "writeReport").maxOutputTokens} tokens`,
     );
   });
 });
@@ -326,6 +342,7 @@ describe("model call records (#19)", () => {
     const { calls, record } = recorded();
     const steps = createModelSteps({
       apiKey: "test-key",
+      model: "sonnet",
       signal: controller.signal,
       record,
     });
@@ -360,6 +377,7 @@ describe("model call records (#19)", () => {
     const { calls, record } = recorded();
     const steps = createModelSteps({
       apiKey: "test-key",
+      model: "sonnet",
       signal: controller.signal,
       record,
     });
@@ -619,7 +637,7 @@ describe("hostile pages", () => {
     );
     expect(
       api.requests.every(
-        (r) => r.max_tokens === MODEL_CONFIG.extract.maxOutputTokens,
+        (r) => r.max_tokens === stepConfig("sonnet", "extract").maxOutputTokens,
       ),
     ).toBe(true);
   });
