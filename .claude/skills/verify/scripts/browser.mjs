@@ -12,14 +12,17 @@
 //   {"reload": true}
 //   {"wait": 300}                         milliseconds
 //   {"waitFor": "css selector"}           until it is on screen (add "timeout": ms)
-//   {"waitText": "Finished"}              until the page text contains it
+//   {"waitText": "Run not found"}         until the page text contains it
 //   {"waitGone": "css selector"}
 //   {"click": "css selector"}  {"hover": "css selector"}  {"focus": "css selector"}
 //                                         click and hover take "text": the first match
 //                                         that contains it
 //   {"drag": "css selector", "by": [dx, dy]}
 //   {"type": "text"}                      into the focused element
-//   {"press": "Enter"}                    add "shift": true; Tab, Escape, Space, arrows
+//   {"press": "Enter"}                    add "shift", "ctrl", "meta" or "alt": true;
+//                                         Tab, Escape, Space, arrows, Period
+//   {"init": "js source"}                 runs in every later document before its own
+//                                         scripts, for a check of the first frames
 //   {"eval": "document.title"}            prints the value as JSON
 //                                         $v(selector) is the first match on screen and
 //                                         $$v(selector) all of them, as an array
@@ -62,6 +65,7 @@ const KEYS = {
   ArrowDown: { key: "ArrowDown", code: "ArrowDown", keyCode: 40 },
   Home: { key: "Home", code: "Home", keyCode: 36 },
   End: { key: "End", code: "End", keyCode: 35 },
+  Period: { key: ".", code: "Period", keyCode: 190 },
 };
 
 function fail(message) {
@@ -352,14 +356,22 @@ async function run(step) {
       code: key.code,
       windowsVirtualKeyCode: key.keyCode,
       nativeVirtualKeyCode: key.keyCode,
-      modifiers: step.shift ? 8 : 0,
+      modifiers:
+        (step.alt ? 1 : 0) |
+        (step.ctrl ? 2 : 0) |
+        (step.meta ? 4 : 0) |
+        (step.shift ? 8 : 0),
     };
+    // With Ctrl or Cmd held a key types nothing.
+    const text = step.ctrl || step.meta ? undefined : key.text;
     await send("Input.dispatchKeyEvent", {
-      type: key.text ? "keyDown" : "rawKeyDown",
-      text: key.text,
+      type: text ? "keyDown" : "rawKeyDown",
+      text,
       ...event,
     });
     await send("Input.dispatchKeyEvent", { type: "keyUp", ...event });
+  } else if (step.init) {
+    await send("Page.addScriptToEvaluateOnNewDocument", { source: step.init });
   } else if (step.eval) {
     console.log(JSON.stringify(await evaluate(step.eval)));
   } else if (step.expect) {

@@ -23,7 +23,7 @@
   },
   {
     "expect": "$v(\"nav[aria-label='Past runs'] h2\").textContent.startsWith('Today')",
-    "that": "the history groups the runs by day"
+    "that": "the history groups the runs by age, newest first"
   },
   {
     "click": "input[type=search]"

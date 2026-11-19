@@ -1,37 +1,34 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { SidebarTrigger } from "@/components/app/app-shell";
 import type { ModelOption } from "@/components/app/model-select";
 import { PromptBox } from "@/components/app/prompt-box";
-import { GlobeMark } from "@/components/asciicn/globe-mark";
+import {
+  type Budget,
+  BudgetPills,
+  SuggestionChips,
+} from "@/components/app/start-chips";
+import { StartBackground } from "@/components/asciicn/start-background";
 import { greetingFor } from "@/lib/ui/format";
-
-// The field is decoration, so it loads after the prompt box and never blocks it.
-const DotField = dynamic(
-  () => import("@/components/asciicn/dot-field").then((mod) => mod.DotField),
-  { ssr: false },
-);
+import { cn } from "@/lib/utils";
 
 const GREETING_ID = "greeting";
 // The server cannot know the local time. This runs before the first paint and writes
 // the greeting of the hour, so the heading never changes in front of the user.
 const GREET = `(function(){var h=new Date().getHours();var e=document.getElementById(${JSON.stringify(GREETING_ID)});if(e)e.textContent=h>=5&&h<12?"Good morning":h>=12&&h<18?"Good afternoon":"Good evening"})()`;
 
-const EXAMPLES = [
-  "How long do lithium iron phosphate batteries last?",
-  "What is known about the health effects of microplastics?",
-  "How did the 2021 Suez Canal blockage affect global trade?",
-  "Does a four-day work week change productivity?",
+const INVITATION = "Ask a research question…";
+const ROTATING = [
+  "Are sodium-ion batteries ready for grid storage?",
+  "Which countries restrict PFAS in consumer products?",
+  "How well do heat pumps work below minus 15 °C?",
+  "What explains the decline of insects in Europe?",
+  "Do congestion charges reduce city traffic?",
 ] as const;
 
-export type Budget = {
-  rounds: number;
-  queriesPerRound: number;
-  readsPerRound: number;
-  mapsPerRun: number;
-};
+const TYPE_STEP = 6;
+const TYPE_INTERVAL_MS = 16;
 
 export function StartScreen({
   models,
@@ -43,26 +40,47 @@ export function StartScreen({
   budget: Budget;
 }) {
   const [question, setQuestion] = useState("");
+  const budgetId = useId();
   const input = useRef<HTMLTextAreaElement>(null);
+  const typing = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fill = (text: string) => {
-    setQuestion(text);
+  const stopTyping = () => {
+    if (typing.current) clearInterval(typing.current);
+    typing.current = null;
+  };
+  useEffect(
+    () => () => {
+      if (typing.current) clearInterval(typing.current);
+    },
+    [],
+  );
+
+  const type = (text: string) => {
+    stopTyping();
     input.current?.focus();
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setQuestion(text);
+      return;
+    }
+    let length = 0;
+    typing.current = setInterval(() => {
+      length = Math.min(text.length, length + TYPE_STEP);
+      setQuestion(text.slice(0, length));
+      if (length >= text.length) stopTyping();
+    }, TYPE_INTERVAL_MS);
   };
 
   return (
-    <main className="relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs">
-      <DotField
-        clear={{ width: 760, height: 520 }}
-        className="-z-10 hidden sm:block"
-      />
+    // The scene paints its own night, so the screen takes the dark tokens in both themes
+    // and has the dusk of the scene from the first paint, before the scene has loaded.
+    <main className="dark relative isolate flex min-w-0 flex-1 flex-col overflow-hidden bg-sidebar text-foreground lg:rounded-2xl lg:border lg:shadow-xs">
+      <StartBackground />
       <div className="flex h-13 shrink-0 items-center px-3 lg:hidden">
         <SidebarTrigger />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="m-auto flex w-full max-w-2xl flex-col px-4 py-10 sm:px-8">
           <div className="mb-8 flex animate-in flex-col items-center gap-4 text-center duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
-            <GlobeMark />
             <h1
               id={GREETING_ID}
               suppressHydrationWarning
@@ -84,37 +102,79 @@ export function StartScreen({
 
           <PromptBox
             question={question}
-            onQuestionChange={setQuestion}
+            onQuestionChange={(text) => {
+              stopTyping();
+              setQuestion(text);
+            }}
             models={models}
             defaultModel={defaultModel}
             inputRef={input}
-          />
-
-          <p className="mt-3 text-center text-xs text-pretty text-muted-foreground">
-            One run takes at most {budget.rounds} rounds, each with{" "}
-            {budget.queriesPerRound} searches and {budget.readsPerRound} pages,
-            and {budget.mapsPerRun} site map. Every fact in the report carries a
-            quote that was checked on its page.
-          </p>
-
-          <ul
-            aria-label="Example questions"
-            className="mt-6 flex flex-wrap justify-center gap-2"
+            invitation={INVITATION}
+            examples={ROTATING}
           >
-            {EXAMPLES.map((example) => (
-              <li key={example}>
-                <button
-                  type="button"
-                  onClick={() => fill(example)}
-                  className="inline-flex min-h-8 items-center rounded-full border bg-background px-3 py-1 text-left text-xs text-muted-foreground transition-[background-color,border-color,color,scale] duration-150 hover:border-input hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.98] sm:text-sm"
-                >
-                  {example}
-                </button>
-              </li>
-            ))}
-          </ul>
+            <div className="-mt-3 flex items-center gap-2 rounded-b-2xl border border-t-0 bg-muted/48 px-3 pt-5.5 pb-2.5">
+              <span
+                id={budgetId}
+                title="The limits of one run are fixed."
+                className="shrink-0 text-xs text-muted-foreground"
+              >
+                Budget
+              </span>
+              <FadeScroller className="-my-1 min-w-0 flex-1 py-1">
+                <BudgetPills budget={budget} labelledBy={budgetId} />
+              </FadeScroller>
+            </div>
+          </PromptBox>
+
+          <SuggestionChips className="mt-6" onPick={type} />
+
+          <p className="mt-6 text-center text-xs text-pretty text-muted-foreground">
+            Every fact in the report carries a quote that was checked on its
+            page.
+          </p>
         </div>
       </div>
     </main>
+  );
+}
+
+/** A row that scrolls sideways and fades at each edge that has more behind it. */
+function FadeScroller({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      setEdges({ start: el.scrollLeft > 1, end: el.scrollLeft < max - 1 });
+    };
+    measure();
+    el.addEventListener("scroll", measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", measure);
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={cn("overflow-x-auto [scrollbar-width:none]", className)}
+      style={{
+        maskImage: `linear-gradient(to right, ${edges.start ? "transparent, black 1.5rem" : "black, black"}, ${edges.end ? "black calc(100% - 1.5rem), transparent" : "black, black"})`,
+      }}
+    >
+      {children}
+    </div>
   );
 }

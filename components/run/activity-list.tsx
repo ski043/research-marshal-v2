@@ -3,6 +3,7 @@
 import {
   BanIcon,
   ChevronRightIcon,
+  CircleAlertIcon,
   FileTextIcon,
   FlagIcon,
   ListChecksIcon,
@@ -16,12 +17,14 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import { type ReactNode, useId, useRef, useState } from "react";
+import { DotLine } from "@/components/asciicn/dot-rule";
 import { GlyphSpinner } from "@/components/asciicn/glyph-spinner";
 import { DroppedItem, VerifiedItem } from "@/components/run/claims-list";
+import { DecodoMark } from "@/components/run/decodo-mark";
 import { Elapsed } from "@/components/run/elapsed";
 import { SourceLabelBadge } from "@/components/run/source-label";
 import { domainOf } from "@/lib/research/domain";
-import type { WebFailure } from "@/lib/research/events";
+import type { DecodoEndpoint, WebFailure } from "@/lib/research/events";
 import type {
   ActivityGroup,
   ActivityRow,
@@ -41,12 +44,55 @@ type RowParts = {
   body: ReactNode | null;
 };
 
-const TONE: Readonly<Record<Tone, string>> = {
-  plain: "text-muted-foreground",
-  good: "text-success",
-  warn: "text-warning",
-  bad: "text-destructive",
+// A status that went well is a quiet word. One that did not is a pill with its own icon,
+// so it differs from the orange of a running row by its shape and not only by its hue.
+const STATUS: Readonly<
+  Record<Tone, { className: string; icon: LucideIcon | null }>
+> = {
+  plain: { className: "text-muted-foreground", icon: null },
+  good: { className: "text-success", icon: null },
+  warn: {
+    className:
+      "h-4.5 rounded-full bg-warning-soft px-1.5 font-medium text-warning-soft-foreground",
+    icon: CircleAlertIcon,
+  },
+  bad: {
+    className:
+      "h-4.5 rounded-full bg-destructive-soft px-1.5 font-medium text-destructive",
+    icon: TriangleAlertIcon,
+  },
 };
+
+function Status({ text, tone }: { text: string; tone: Tone }) {
+  const { className, icon: Icon } = STATUS[tone];
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-0 items-center gap-1 text-xs",
+        className,
+      )}
+    >
+      {Icon && <Icon aria-hidden className="size-3 shrink-0" />}
+      <span className="truncate">{text}</span>
+    </span>
+  );
+}
+
+/**
+ * A sentence of a row that reports a shortfall. A yellow that passes as text on a light
+ * surface is a dark gold, so the light theme shows a yellow dot with dark text.
+ */
+function Caution({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex gap-1.5 text-foreground dark:text-warning">
+      <span
+        aria-hidden
+        className="mt-1.25 size-1.5 shrink-0 rounded-full bg-warning-fill"
+      />
+      <span className="min-w-0">{children}</span>
+    </span>
+  );
+}
 
 const SKIP_REASON: Readonly<Record<SkippedPage["reason"], string>> = {
   "not-chosen": "found, not chosen for reading",
@@ -62,6 +108,13 @@ const STOPPED_BY = {
   "dead-end": "no further search to try",
   error: "a step failed, so the run wrote the report with what it had",
 } as const;
+
+const DECODO: Readonly<Record<DecodoEndpoint, { did: string; name: string }>> =
+  {
+    google_search: { did: "Searched", name: "Google Search" },
+    universal: { did: "Read", name: "Universal scraper" },
+    map: { did: "Mapped", name: "Map" },
+  };
 
 const failureText = (failure: WebFailure) =>
   `${failure.kind}: ${failure.detail}`;
@@ -136,9 +189,11 @@ function readBody(row: ReadRow): ReactNode {
           </li>
         )}
         {row.extractError && (
-          <li className="text-warning">
-            No claims could be drafted from this page.{" "}
-            <Mono>{row.extractError}</Mono>
+          <li>
+            <Caution>
+              No claims could be drafted from this page.{" "}
+              <Mono>{row.extractError}</Mono>
+            </Caution>
           </li>
         )}
         {row.drafts !== null && (
@@ -197,12 +252,10 @@ function partsOf(row: ActivityRow): RowParts {
                 // biome-ignore lint/suspicious/noArrayIndexKey: the plan is fixed once the round starts
                 <li key={`dropped-${i}`} className="flex flex-col gap-0.5">
                   <span className="line-through">{query.subQuestion}</span>
-                  <span>
-                    <Mono>{query.query}</Mono>{" "}
-                    <span className="text-warning">
-                      dropped: over the search budget of the round
-                    </span>
-                  </span>
+                  <Mono>{query.query}</Mono>
+                  <Caution>
+                    dropped: over the search budget of the round
+                  </Caution>
                 </li>
               ))}
             </Facts>
@@ -237,8 +290,8 @@ function partsOf(row: ActivityRow): RowParts {
                 </li>
               )}
               {outcome.status === "ok" && results.length === 0 && (
-                <li className="text-warning">
-                  The search returned no results.
+                <li>
+                  <Caution>The search returned no results.</Caution>
                 </li>
               )}
               {results.map((result) => (
@@ -289,10 +342,13 @@ function partsOf(row: ActivityRow): RowParts {
                 </li>
               )}
               {row.unknownNumbers.length > 0 && (
-                <li className="text-warning">
-                  The model named {plural(row.unknownNumbers.length, "result")}{" "}
-                  that the round does not have ({row.unknownNumbers.join(", ")}
-                  ). They were ignored.
+                <li>
+                  <Caution>
+                    The model named{" "}
+                    {plural(row.unknownNumbers.length, "result")} that the round
+                    does not have ({row.unknownNumbers.join(", ")}). They were
+                    ignored.
+                  </Caution>
                 </li>
               )}
             </Facts>
@@ -453,9 +509,11 @@ function partsOf(row: ActivityRow): RowParts {
                 </li>
               )}
               {row.removedCitations > 0 && (
-                <li className="text-warning">
-                  {plural(row.removedCitations, "citation")} of a claim that is
-                  not verified removed.
+                <li>
+                  <Caution>
+                    {plural(row.removedCitations, "citation")} of a claim that
+                    is not verified removed.
+                  </Caution>
                 </li>
               )}
             </Facts>
@@ -528,6 +586,7 @@ function Row({
   const { icon: Icon, title, detail, status, body } = partsOf(row);
   const running = row.state === "running";
   const expandable = body !== null;
+  const decodo = row.decodo && DECODO[row.decodo];
   const label =
     row.kind === "read" && row.label ? (
       <SourceLabelBadge label={row.label} className="h-4.5" />
@@ -539,7 +598,8 @@ function Row({
         className={cn(
           "relative z-10 mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border bg-background transition-colors duration-200",
           running && "border-primary-ink",
-          row.state === "failed" && "border-destructive text-destructive",
+          row.state === "failed" &&
+            "border-destructive bg-destructive-soft text-destructive",
           row.state === "stopped" && "border-dashed text-muted-foreground",
         )}
       >
@@ -560,13 +620,15 @@ function Row({
           <span className="shrink-0 font-mono text-xs font-medium">
             {title}
           </span>
-          {status && (
-            <span className={cn("min-w-0 truncate text-xs", TONE[status.tone])}>
-              {status.text}
-            </span>
-          )}
+          {status && <Status {...status} />}
           {label}
-          <span className="ms-auto shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+          <span className="ms-auto flex shrink-0 items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
+            {decodo && (
+              <span title="Web data by Decodo" className="flex">
+                <DecodoMark className="size-2.5" />
+                <span className="sr-only">via Decodo</span>
+              </span>
+            )}
             {running ? (
               <Elapsed since={row.startedAt} className="text-primary-ink" />
             ) : row.state === "stopped" ? (
@@ -623,6 +685,13 @@ function Row({
           className="ms-11 me-2 mb-2 animate-in rounded-lg bg-muted px-3 py-2.5 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none"
         >
           {body}
+          {decodo && (
+            <p className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <DecodoMark className="size-2.5" />
+              {row.state === "done" ? decodo.did : "Requested"} with Decodo (
+              {decodo.name})
+            </p>
+          )}
         </div>
       )}
     </li>
@@ -677,7 +746,7 @@ export function ActivityList({
             className="sticky top-0 z-20 flex items-center gap-2 bg-background px-2 py-1.5 text-xs font-medium text-muted-foreground"
           >
             {group.round === null ? "Report" : `Round ${group.round}`}
-            <span aria-hidden className="h-px flex-1 bg-border" />
+            <DotLine className="min-w-0 flex-1 text-input" />
             <span className="font-mono tabular-nums">{group.rows.length}</span>
           </h3>
           <ol className="relative flex flex-col">

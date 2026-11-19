@@ -1,16 +1,30 @@
+import icon from "@/app/icon.png";
 import { cn } from "@/lib/utils";
 
-/** The mark of Research Marshal: a quote that is checked. Decorative next to the name. */
+/** The app icon. Decorative next to the name. */
 export function BrandMark({ className }: { className?: string }) {
   return (
+    // biome-ignore lint/performance/noImgElement: the file is the 192px favicon, served as it is; next/image would add 15 kB of script to every route for one 28px icon
+    <img
+      src={icon.src}
+      alt=""
+      width={28}
+      height={28}
+      className={cn("size-7 shrink-0", className)}
+    />
+  );
+}
+
+/** The name next to the mark: one sans style, with "Marshal" in the primary ink. */
+export function Wordmark({ className }: { className?: string }) {
+  return (
     <span
-      aria-hidden
       className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary font-mono text-[13px] font-semibold leading-none text-primary-foreground",
+        "text-lg leading-none font-semibold tracking-tight whitespace-nowrap text-sidebar-foreground",
         className,
       )}
     >
-      ⠶
+      Research <span className="text-primary-ink">Marshal</span>
     </span>
   );
 }

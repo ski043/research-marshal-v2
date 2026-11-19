@@ -18,7 +18,7 @@ import {
 } from "react";
 import { cancelRunAction, rerunAction, type StartState } from "@/app/actions";
 import { SidebarTrigger } from "@/components/app/app-shell";
-import { STATUS_LABEL, StatusIcon } from "@/components/app/status-icon";
+import { BridgeDots } from "@/components/asciicn/bridge-dots";
 import { GlyphSpinner } from "@/components/asciicn/glyph-spinner";
 import { Elapsed } from "@/components/run/elapsed";
 import { ProgressPanel } from "@/components/run/progress-panel";
@@ -32,9 +32,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { Question, RunEvent, RunId } from "@/lib/research/events";
-import { type RunView, sourcesOf } from "@/lib/research/run-view";
-import { activityOf, currentAction } from "@/lib/ui/activity";
-import { formatDateTime, formatDuration, plural } from "@/lib/ui/format";
+import type { RunView } from "@/lib/research/run-view";
+import { activityOf, currentAction, waitProgress } from "@/lib/ui/activity";
+import { formatDateTime } from "@/lib/ui/format";
 import { useStored } from "@/lib/ui/storage";
 import { PANEL_KEY } from "@/lib/ui/theme";
 import { useFollow } from "@/lib/ui/use-follow";
@@ -71,13 +71,6 @@ function showPanel(panel: Panel): void {
   root.style.setProperty("--panel-width", `${panel.width}px`);
 }
 
-const STATUS_BADGE: Readonly<Record<RunView["status"], string>> = {
-  running: "bg-primary-soft text-primary-ink",
-  completed: "bg-success-soft text-success",
-  cancelled: "bg-muted text-muted-foreground",
-  failed: "bg-destructive-soft text-destructive",
-};
-
 const ANNOUNCE: Readonly<Record<RunView["status"], string>> = {
   running: "The run has started.",
   completed: "The run has finished. The report is ready.",
@@ -88,11 +81,12 @@ const ANNOUNCE: Readonly<Record<RunView["status"], string>> = {
 function RerunButton({
   runId,
   onError,
-  variant = "ghost",
+  quiet = false,
 }: {
   runId: RunId;
   onError: (message: string) => void;
-  variant?: "ghost" | "default";
+  // Beside the question it repeats, not as the one action of a notice.
+  quiet?: boolean;
 }) {
   const [state, action, pending] = useActionState(
     rerunAction.bind(null, runId),
@@ -103,20 +97,17 @@ function RerunButton({
   }, [state, onError]);
   return (
     <form action={action}>
-      <Button type="submit" variant={variant} size="sm" disabled={pending}>
+      <Button
+        type="submit"
+        variant={quiet ? "ghost" : "default"}
+        size={quiet ? "xs" : "sm"}
+        className={quiet ? "text-muted-foreground" : undefined}
+        disabled={pending}
+      >
         {pending ? <GlyphSpinner /> : <RotateCwIcon aria-hidden />}
         Re-run
       </Button>
     </form>
-  );
-}
-
-function Stat({ label, children }: { label: string; children: string }) {
-  return (
-    <span className="whitespace-nowrap">
-      <span className="text-muted-foreground">{label} </span>
-      <span className="font-mono tabular-nums">{children}</span>
-    </span>
   );
 }
 
@@ -143,16 +134,6 @@ export function RunScreen({
     [view, run.events],
   );
   const action = currentAction(groups);
-  const pages = Object.values(view.pages);
-  const counts = {
-    searches: view.rounds.reduce((sum, r) => sum + r.searches.length, 0),
-    pagesRead: pages.filter((page) => page.state.kind === "read").length,
-    pagesFailed: pages.filter((page) => page.state.kind === "failed").length,
-    pagesSkipped: pages.filter((page) => page.state.kind === "skipped").length,
-    verified: view.verified.length,
-    dropped: view.dropped.length,
-  };
-  const sources = sourcesOf(view).length;
   const startedAt = run.events[0]?.at ?? null;
   const endedAt = running ? null : (run.events.at(-1)?.at ?? null);
   const totalMs =
@@ -259,34 +240,28 @@ export function RunScreen({
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-2xl lg:border lg:shadow-xs">
         <header className="flex h-13 shrink-0 items-center gap-2 border-b px-3 lg:px-4">
           <SidebarTrigger />
-          <h1 className="min-w-0 flex-1 truncate text-sm font-medium">
+          <h1
+            title={question}
+            className="min-w-0 flex-1 truncate text-sm font-medium"
+          >
             {question}
           </h1>
-          <span
-            key={status}
-            className={cn(
-              "inline-flex h-6 shrink-0 animate-in items-center gap-1.5 rounded-full px-2 text-xs font-medium duration-200 fade-in motion-reduce:animate-none",
-              STATUS_BADGE[status],
-            )}
-          >
-            <StatusIcon status={status} className="text-current" />
-            {STATUS_LABEL[status]}
-          </span>
-          <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
-            {modelName}
-          </span>
-          {running ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={cancel}
-              disabled={cancelling}
-            >
-              <SquareIcon aria-hidden className="size-3 fill-current" />
-              Cancel
-            </Button>
-          ) : (
-            <RerunButton runId={runId} onError={setNotice} />
+          {running && (
+            <>
+              <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <GlyphSpinner className="text-sm" />
+                <span className="sr-only sm:not-sr-only">Running</span>
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={cancel}
+                disabled={cancelling}
+              >
+                <SquareIcon aria-hidden className="size-3 fill-current" />
+                Cancel
+              </Button>
+            </>
           )}
           <Button
             variant="ghost"
@@ -311,98 +286,59 @@ export function RunScreen({
               <p className="max-w-[85%] rounded-2xl rounded-br-md bg-muted px-4 py-2.5 text-pretty break-words whitespace-pre-wrap">
                 {question}
               </p>
-              <p className="text-xs text-muted-foreground">
-                {modelName} · {formatDateTime(new Date(createdAt))}
-              </p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <p>
+                  {modelName} · {formatDateTime(new Date(createdAt))}
+                </p>
+                {view.report && !running && (
+                  <RerunButton runId={runId} onError={setNotice} quiet />
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <p className="flex min-h-5 items-center gap-2 text-sm">
-                <StatusIcon status={status} />
-                {running ? (
-                  <>
-                    <span
-                      key={action}
-                      className="animate-in duration-200 fade-in motion-reduce:animate-none"
-                    >
-                      {action ?? "Starting the run"}
-                    </span>
-                    <Elapsed
-                      since={startedAt}
-                      className="font-mono text-xs tabular-nums text-muted-foreground"
-                    />
-                  </>
-                ) : (
-                  <span>
-                    {status === "completed"
-                      ? "Finished"
-                      : status === "cancelled"
-                        ? "Cancelled"
-                        : "Failed"}
-                    <span className="text-muted-foreground">
-                      {status === "completed"
-                        ? ` · ${plural(sources, "source")}`
-                        : ""}
-                      {totalMs === null ? "" : ` · ${formatDuration(totalMs)}`}
-                    </span>
-                  </span>
-                )}
+            {notice && (
+              <p
+                role="alert"
+                className="flex animate-in items-start gap-2 rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive duration-200 fade-in motion-reduce:animate-none"
+              >
+                <CircleAlertIcon
+                  aria-hidden
+                  className="mt-0.5 size-4 shrink-0"
+                />
+                <span className="min-w-0 break-words">{notice}</span>
               </p>
-              <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                <Stat label="Searches">{String(counts.searches)}</Stat>
-                <Stat label="Pages read">{String(counts.pagesRead)}</Stat>
-                {counts.pagesFailed > 0 && (
-                  <Stat label="failed">{String(counts.pagesFailed)}</Stat>
-                )}
-                {counts.pagesSkipped > 0 && (
-                  <Stat label="skipped">{String(counts.pagesSkipped)}</Stat>
-                )}
-                <Stat label="Claims verified">{String(counts.verified)}</Stat>
-                <Stat label="dropped">{String(counts.dropped)}</Stat>
-              </p>
-              {notice && (
-                <p
-                  role="alert"
-                  className="flex animate-in items-start gap-2 rounded-xl bg-destructive-soft px-3 py-2 text-sm text-destructive duration-200 fade-in motion-reduce:animate-none"
-                >
-                  <CircleAlertIcon
-                    aria-hidden
-                    className="mt-0.5 size-4 shrink-0"
-                  />
-                  <span className="min-w-0 break-words">{notice}</span>
-                </p>
-              )}
-            </div>
+            )}
 
             {view.report ? (
               <Report report={view.report} verified={view.verified} />
             ) : running ? (
               <div
-                aria-hidden
+                data-slot="report-placeholder"
                 className="flex flex-col gap-2.5 rounded-xl border border-dashed p-4"
               >
-                <span className="text-xs text-muted-foreground">
-                  The report appears here while the run writes it.
-                </span>
-                {[92, 78, 85, 52].map((width) => (
+                <p className="flex min-h-5 items-center gap-2 text-sm">
+                  <GlyphSpinner />
                   <span
-                    key={width}
-                    className="h-2 animate-pulse rounded-full bg-muted motion-reduce:animate-none"
-                    style={{ width: `${width}%` }}
+                    key={action}
+                    className="min-w-0 animate-in duration-200 fade-in motion-reduce:animate-none"
+                  >
+                    {action ?? "Starting the run"}
+                  </span>
+                  <Elapsed
+                    since={startedAt}
+                    className="ms-auto font-mono text-xs tabular-nums text-muted-foreground"
                   />
-                ))}
+                </p>
+                <BridgeDots progress={waitProgress(groups)} className="my-2" />
+                <p className="text-xs text-muted-foreground">
+                  The report appears here while the run writes it.
+                </p>
               </div>
             ) : status === "cancelled" ? (
               <RunNotice
                 variant="cancelled"
                 title="This run was cancelled"
-                action={
-                  <RerunButton
-                    runId={runId}
-                    onError={setNotice}
-                    variant="default"
-                  />
-                }
+                action={<RerunButton runId={runId} onError={setNotice} />}
               >
                 <p>
                   A cancelled run writes no report. Every step it took before
@@ -413,13 +349,7 @@ export function RunScreen({
               <RunNotice
                 variant="failed"
                 title="This run failed"
-                action={
-                  <RerunButton
-                    runId={runId}
-                    onError={setNotice}
-                    variant="default"
-                  />
-                }
+                action={<RerunButton runId={runId} onError={setNotice} />}
               >
                 <p>The run ended without a report. The store holds this:</p>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg bg-muted px-3 py-2 text-left font-mono text-xs">

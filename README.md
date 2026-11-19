@@ -1,4 +1,4 @@
-<img src="assets/icon.svg" width="64" height="64" alt="">
+<img src="assets/brand/icon-1024.png" width="64" height="64" alt="">
 
 # Research Marshal
 
@@ -62,7 +62,7 @@ The app, `pnpm research`, `pnpm db:migrate`, `pnpm verify:stack`, and the doctor
 3. Open `http://127.0.0.1:3000`.
 4. Type a research question in the prompt box, choose a model in the menu at its lower left, and press Enter. The run makes real paid requests to Anthropic and Decodo.
 
-The app opens the run. The middle of the screen shows the question, one status line, and the report while the model writes it. A numbered chip in the report is a citation: hover over it to read the quote, and click it to open the source page. The progress panel on the right shows the budget and every action of the run: each search, each page with its state, each verified and each dropped claim. The sidebar on the left lists every past run. Press Cancel to stop a run, and Re-run on a past run to start a new run with the same question and model.
+The app opens the run. The middle of the screen shows the question, what the run is doing right now, and then the report while the model writes it. A numbered chip in the report is a citation: hover over it to read the quote, and click it to open the source page. The progress panel on the right shows the budget, the totals of the run, and every action of the run: each search, each page with its state, each verified and each dropped claim. A search, a page read and a site map carry the mark of Decodo, the web data service that did it. The sidebar on the left lists every past run. Press Cancel to stop a run, and Re-run on a past run to start a new run with the same question and model.
 
 To try the app without a paid request, start it on the offline fakes:
 

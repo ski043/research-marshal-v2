@@ -46,41 +46,17 @@ function startOfDay(date: Date): number {
 }
 
 /** Whole calendar days from `then` to `now` in the local time zone. */
-export function daysAgo(then: Date, now: Date): number {
+function daysAgo(then: Date, now: Date): number {
   return Math.round((startOfDay(now) - startOfDay(then)) / 86_400_000);
 }
 
-export function formatDate(date: Date, now: Date): string {
-  const day = `${date.getDate()} ${MONTHS[date.getMonth()]}`;
-  return date.getFullYear() === now.getFullYear()
-    ? day
-    : `${day} ${date.getFullYear()}`;
-}
-
-export function formatTime(date: Date): string {
+function formatTime(date: Date): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 /** "16 Nov 2026, 21:46": the same text in Node.js and in every browser. */
 export function formatDateTime(date: Date): string {
   return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}, ${formatTime(date)}`;
-}
-
-/** The heading of a history group: "Today", "Yesterday", or the date. */
-export function dayLabel(date: Date, now: Date): string {
-  const days = daysAgo(date, now);
-  if (days <= 0) return "Today";
-  if (days === 1) return "Yesterday";
-  return formatDate(date, now);
-}
-
-/** The time of a history entry: "now", "12m", "3h" on the same day, else the clock time. */
-export function relativeTime(then: Date, now: Date): string {
-  if (daysAgo(then, now) > 0) return formatTime(then);
-  const minutes = Math.floor((now.getTime() - then.getTime()) / 60_000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-  return `${Math.floor(minutes / 60)}h`;
 }
 
 export function greetingFor(hour: number): string {
@@ -93,20 +69,50 @@ export function plural(count: number, one: string, many = `${one}s`): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-export type DayGroup<T> = { label: string; items: T[] };
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
 
-/** Groups items that are sorted newest first under one heading per calendar day. */
-export function groupByDay<T>(
+/**
+ * The heading of a history group, the way chat lists name age: two single days, two
+ * spans, then the month, then the year for anything before this year.
+ */
+export function ageLabel(date: Date, now: Date): string {
+  const days = daysAgo(date, now);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days <= 7) return "Previous 7 days";
+  if (days <= 30) return "Previous 30 days";
+  return date.getFullYear() === now.getFullYear()
+    ? `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`
+    : String(date.getFullYear());
+}
+
+export type AgeGroup<T> = { label: string; items: T[] };
+
+/** Groups items under one heading per age, in the order the headings first appear. */
+export function groupByAge<T>(
   items: readonly T[],
   dateOf: (item: T) => Date,
   now: Date,
-): DayGroup<T>[] {
-  const groups: DayGroup<T>[] = [];
+): AgeGroup<T>[] {
+  const groups = new Map<string, T[]>();
   for (const item of items) {
-    const label = dayLabel(dateOf(item), now);
-    const last = groups.at(-1);
-    if (last?.label === label) last.items.push(item);
-    else groups.push({ label, items: [item] });
+    const label = ageLabel(dateOf(item), now);
+    const group = groups.get(label);
+    if (group) group.push(item);
+    else groups.set(label, [item]);
   }
-  return groups;
+  return [...groups].map(([label, group]) => ({ label, items: group }));
 }

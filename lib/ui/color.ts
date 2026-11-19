@@ -64,6 +64,16 @@ function decode(v: number): number {
   return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
 }
 
+/** "#rrggbb" of a linear-light sRGB colour, and "#rrggbbaa" when it has alpha. */
+export function toHex(rgb: Rgb, alpha = 1): string {
+  const byte = (v: number) =>
+    Math.round(v * 255)
+      .toString(16)
+      .padStart(2, "0");
+  const channels = rgb.map((v) => byte(encode(clamp(v)))).join("");
+  return `#${channels}${alpha < 1 ? byte(alpha) : ""}`;
+}
+
 /** WCAG 2.2 contrast ratio of two opaque linear-light sRGB colours, 1 to 21. */
 export function contrast(a: Rgb, b: Rgb): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [

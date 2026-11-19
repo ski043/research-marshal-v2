@@ -18,7 +18,7 @@
     "text": "Completed:[offline:budget]"
   },
   {
-    "waitText": "Finished"
+    "waitFor": "article[aria-label='Report']"
   },
   {
     "expect": "(() => { const m = (name) => $v(`meter[aria-label='${name}']`); return m('Round').value === 3 && m('Round').max === 3 && m('Site map').value === 1 && m('Site map').max === 1 && m('Pages read this round').value === 8 && m('Pages read this round').max === 8 && m('Searches this round').max === 5; })()",
@@ -62,12 +62,38 @@
     "that": "a page over the budget is shown as skipped with the reason (B2)"
   },
   {
-    "expect": "$v('main').innerText.includes('Finished')",
+    "expect": "$v(\"article[aria-label='Report']\").innerText.length > 0 && $v(\"section[aria-label='Progress']\").innerText.includes('Stopped because the budget ended')",
     "that": "the report is still written when the budget ends (B5)"
   },
   {
     "expect": "$$v('input[type=number], input[type=range]').length === 0",
     "that": "the budget has no setting (B6)"
+  },
+  {
+    "expect": "(() => { const rows = $$v(\"section[aria-label='Progress'] ol > li\"); const of = (kind) => rows.filter((li) => li.innerText.split('\\n')[0].trim() === kind); const says = (li) => li.innerText.includes('via Decodo') && li.querySelector(\"[title='Web data by Decodo'] svg\") !== null; return of('search').length === 11 && of('search').every(says) && of('read').length === 24 && of('read').every(says) && of('map').length === 1 && of('map').every(says); })()",
+    "that": "every search, every page read and the site map say Decodo, in text and with the mark (W2)"
+  },
+  {
+    "expect": "(() => { const rows = $$v(\"section[aria-label='Progress'] ol > li\"); const of = (kind) => rows.filter((li) => li.innerText.split('\\n')[0].trim() === kind); const says = (li) => li.innerText.includes('via Decodo') && li.querySelector(\"[title='Web data by Decodo'] svg\") !== null; return ['plan', 'select', 'skipped', 'gap check', 'report', 'end'].every((kind) => of(kind).length >= 1 && !of(kind).some(says)); })()",
+    "that": "no other row says Decodo"
+  },
+  {
+    "eval": "(() => { const rows = $$v(\"section[aria-label='Progress'] ol > li\"); const of = (kind) => rows.filter((li) => li.innerText.split('\\n')[0].trim() === kind); const says = (li) => li.innerText.includes('via Decodo') && li.querySelector(\"[title='Web data by Decodo'] svg\") !== null; for (const kind of ['search', 'read', 'map']) { const button = of(kind)[0].querySelector('button'); if (button.getAttribute('aria-expanded') !== 'true') button.click(); } return 'opened one search, one page read and the map'; })()"
+  },
+  {
+    "wait": 400
+  },
+  {
+    "expect": "['Searched with Decodo (Google Search)', 'Read with Decodo (Universal scraper)', 'Mapped with Decodo (Map)'].every((t) => $v(\"section[aria-label='Progress']\").innerText.includes(t))",
+    "that": "an open row names Decodo with the endpoint that the run recorded"
+  },
+  {
+    "expect": "(() => { const a = $v(\"section[aria-label='Progress'] a[href='https://decodo.com']\"); return a !== null && a.target === '_blank' && a.rel === 'noopener noreferrer' && a.innerText.includes('Web data by') && a.innerText.includes('Decodo') && a.querySelector('svg') !== null; })()",
+    "that": "the panel credits Decodo once, with a link that opens in a new tab"
+  },
+  {
+    "expect": "['Searches 11', 'Pages read 24', 'Claims verified 24'].every((t) => $v(\"section[aria-label='Budget']\").innerText.replace(/\\s+/g, ' ').includes(t))",
+    "that": "the budget card adds the three rounds up"
   },
   {
     "shot": "budget.png"

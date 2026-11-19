@@ -25,7 +25,7 @@
     "click": "button[aria-label^='Model']"
   },
   {
-    "click": "[role=menuitemradio]",
+    "click": "[role=option]",
     "text": "Haiku"
   },
   {
@@ -56,8 +56,16 @@
     "that": "the run is running right after the start"
   },
   {
-    "expect": "$v('main header').innerText.includes('Haiku 5.5')",
-    "that": "the run shows its model (M3)"
+    "expect": "[...$$v('main p')].some((p) => /^Haiku 5\\.5 · \\d{1,2} [A-Z][a-z]{2} \\d{4}, \\d{2}:\\d{2}$/.test(p.innerText.trim()))",
+    "that": "the run shows its model under the question (M3)"
+  },
+  {
+    "expect": "/\\S.*\\d:\\d\\d/s.test($v('main [data-slot=report-placeholder] p').innerText)",
+    "that": "the main column says what the run is doing, with the elapsed time"
+  },
+  {
+    "expect": "[...$$v('main header button')].some((b) => b.textContent.includes('Cancel')) && [...$$v('main button')].filter((b) => b.textContent.includes('Re-run')).length === 0",
+    "that": "a running run has a Cancel button and no rerun button (U5)"
   },
   {
     "expect": "$v(\"nav[aria-label='Past runs'] a\").textContent.includes('Running:')",
@@ -71,7 +79,7 @@
     "shot": "running.png"
   },
   {
-    "waitText": "Finished",
+    "waitText": "Stopped because",
     "timeout": 60000
   },
   {
@@ -80,6 +88,22 @@
   {
     "expect": "$$v(\"section[aria-label='Progress'] ol > li\").length === 11",
     "that": "the Activity list has the 11 actions of the failures scenario (U3)"
+  },
+  {
+    "expect": "(() => { const header = $v('main header'); return !/Running|Completed|Finished/.test(header.innerText) && [...header.querySelectorAll('button')].every((b) => !/Cancel|Re-run/.test(b.textContent)); })()",
+    "that": "the header of a completed run holds the question and the panel toggle, no status and no action"
+  },
+  {
+    "expect": "!$v('main').innerText.includes('Finished') && $$v('main [data-slot=report-placeholder]').length === 0",
+    "that": "the main column has no status block: the report follows the question"
+  },
+  {
+    "expect": "['Searches 3', 'Pages read 1', 'failed 1', 'skipped 1', 'Claims verified 1', 'dropped 0'].every((t) => $v(\"section[aria-label='Budget']\").innerText.replace(/\\s+/g, ' ').includes(t))",
+    "that": "the budget card counts the whole run, the failed and the skipped page included (F1)"
+  },
+  {
+    "expect": "[...$$v('main button')].filter((b) => b.textContent.includes('Re-run')).length === 1 && [...$$v('main button')].filter((b) => b.textContent.includes('Re-run'))[0].closest('header') === null",
+    "that": "the completed run has its rerun button under the question (U10)"
   },
   {
     "expect": "$v('article').innerText.includes('LFP cells last about 3,000 cycles')",
@@ -108,7 +132,7 @@
     "reload": true
   },
   {
-    "waitText": "Finished"
+    "waitText": "Stopped because"
   },
   {
     "expect": "$$v(\"section[aria-label='Progress'] ol > li\").length === 11",

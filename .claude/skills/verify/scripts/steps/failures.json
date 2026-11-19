@@ -18,7 +18,7 @@
     "text": "Completed:[offline:failures]"
   },
   {
-    "waitText": "Finished"
+    "waitFor": "article[aria-label='Report']"
   },
   {
     "click": "section[aria-label='Progress'] button[aria-expanded]",
@@ -56,6 +56,18 @@
     "that": "a skipped page shows its reason (F1)"
   },
   {
+    "expect": "['failed 1', 'skipped 1'].every((t) => $v(\"section[aria-label='Budget']\").innerText.replace(/\\s+/g, ' ').includes(t))",
+    "that": "the budget card counts the failed and the skipped page of the run (F1)"
+  },
+  {
+    "expect": "(() => { const rows = $$v(\"section[aria-label='Progress'] ol > li\"); const of = (kind) => rows.filter((li) => li.innerText.split('\\n')[0].trim() === kind); const says = (li) => li.innerText.includes('via Decodo') && li.querySelector(\"[title='Web data by Decodo'] svg\") !== null; return of('search').length === 3 && of('search').every(says) && of('read').length === 2 && of('read').every(says); })()",
+    "that": "a failed search and a failed page read say Decodo like the others"
+  },
+  {
+    "expect": "['Requested with Decodo (Google Search)', 'Requested with Decodo (Universal scraper)'].every((t) => $v(\"section[aria-label='Progress']\").innerText.includes(t))",
+    "that": "an open failed row names the Decodo endpoint that was asked"
+  },
+  {
     "shot": "failures.png"
   },
   {
@@ -79,6 +91,10 @@
   {
     "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('Heat shortens their life.') && $v(\"section[aria-label='Progress']\").innerText.includes('The quote says heat shortens life.')",
     "that": "a dropped claim shows its quote and the reason"
+  },
+  {
+    "expect": "['Claims verified 1', 'dropped 2'].every((t) => $v(\"section[aria-label='Budget']\").innerText.replace(/\\s+/g, ' ').includes(t))",
+    "that": "the budget card counts the dropped claims of the run (F3)"
   },
   {
     "shot": "dropped.png"

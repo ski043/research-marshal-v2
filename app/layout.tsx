@@ -1,7 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { AppShell } from "@/components/app/app-shell";
-import { Sidebar } from "@/components/app/sidebar";
 import { BEFORE_PAINT } from "@/lib/ui/theme";
 import "./globals.css";
 
@@ -20,6 +18,14 @@ export const metadata: Metadata = {
   description: "Answers one research question with a cited Markdown report.",
 };
 
+// The colour of the sidebar, which is what meets the browser frame in each theme.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f5fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#050608" },
+  ],
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -34,15 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           dangerouslySetInnerHTML={{ __html: BEFORE_PAINT }}
         />
       </head>
-      <body className="h-full overflow-hidden">
-        <a
-          href="#main"
-          className="fixed top-2 left-2 z-[60] -translate-y-16 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-transform duration-150 focus:translate-y-0"
-        >
-          Skip to the content
-        </a>
-        <AppShell sidebar={<Sidebar />}>{children}</AppShell>
-      </body>
+      <body className="h-full overflow-hidden">{children}</body>
     </html>
   );
 }

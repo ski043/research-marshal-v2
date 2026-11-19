@@ -62,6 +62,14 @@
     "that": "a cancelled run shows no report (U5)"
   },
   {
+    "expect": "!/Running|Cancelled/.test($v('main header').innerText) && $$v('main header button').every((b) => !/Cancel|Re-run/.test(b.textContent))",
+    "that": "the header of a cancelled run has no status and no action: the notice below says it"
+  },
+  {
+    "expect": "[...$$v('main button')].filter((b) => b.textContent.includes('Re-run')).length === 1",
+    "that": "the cancelled run has one rerun button, in its notice (U10)"
+  },
+  {
     "expect": "$v(\"nav[aria-label='Past runs'] a\").textContent.includes('Cancelled:')",
     "that": "the history keeps the cancelled run (U8)"
   },
@@ -73,7 +81,7 @@
     "shot": "cancelled.png"
   },
   {
-    "eval": "(sessionStorage.setItem('before', JSON.stringify({ entries: $$v(\"nav[aria-label='Past runs'] a\").length, path: location.pathname, model: /(Fable|Opus|Sonnet|Haiku) [0-9.]+/.exec($v('main header').innerText)[0] })), sessionStorage.getItem('before'))"
+    "eval": "(sessionStorage.setItem('before', JSON.stringify({ entries: $$v(\"nav[aria-label='Past runs'] a\").length, path: location.pathname, model: /(Fable|Opus|Sonnet|Haiku) [0-9.]+/.exec($v('main').innerText)[0] })), sessionStorage.getItem('before'))"
   },
   {
     "click": "main button",
@@ -99,8 +107,12 @@
     "that": "the old run is unchanged below the new one (U10)"
   },
   {
-    "expect": "$v('main header').innerText.includes(JSON.parse(sessionStorage.getItem('before')).model)",
-    "that": "the rerun shows the model of the original run (M4)"
+    "expect": "[...$$v('main p')].some((p) => p.innerText.trim().startsWith(JSON.parse(sessionStorage.getItem('before')).model + ' · '))",
+    "that": "the rerun shows the model of the original run under the question (M4)"
+  },
+  {
+    "expect": "[...$$v('main button')].filter((b) => b.textContent.includes('Re-run')).length === 0",
+    "that": "the rerun has no rerun button while it runs"
   },
   {
     "click": "main header button",

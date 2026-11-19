@@ -24,11 +24,11 @@
     "click": "main ul[aria-label='Example questions'] button"
   },
   {
-    "wait": 200
+    "wait": 600
   },
   {
-    "expect": "$v('textarea').value === $v(\"main ul[aria-label='Example questions'] button\").textContent && document.activeElement === $v('textarea')",
-    "that": "an example question fills the prompt box and moves the focus there"
+    "expect": "$v('textarea').value.endsWith('?') && $v('textarea').value === $v(\"main ul[aria-label='Example questions'] button\").title && document.activeElement === $v('textarea')",
+    "that": "an example chip types its question into the prompt box and moves the focus there"
   },
   {
     "expect": "$v('button[type=submit]').disabled === false",
@@ -154,7 +154,7 @@
     "text": "Completed:[offline:failures]"
   },
   {
-    "waitText": "Finished"
+    "waitFor": "article[aria-label='Report']"
   },
   {
     "wait": 400
@@ -162,6 +162,10 @@
   {
     "expect": "document.documentElement.scrollWidth <= 390 && $v('main').scrollWidth <= 390",
     "that": "the run does not scroll sideways at 390px"
+  },
+  {
+    "expect": "(() => { const [button] = [...$$v('main button')].filter((b) => b.textContent.includes('Re-run')); const box = button.getBoundingClientRect(); const meta = button.closest('form').previousElementSibling.getBoundingClientRect(); return box.left >= 0 && box.right <= 390 && box.top < meta.bottom && box.bottom > meta.top; })()",
+    "that": "the rerun button sits on the line of the model and the date, inside the 390px"
   },
   {
     "shot": "run-390.png"

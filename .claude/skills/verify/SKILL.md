@@ -112,7 +112,7 @@ The helpers delete their scratch database when they exit. They start no process 
 
 ## Web UI
 
-The web UI is the Next.js app: the start screen at `/` and one run at `/runs/<id>`. A run that the app starts executes inside the server process and streams to the browser over Server-Sent Events from `/runs/<id>/events`.
+The web UI is the Next.js app: the start screen at `/`, one run at `/runs/<id>`, and the design system at `/designsystem`, which stands outside the app shell and reads no database. A run that the app starts executes inside the server process and streams to the browser over Server-Sent Events from `/runs/<id>/events`.
 
 ### Serve it on fakes
 
@@ -141,11 +141,13 @@ The step files under `scripts/steps/` are the recipes. Each one checks one flow 
 | `history.json` | The history, its filter, a past run, a run without a verified claim, an unknown run (U2, U8, U9, R6). |
 | `screens.json` | Light and dark theme, theme after a reload, reduced motion, 390px width. |
 | `reconnect.json` | An event stream that closed for good opens again, and the run says that the connection was lost. |
+| `sidebar-rail.json` | The sidebar collapses to a rail of icons with names and tooltips, keeps the rail from the first frame of a reload, expands from Search with focus in the field, toggles with Ctrl or Cmd with Shift and the period key, keeps hidden history links out of the tab order, and leaves the 390px slide-over as it was. |
+| `design-system.json` | The design system page at `/designsystem`: every section and its anchor, one row per colour of the served stylesheet, each contrast ratio against the two colours as the browser paints them, the type sizes, the copy control, the live components, the theme switch, the skip link, 390px. The `design-system` skill has the rules. |
 
 Run all of them against one served app:
 
 ```sh
-for flow in history citation failures budget ask-and-watch cancel-and-rerun screens reconnect; do
+for flow in history citation failures budget ask-and-watch cancel-and-rerun screens reconnect sidebar-rail design-system; do
   node .claude/skills/verify/scripts/browser.mjs --base http://127.0.0.1:3210 \
     --out <evidence folder> .claude/skills/verify/scripts/steps/$flow.json || echo "FAILED: $flow"
 done

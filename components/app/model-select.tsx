@@ -1,13 +1,12 @@
 "use client";
 
-import { ChevronDownIcon } from "lucide-react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export type ModelOption = { key: string; name: string; hint: string };
 
@@ -25,39 +24,40 @@ export function ModelSelect({
   onChange: (key: string) => void;
   disabled?: boolean;
 }) {
-  const current = options.find((option) => option.key === value);
   return (
-    <>
-      <input type="hidden" name={name} value={value} />
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          disabled={disabled}
-          aria-label={`Model: ${current?.name ?? value}`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 aria-expanded:bg-accent aria-expanded:text-foreground"
-        >
-          {current?.name ?? value}
-          <ChevronDownIcon aria-hidden className="size-3.5" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="top" className="w-56 p-1">
-          <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-            {options.map((option) => (
-              <DropdownMenuRadioItem
-                key={option.key}
-                value={option.key}
-                closeOnClick
-                className="items-start py-1.5"
-              >
-                <span className="flex flex-col">
-                  <span className="font-medium">{option.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {option.hint}
-                  </span>
-                </span>
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+    <Select
+      name={name}
+      items={options.map((option) => ({
+        value: option.key,
+        label: option.name,
+      }))}
+      value={value}
+      onValueChange={(key) => key && onChange(key)}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        aria-label="Model"
+        size="sm"
+        className="h-8 w-auto min-w-0 shrink-0 border-transparent bg-transparent text-sm shadow-none hover:bg-accent focus-visible:ring-ring/24 data-popup-open:bg-accent sm:h-7 dark:bg-transparent dark:hover:bg-accent"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      {/* The menu leaves the document flow, so it would take the light theme over the
+          night panel of the start screen, the only place that has a prompt box. */}
+      <SelectContent align="end" className="dark">
+        {options.map((option) => (
+          <SelectItem
+            key={option.key}
+            value={option.key}
+            label={option.name}
+            className="py-1.5"
+          >
+            <span className="col-start-2 row-start-2 text-xs whitespace-nowrap text-muted-foreground">
+              {option.hint}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

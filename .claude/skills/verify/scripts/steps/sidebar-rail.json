@@ -1,0 +1,287 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "media": {
+      "scheme": "light"
+    }
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "textarea"
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "expect": "Math.round($v('#sidebar').getBoundingClientRect().width) === 260 && $v('#sidebar [aria-controls=sidebar]').getAttribute('aria-expanded') === 'true'",
+    "that": "the sidebar starts wide, and its toggle says so with aria-expanded"
+  },
+  {
+    "expect": "$v('#sidebar button[aria-controls=sidebar]').title.startsWith('Collapse the sidebar (')",
+    "that": "the tooltip of the toggle names the action and its shortcut"
+  },
+  {
+    "shot": "wide-start-light.png"
+  },
+  {
+    "click": "#sidebar button[aria-controls=sidebar]"
+  },
+  {
+    "wait": 450
+  },
+  {
+    "expect": "Math.round($v('#sidebar').getBoundingClientRect().width) === 52 && $v('#sidebar [aria-controls=sidebar]').getAttribute('aria-expanded') === 'false' && $v('#sidebar').getAttribute('aria-label') === 'History'",
+    "that": "a click collapses the sidebar to a 52px rail, the toggle says so, and the landmark keeps its name"
+  },
+  {
+    "expect": "document.activeElement === $v('#sidebar button[aria-controls=sidebar]') && document.activeElement.getAttribute('aria-label') === 'Expand the sidebar'",
+    "that": "focus stays on the toggle, which now expands the sidebar"
+  },
+  {
+    "expect": "(() => { const rail = $v('#sidebar').getBoundingClientRect(); const items = [$v('#sidebar a[href=\"/\"]'), $v('#sidebar a[href=\"/\"]:has(svg)'), $v('#sidebar button[aria-label=\"Search the history\"]'), $v('#sidebar button[aria-label^=\"Theme:\"]'), $v('#sidebar button[aria-controls=sidebar]'), $v('#sidebar [role=img][aria-label^=\"Offline fakes\"]')]; return items.every((el) => el && el.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && el.getBoundingClientRect().right <= rail.right && Math.abs(([...el.querySelectorAll('svg, span[aria-hidden]')].find((i) => i.getBoundingClientRect().width > 0) ?? el).getBoundingClientRect().left + ([...el.querySelectorAll('svg, span[aria-hidden]')].find((i) => i.getBoundingClientRect().width > 0) ?? el).getBoundingClientRect().width / 2 - 26) <= 1); })()",
+    "that": "the rail shows the mark, New question, Search, the theme, the expand control and the fakes flask, each centred 26px from the left"
+  },
+  {
+    "expect": "$v('#sidebar a[href=\"/\"]').textContent.includes('Research Marshal') && $v('#sidebar a[href=\"/\"]:has(svg)').textContent.trim() === 'New question' && /^Theme: (Light|Dark|System)\\. Switch to /.test($v('#sidebar button[aria-label^=\"Theme:\"]').getAttribute('aria-label'))",
+    "that": "every rail icon keeps an accessible name"
+  },
+  {
+    "expect": "[...document.querySelectorAll('#sidebar nav a')].length > 0 && [...document.querySelectorAll('#sidebar nav a, #sidebar input[type=search], #sidebar input[name=theme]')].every((el) => !el.checkVisibility({ visibilityProperty: true }))",
+    "that": "the history, the search field and the three theme radios are hidden on the rail"
+  },
+  {
+    "expect": "$v('#sidebar a[href=\"/\"]').title === 'Research Marshal' && $v('#sidebar a[href=\"/\"]:has(svg)').title === 'New question' && $v('#sidebar button[aria-label=\"Search the history\"]').title === 'Search' && $v('#sidebar button[aria-label^=\"Theme:\"]').title.startsWith('Theme: ') && $v('#sidebar [role=img][aria-label^=\"Offline fakes\"]').title.includes('RESEARCH_MARSHAL_FAKES')",
+    "that": "every rail icon has its name as a tooltip"
+  },
+  {
+    "expect": "$v('#sidebar button[aria-controls=sidebar]').title === 'Expand the sidebar (Ctrl+Shift+.)' || $v('#sidebar button[aria-controls=sidebar]').title === 'Expand the sidebar (⌘⇧.)'",
+    "that": "the tooltip of the toggle shows the shortcut"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "shot": "rail-start-light.png"
+  },
+  {
+    "eval": "(() => { window.__tabbed = []; document.addEventListener('focusin', (e) => window.__tabbed.push(e.target)); $v('#sidebar a[href=\"/\"]').focus(); return true; })()"
+  },
+  {
+    "press": "Tab"
+  },
+  {
+    "press": "Tab"
+  },
+  {
+    "press": "Tab"
+  },
+  {
+    "press": "Tab"
+  },
+  {
+    "press": "Tab"
+  },
+  {
+    "press": "Tab"
+  },
+  {
+    "expect": "window.__tabbed.length >= 5 && window.__tabbed.every((el) => !el.closest('#sidebar nav') && el.type !== 'search' && el.name !== 'theme') && window.__tabbed.slice(0, 4).every((el) => el.closest('#sidebar'))",
+    "that": "Tab walks the rail icons and never reaches a hidden history link, the search field or a theme radio"
+  },
+  {
+    "init": "window.__asideWidths = []; (function frame() { var aside = document.getElementById('sidebar'); if (aside) window.__asideWidths.push(aside.getBoundingClientRect().width); if (document.readyState !== 'complete' || window.__asideWidths.length < 30) requestAnimationFrame(frame); })();"
+  },
+  {
+    "reload": true
+  },
+  {
+    "waitFor": "textarea"
+  },
+  {
+    "wait": 1000
+  },
+  {
+    "expect": "window.__asideWidths.length > 0 && Math.max(...window.__asideWidths) <= 52.5",
+    "that": "a reload keeps the rail from the first frame: no frame shows the wide sidebar"
+  },
+  {
+    "expect": "$v('#sidebar [aria-controls=sidebar]').getAttribute('aria-expanded') === 'false'",
+    "that": "after the reload the toggle again says the sidebar is collapsed"
+  },
+  {
+    "click": "#sidebar button[aria-label='Search the history']"
+  },
+  {
+    "wait": 450
+  },
+  {
+    "expect": "Math.round($v('#sidebar').getBoundingClientRect().width) === 260 && document.activeElement === $v('#sidebar input[type=search]')",
+    "that": "Search on the rail expands the sidebar and puts focus in the search field"
+  },
+  {
+    "focus": "main textarea"
+  },
+  {
+    "press": "Period",
+    "ctrl": true,
+    "shift": true
+  },
+  {
+    "wait": 450
+  },
+  {
+    "expect": "Math.round($v('#sidebar').getBoundingClientRect().width) === 52 && document.activeElement === $v('main textarea') && $v('main textarea').value === ''",
+    "that": "Ctrl+Shift+. collapses the sidebar while the prompt box has focus, and types nothing into it"
+  },
+  {
+    "press": "Period",
+    "meta": true,
+    "shift": true
+  },
+  {
+    "wait": 450
+  },
+  {
+    "expect": "Math.round($v('#sidebar').getBoundingClientRect().width) === 260",
+    "that": "Cmd+Shift+. expands it again"
+  },
+  {
+    "press": "Period",
+    "shift": true
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "Math.round($v('#sidebar').getBoundingClientRect().width) === 260",
+    "that": "Shift with the period key alone, which types a character, does not toggle"
+  },
+  {
+    "click": "#sidebar nav a",
+    "text": "[offline:completed]"
+  },
+  {
+    "waitFor": "article[aria-label='Report']"
+  },
+  {
+    "wait": 600
+  },
+  {
+    "shot": "wide-run-light.png"
+  },
+  {
+    "press": "Period",
+    "ctrl": true,
+    "shift": true
+  },
+  {
+    "wait": 450
+  },
+  {
+    "expect": "Math.round($v('#sidebar').getBoundingClientRect().width) === 52 && $v('main').getBoundingClientRect().left < 80",
+    "that": "on a run the page takes the room the rail gives up"
+  },
+  {
+    "shot": "rail-run-light.png"
+  },
+  {
+    "media": {
+      "scheme": "dark"
+    }
+  },
+  {
+    "wait": 400
+  },
+  {
+    "shot": "rail-run-dark.png"
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "textarea"
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "shot": "rail-start-dark.png"
+  },
+  {
+    "press": "Period",
+    "ctrl": true,
+    "shift": true
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "shot": "wide-start-dark.png"
+  },
+  {
+    "press": "Period",
+    "ctrl": true,
+    "shift": true
+  },
+  {
+    "wait": 300
+  },
+  {
+    "media": {
+      "scheme": "dark",
+      "reducedMotion": true
+    }
+  },
+  {
+    "wait": 100
+  },
+  {
+    "expect": "getComputedStyle($v('#sidebar')).transitionProperty === 'none' && getComputedStyle($v('#sidebar button[aria-controls=sidebar]')).transitionProperty === 'none'",
+    "that": "under reduced motion the sidebar changes width without an animation"
+  },
+  {
+    "media": {
+      "scheme": "light",
+      "reducedMotion": false
+    }
+  },
+  {
+    "viewport": [390, 844]
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "textarea"
+  },
+  {
+    "wait": 600
+  },
+  {
+    "expect": "getComputedStyle(document.getElementById('sidebar')).display === 'none' && document.documentElement.scrollWidth <= 390",
+    "that": "at 390px the collapsed state changes nothing: no rail, no sideways scroll"
+  },
+  {
+    "click": "button[aria-label='Open the history']"
+  },
+  {
+    "waitFor": "[data-slot=sheet-content] nav a"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "$v('[data-slot=sheet-content] nav a').checkVisibility({ visibilityProperty: true }) && $v('[data-slot=sheet-content] input[type=search]').checkVisibility({ visibilityProperty: true }) && !$v('[data-slot=sheet-content] button[aria-label=\"Search the history\"]')?.checkVisibility()",
+    "that": "the slide-over stays the full sidebar while the docked one is collapsed"
+  },
+  {
+    "shot": "rail-state-390.png"
+  },
+  {
+    "console": true
+  }
+]

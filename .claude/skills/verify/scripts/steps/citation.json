@@ -18,7 +18,7 @@
     "text": "Completed:[offline:completed]"
   },
   {
-    "waitText": "Finished"
+    "waitFor": "article[aria-label='Report']"
   },
   {
     "hover": "article a[aria-label^='Citation']"
