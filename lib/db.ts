@@ -13,7 +13,12 @@ function createClient() {
   return new PrismaClient({ adapter });
 }
 
-// Dev hot reloads re-evaluate this module; reusing the client avoids opening a new connection each time.
-globalForDb.db ??= createClient();
-
-export const db = globalForDb.db;
+/**
+ * The one database client of the process. It is created on first use: `next build`
+ * evaluates this module without a database. Dev hot reloads re-evaluate the module, and
+ * reusing the client avoids opening a new connection each time.
+ */
+export function getDb(): PrismaClient {
+  globalForDb.db ??= createClient();
+  return globalForDb.db;
+}

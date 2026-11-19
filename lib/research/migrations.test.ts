@@ -27,7 +27,9 @@ sqlite.close();
 
 vi.stubEnv("DATABASE_URL", `file:${file}`);
 const research = await import("./index");
-const { db } = await import("@/lib/db");
+const { getDb } = await import("@/lib/db");
+// The client reads DATABASE_URL on first use, and the stub ends before the first test.
+const db = getDb();
 
 afterAll(async () => {
   await db.$disconnect();

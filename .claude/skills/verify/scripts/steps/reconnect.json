@@ -1,0 +1,53 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "textarea"
+  },
+  {
+    "eval": "(() => { const Real = window.EventSource; let opened = 0; function Once(url) { opened += 1; if (opened > 1) return new Real(url); const closed = { readyState: 2, close() {}, onopen: null, onmessage: null, onerror: null }; setTimeout(() => closed.onerror?.(new Event('error')), 50); return closed; } Once.CONNECTING = 0; Once.OPEN = 1; Once.CLOSED = 2; window.EventSource = Once; return 'the first event stream of this page closes for good, as after a 500'; })()"
+  },
+  {
+    "click": "textarea"
+  },
+  {
+    "type": "completed"
+  },
+  {
+    "press": "Enter"
+  },
+  {
+    "waitFor": "section[aria-label='Progress']",
+    "timeout": 30000
+  },
+  {
+    "waitText": "The live connection to this run was lost",
+    "timeout": 5000
+  },
+  {
+    "expect": "$v('main header').innerText.includes('Running')",
+    "that": "the run still shows as running while the stream is closed"
+  },
+  {
+    "shot": "reconnect-lost.png"
+  },
+  {
+    "waitText": "Finished",
+    "timeout": 60000
+  },
+  {
+    "expect": "!$v('main').innerText.includes('The live connection to this run was lost')",
+    "that": "the notice goes once the stream is open again"
+  },
+  {
+    "expect": "$v(\"article[aria-label='Report']\").innerText.length > 0",
+    "that": "the run reaches its report over the reopened stream"
+  },
+  {
+    "console": true
+  }
+]

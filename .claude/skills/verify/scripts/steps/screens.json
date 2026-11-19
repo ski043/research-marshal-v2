@@ -1,0 +1,184 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "media": {
+      "scheme": "light"
+    }
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "textarea"
+  },
+  {
+    "wait": 1500
+  },
+  {
+    "expect": "!document.documentElement.classList.contains('dark')",
+    "that": "the light scheme of the system gives the light theme"
+  },
+  {
+    "click": "main ul[aria-label='Example questions'] button"
+  },
+  {
+    "wait": 200
+  },
+  {
+    "expect": "$v('textarea').value === $v(\"main ul[aria-label='Example questions'] button\").textContent && document.activeElement === $v('textarea')",
+    "that": "an example question fills the prompt box and moves the focus there"
+  },
+  {
+    "expect": "$v('button[type=submit]').disabled === false",
+    "that": "the send button is ready once the box has a question"
+  },
+  {
+    "reload": true
+  },
+  {
+    "waitFor": "main canvas"
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "expect": "$v('button[type=submit]').disabled === true",
+    "that": "the send button is off while the box is empty"
+  },
+  {
+    "shot": "start-light.png"
+  },
+  {
+    "media": {
+      "scheme": "dark"
+    }
+  },
+  {
+    "wait": 500
+  },
+  {
+    "expect": "document.documentElement.classList.contains('dark')",
+    "that": "the theme follows the system while it is set to System"
+  },
+  {
+    "shot": "start-dark.png"
+  },
+  {
+    "media": {
+      "scheme": "light"
+    }
+  },
+  {
+    "click": "label[title=Dark]"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "reload": true
+  },
+  {
+    "expect": "document.documentElement.classList.contains('dark')",
+    "that": "the chosen theme is set when a reload ends, before the app loads"
+  },
+  {
+    "click": "label[title=System]"
+  },
+  {
+    "wait": 200
+  },
+  {
+    "media": {
+      "scheme": "light",
+      "reducedMotion": true
+    }
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "textarea"
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "expect": "[...$$v('main [data-state]')].length >= 1 && [...$$v('main [data-state]')].every((el) => el.dataset.state === 'static')",
+    "that": "every ASCII canvas holds a still frame under reduced motion"
+  },
+  {
+    "expect": "[...$$v('main canvas')].every((c) => c.closest('[aria-hidden=true]'))",
+    "that": "every ASCII canvas is hidden from assistive technology"
+  },
+  {
+    "media": {
+      "scheme": "light",
+      "reducedMotion": false
+    }
+  },
+  {
+    "viewport": [390, 844]
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "textarea"
+  },
+  {
+    "wait": 600
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= 390",
+    "that": "the start screen does not scroll sideways at 390px"
+  },
+  {
+    "shot": "start-390.png"
+  },
+  {
+    "click": "button[aria-label='Open the history']"
+  },
+  {
+    "waitFor": "[data-slot=sheet-content] nav a"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "shot": "history-390.png"
+  },
+  {
+    "click": "[data-slot=sheet-content] nav a",
+    "text": "Completed:[offline:failures]"
+  },
+  {
+    "waitText": "Finished"
+  },
+  {
+    "wait": 400
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= 390 && $v('main').scrollWidth <= 390",
+    "that": "the run does not scroll sideways at 390px"
+  },
+  {
+    "shot": "run-390.png"
+  },
+  {
+    "click": "main header button[title='Progress panel']"
+  },
+  {
+    "waitFor": "[data-slot=sheet-content] section[aria-label='Budget']"
+  },
+  {
+    "wait": 400
+  },
+  {
+    "shot": "progress-390.png"
+  },
+  {
+    "console": true
+  }
+]

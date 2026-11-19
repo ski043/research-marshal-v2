@@ -1,0 +1,116 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "media": {
+      "scheme": "light"
+    }
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "textarea"
+  },
+  {
+    "click": "textarea"
+  },
+  {
+    "type": "budget"
+  },
+  {
+    "press": "Enter"
+  },
+  {
+    "waitFor": "section[aria-label='Progress']",
+    "timeout": 30000
+  },
+  {
+    "wait": 1500
+  },
+  {
+    "reload": true
+  },
+  {
+    "waitFor": "section[aria-label='Progress']"
+  },
+  {
+    "wait": 1200
+  },
+  {
+    "expect": "$v('main header').innerText.includes('Running')",
+    "that": "the run is still running after a reload mid-way"
+  },
+  {
+    "expect": "(() => { const pages = $$v(\"section[aria-label='Progress'] ol > li\").map((li) => li.innerText.split('\\n')).filter((lines) => lines[0] === 'read').map((lines) => lines.at(-1)); return pages.length > 3 && new Set(pages).size === pages.length; })()",
+    "that": "the resumed view repeats no page read"
+  },
+  {
+    "click": "main header button",
+    "text": "Cancel"
+  },
+  {
+    "waitText": "This run was cancelled",
+    "timeout": 15000
+  },
+  {
+    "wait": 500
+  },
+  {
+    "expect": "$v('article') === null",
+    "that": "a cancelled run shows no report (U5)"
+  },
+  {
+    "expect": "$v(\"nav[aria-label='Past runs'] a\").textContent.includes('Cancelled:')",
+    "that": "the history keeps the cancelled run (U8)"
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('Cancelled. A cancelled run writes no report.')",
+    "that": "the Activity list ends with the cancel"
+  },
+  {
+    "shot": "cancelled.png"
+  },
+  {
+    "eval": "(sessionStorage.setItem('before', JSON.stringify({ entries: $$v(\"nav[aria-label='Past runs'] a\").length, path: location.pathname, model: /(Fable|Opus|Sonnet|Haiku) [0-9.]+/.exec($v('main header').innerText)[0] })), sessionStorage.getItem('before'))"
+  },
+  {
+    "click": "main button",
+    "text": "Re-run"
+  },
+  {
+    "waitText": "Running",
+    "timeout": 20000
+  },
+  {
+    "wait": 800
+  },
+  {
+    "expect": "$$v(\"nav[aria-label='Past runs'] a\").length === JSON.parse(sessionStorage.getItem('before')).entries + 1",
+    "that": "the rerun is one more entry in the history (U10)"
+  },
+  {
+    "expect": "location.pathname !== JSON.parse(sessionStorage.getItem('before')).path",
+    "that": "the rerun is a new run with its own address"
+  },
+  {
+    "expect": "[...$$v(\"nav[aria-label='Past runs'] a\")][1].textContent.includes('Cancelled:budget')",
+    "that": "the old run is unchanged below the new one (U10)"
+  },
+  {
+    "expect": "$v('main header').innerText.includes(JSON.parse(sessionStorage.getItem('before')).model)",
+    "that": "the rerun shows the model of the original run (M4)"
+  },
+  {
+    "click": "main header button",
+    "text": "Cancel"
+  },
+  {
+    "waitText": "This run was cancelled",
+    "timeout": 15000
+  },
+  {
+    "console": true
+  }
+]

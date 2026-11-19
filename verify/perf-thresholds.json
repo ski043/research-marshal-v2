@@ -17,8 +17,9 @@
   "bundle": {
     "marginPercent": 1,
     "routes": {
-      "/": 458728,
-      "/_not-found": 458728
+      "/runs/[runId]": 1245055,
+      "/": 738421,
+      "/_not-found": 597071
     }
   },
   "pipelineShape": {

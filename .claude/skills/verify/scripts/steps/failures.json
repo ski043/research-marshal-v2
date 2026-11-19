@@ -1,0 +1,104 @@
+[
+  {
+    "viewport": [1440, 900]
+  },
+  {
+    "media": {
+      "scheme": "dark"
+    }
+  },
+  {
+    "goto": "/"
+  },
+  {
+    "waitFor": "nav[aria-label='Past runs'] a"
+  },
+  {
+    "click": "nav[aria-label='Past runs'] a",
+    "text": "Completed:[offline:failures]"
+  },
+  {
+    "waitText": "Finished"
+  },
+  {
+    "click": "section[aria-label='Progress'] button[aria-expanded]",
+    "text": "lfp obscure term"
+  },
+  {
+    "click": "section[aria-label='Progress'] button[aria-expanded]",
+    "text": "lfp aging heat"
+  },
+  {
+    "click": "section[aria-label='Progress'] button[aria-expanded]",
+    "text": "lfp cycle life result 2"
+  },
+  {
+    "click": "section[aria-label='Progress'] button[aria-expanded]",
+    "text": "skipped"
+  },
+  {
+    "wait": 400
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('The search returned no results.')",
+    "that": "a search without results is on screen (F2)"
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('timeout: no answer within 150 s')",
+    "that": "a failed search shows its failure (F2)"
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('http-status: HTTP 404')",
+    "that": "a failed page shows its failure (F1)"
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('found, not chosen for reading')",
+    "that": "a skipped page shows its reason (F1)"
+  },
+  {
+    "shot": "failures.png"
+  },
+  {
+    "click": "nav[aria-label='Past runs'] a",
+    "text": "Completed:[offline:dropped]"
+  },
+  {
+    "waitText": "dropped 2"
+  },
+  {
+    "click": "section[aria-label='Progress'] button[aria-expanded]",
+    "text": "lfp cycle life result 1"
+  },
+  {
+    "wait": 400
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('Failed V1') && $v(\"section[aria-label='Progress']\").innerText.includes('Failed V2')",
+    "that": "both kinds of dropped claim are under their page, each with its quote (F3)"
+  },
+  {
+    "expect": "$v(\"section[aria-label='Progress']\").innerText.includes('Heat shortens their life.') && $v(\"section[aria-label='Progress']\").innerText.includes('The quote says heat shortens life.')",
+    "that": "a dropped claim shows its quote and the reason"
+  },
+  {
+    "shot": "dropped.png"
+  },
+  {
+    "click": "[role=tab]",
+    "text": "Claims"
+  },
+  {
+    "click": "section[aria-label='Progress'] label",
+    "text": "Dropped"
+  },
+  {
+    "wait": 300
+  },
+  {
+    "expect": "$$v(\"section[aria-label='Progress'] [data-slot=tabs-content] ul > li\").length === 2",
+    "that": "the Claims tab lists the 2 dropped claims"
+  },
+  {
+    "console": true
+  }
+]

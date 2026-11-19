@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
+  // The development badge sits on a corner of the shell and covers a control there.
+  devIndicators: false,
   partialPrefetching: true,
   turbopack: {
     rules: {
